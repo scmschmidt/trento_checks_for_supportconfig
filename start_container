@@ -1,0 +1,61 @@
+#!/usr/bin/bash
+
+container_config_file='.container_def'
+fails=0
+
+# Check arguments.
+if [ ${#} -eq 0 ] ; then 
+    echo "Usage: ${0} SUPPORTCONFIG..." >&2
+    exit 1
+fi 
+
+# Walk trough config file.
+while read def ; do
+
+    # Get supportconfig from arguments for this container.
+    supportconfig="${1}"
+    shift
+
+    # Exit if we are run out of supportconfigs.
+    if [ -z "${supportconfig}" ] ; then 
+        continue
+    fi
+
+    # Check if given supportconfig exists.
+    if [ ! -f "${supportconfig}" ] ; then 
+        echo "given supportconfig \"${supportconfig}\" does not exist!" >&2
+        (( fails++ ))
+        continue
+    fi 
+
+    # Split components.
+    def="${def%:*}"    # cut away trento id
+    name="${def%:*}"
+    id="${def#*:}"
+    
+    # Check if container is already running.
+    if [ -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
+        if docker run -d -i --name="${name}" --rm -e "MACHINE_ID=${id}" -v ./sc:/sc --network=wanda_default -t sc_runner /sc/startup > /dev/null ; then
+            echo "Container \"${name}\" started for supportconfig \"${supportconfig}\"."
+        else
+            echo "Starting container \"${name}\" for supportconfig \"${supportconfig}\" failed!" >&2
+            (( fails++ ))
+        fi
+    else
+        echo "Container \"${name}\" is already running! Stop all suportconfig containers with \"stop_container\"!" >&2 
+    fi    
+
+done < <(grep -e '^[^ #]' "${container_config_file}")
+
+# Check if more supportconfigs where given as container definitions exist.
+if [ ! -z "${@}" ] ; then
+    echo "You have given more supportconfigs as container definitions exist in \"${container_config_file}\"!" >&2
+    (( fails++ ))
+fi
+
+# Terminate with appropriate exit code.
+if [ ${fails} -eq 0 ] ; then
+    exit 0
+else
+    exit 1
+fi

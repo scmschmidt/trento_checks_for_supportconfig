@@ -1,0 +1,5 @@
+#ssh-address: 0.0.0.0
+api-key: 4321-4321-4321-4321
+factsengine: true
+facts-service-url: amqp://wanda:wanda@192.168.56.1:5672  # UNTIL THE ISSUE WITH THE LATEST WANDA CONTAINERS HAS BEEN FIXED!!
+#facts-service-url: amqp://wanda:wanda@wanda_rabbitmq_1:5672

@@ -1,0 +1,20 @@
+#!/usr/bin/bash
+# Walk trough config file.
+while read def ; do
+
+    # Split components.
+    name="${def%:*}"
+    id="${def#*:}"
+    
+    # Stop running container.
+    if [ ! -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
+        if docker stop "${name}" > /dev/null ; then
+            echo "Container \"${name}\" stopped."
+        else
+            echo "Stopping container \"${name}\" failed!" >&2 
+        fi
+    else
+        echo "Container \"${name}\" not running."
+    fi    
+
+done < <(grep -e '^[^ #]' .container_def)

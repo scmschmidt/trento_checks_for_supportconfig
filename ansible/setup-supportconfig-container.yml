@@ -1,0 +1,44 @@
+---
+- name: Setup Container to host the supportconfig
+  hosts: all
+  remote_user: root
+  #become: true
+  any_errors_fatal: true
+  gather_facts: no
+
+  tasks:
+
+
+
+    - name: Copy required files
+      copy: 
+        src: "{{ item.src }}" 
+        dest: "{{ item.dest }}"
+        mode: preserve
+      loop:
+        - src:  ../Dockerfile
+          dest: /root/pov/Dockerfile
+        - src:  ../sc
+          dest: /root/pov/ 
+        # - src:  ../startup
+        #   dest: /root/pov/startup
+        # - src:  ../agent-config.yaml
+        #   dest: /root/pov/agent-config.yaml
+        - src:  ../start_container
+          dest: /root/pov/
+        - src:  ../stop_container
+          dest: /root/pov/
+        - src:  ../run_checks
+          dest: /root/pov/
+        - src:  ../.container_def
+          dest: /root/pov/ 
+        - src:  ../.valid_checks
+          dest: /root/pov/ 
+
+
+    # - name: Build host image    # BUILD ERRORS ARE NOT DETECTED! AND DOESNT WORK!
+    #   community.docker.docker_image:
+    #     name: host
+    #     build:
+    #       path: /root/pov 
+    #     source: build

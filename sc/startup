@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Set machine id.
+echo "${MACHINE_ID}" > /etc/machine-id
+
+# Extract files from packed supportconfig.  ((TBD))
+
+# Start Prometheus Node Exporter (NOT NEEDED)
+# /usr/bin/node_exporter &
+
+# Start Trento agent
+trento-agent start --config=/sc/agent-config.yaml 2> /var/log/trento-agent
+
+
+
+

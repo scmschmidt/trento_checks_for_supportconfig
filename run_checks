@@ -1,0 +1,85 @@
+#!/usr/bin/bash
+
+wanda_url='http://localhost:4000'
+checks_file='.valid_checks'
+
+# Check arguments.
+if [ ${#} -lt 3 ] ; then
+    echo "Usage: ${0} PROVIDER CATEGORY|all TYPE:all [CHECK...]" >&2
+    exit 1
+fi 
+provider=${1}
+category=${2}
+type=${3}
+
+# Load valid checks
+valid_checks=
+
+# Get machine ids.
+ids=$(grep '^[^ #]' .container_def | cut -d ':' -f 3)
+
+# KEEP ONLY THE IDS OF RUNNING CONTAINERS!!!!!!!
+
+exit 0
+
+# Run checks.
+while read line ; do
+
+    # Split line into components.
+    line="${line%% *}"  
+    IFS=: read -r check_id check_type check_category <<< "${line}"
+
+    # Skip not matching categories and types.
+    if [ "${type}" != 'all' ] ; then 
+        if [ "${type}" != "${check_type}" ] ; then
+            echo "Skipping check ${check_id}. Type \"${check_type}\" instead of \"${type}\"."
+            continue
+        fi
+    fi
+    if [ "${category}" != 'all' ] ; then 
+        if [ "${category}" != "${check_category}" ] ; then
+            echo "Skipping check ${check_id}. Category \"${check_category}\" instead of \"${category}\"."
+            continue
+        fi
+    fi  
+
+    # Single checks must be run on each container separately, multi checks on all containers simultaneously.
+    echo "Running check ${check}:"
+    case "${check_type}" in
+        single)
+            for machine_id in ${ids} ; do  
+                echo ./rabbiteer.py -r "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check_id}"
+                output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check_id}")
+                echo $output
+            done
+            ;;
+        multi)
+            id_opts=''
+            for machine_id in ${ids} ; do  
+                id_opts="-t ${machine_id} ${id_opts}"
+            done
+            echo "|${id_opts}|"
+            output=$(./rabbiteer.py -r  "${wanda_url}" ExecuteCheck -p "${provider}" ${id_opts} -c "${check}")
+            echo $output
+            ;;
+    esac 
+
+
+    
+
+
+
+    # # Execute check and retireve output (JSON).
+    # output=$(./rabbiteer.py -r  "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check}")
+
+    # # Extract data.
+    # result=$(jq -r .result <<< "${output}")
+    # #message=$(jq -r .check_results[0].agents_check_results[0].facts[0].message  <<< "${output}")
+    # message=$(jq -r .check_results[].agents_check_results[].facts[].message  <<< "${output}")
+
+
+    # echo ${result} ${message}
+
+done < <(grep '^[0-9A-F]' "${checks_file}" | cut -d ':' -f 1-3)
+
+
