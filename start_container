@@ -13,7 +13,8 @@ fi
 while read def ; do
 
     # Get supportconfig from arguments for this container.
-    supportconfig="${1}"
+    supportconfig=$(readlink -m "${1}")
+    supportconfig_container="/${supportconfig##*/}"
     shift
 
     # Exit if we are run out of supportconfigs.
@@ -32,10 +33,10 @@ while read def ; do
     def="${def%:*}"    # cut away trento id
     name="${def%:*}"
     id="${def#*:}"
-    
+
     # Check if container is already running.
     if [ -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
-        if docker run -d -i --name="${name}" --rm -e "MACHINE_ID=${id}" -v ./sc:/sc --network=wanda_default -t sc_runner /sc/startup > /dev/null ; then
+        if docker run -d -i --name="${name}" --rm -e "MACHINE_ID=${id}" -e "SUPPORTCONFIG=${supportconfig_container}" -v ./sc:/sc -v "${supportconfig}:${supportconfig_container}" --network=wanda_default -t sc_runner /sc/startup > /dev/null ; then
             echo "Container \"${name}\" started for supportconfig \"${supportconfig}\"."
         else
             echo "Starting container \"${name}\" for supportconfig \"${supportconfig}\" failed!" >&2

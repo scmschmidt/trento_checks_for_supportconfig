@@ -61,3 +61,10 @@ https://github.com/schlosstom/GrafHana/blob/main/docker-compose.yaml
 docker run -i -v /etc/machine-id:/etc/machine-id -v .:/sc --network=wanda_default -t sc_runner /bin/bash
 
 trento-agent facts gather --gatherer "corosync.conf"
+
+
+
+
+supportconfig for 
+corosync.conf
+sbd_config

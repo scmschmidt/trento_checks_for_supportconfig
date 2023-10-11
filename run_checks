@@ -3,6 +3,35 @@
 wanda_url='http://localhost:4000'
 checks_file='.valid_checks'
 
+
+# === FUCTIONS ===
+
+function print_bold() {
+    echo -e "\e[1m${@}\e[0m"
+}
+ 
+function print_dim() {
+    echo -e "\e[2m${@}\e[0m"
+}
+
+function print_skip() {
+    echo -e "  \e[33m[SKIP]\e[0m  ${@}"
+}
+
+function print_pass() {
+    echo -e "  \e[92m[PASS]\e[0m  ${@}"
+}
+
+function print_fail() {
+    echo -e "  \e[91m[FAIL]\e[0m  ${@}"
+}
+
+function print_err() {
+    echo -e "  \e[91m[ERROR]\e[0m ${@}"
+}
+
+# === MAIN ===
+
 # Check arguments.
 if [ ${#} -lt 3 ] ; then
     echo "Usage: ${0} PROVIDER CATEGORY|all TYPE:all [CHECK...]" >&2
@@ -15,12 +44,26 @@ type=${3}
 # Load valid checks
 valid_checks=
 
-# Get machine ids.
-ids=$(grep '^[^ #]' .container_def | cut -d ':' -f 3)
+# Get trento ids for running supportconfig containers.
+declare -A containers
+while IFS=: read name agent_id ; do
+    docker ps -f "name=${name}" --format '{{.Names}}'
+    #if [ ! -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
+        containers["${agent_id}"]="${name}"
+    #fi
+done < <(grep '^[^ #]' .container_def | cut -d ':' -f 1,3)
 
-# KEEP ONLY THE IDS OF RUNNING CONTAINERS!!!!!!!
+# # No containers, no checking.
+# if [ ${#containers[*]} -eq 0 ] ; then
+#     echo "No supportconfig container is running. Terminating." >&2
+#     exit 1 
+# fi 
 
-exit 0
+# We can terminate if only multi checks are wanted, but we have only one container.
+if [ "${type}" == 'multi' -a ${#containers[*]} -eq 1 ] ; then
+    echo "Only one supportconfig container is running, which is not sufficient for type \"multi\". Terminating." >&2
+    exit 1 
+fi 
 
 # Run checks.
 while read line ; do
@@ -29,41 +72,61 @@ while read line ; do
     line="${line%% *}"  
     IFS=: read -r check_id check_type check_category <<< "${line}"
 
+    print_bold "\n${check_id}:"
+
     # Skip not matching categories and types.
     if [ "${type}" != 'all' ] ; then 
         if [ "${type}" != "${check_type}" ] ; then
-            echo "Skipping check ${check_id}. Type \"${check_type}\" instead of \"${type}\"."
+            print_skip "Skipping check ${check_id}. Type \"${check_type}\" instead of \"${type}\"."
             continue
         fi
     fi
     if [ "${category}" != 'all' ] ; then 
         if [ "${category}" != "${check_category}" ] ; then
-            echo "Skipping check ${check_id}. Category \"${check_category}\" instead of \"${category}\"."
+            print_skip "Skipping check ${check_id}. Category \"${check_category}\" instead of \"${category}\"."
             continue
         fi
     fi  
 
     # Single checks must be run on each container separately, multi checks on all containers simultaneously.
-    echo "Running check ${check}:"
     case "${check_type}" in
         single)
-            for machine_id in ${ids} ; do  
-                echo ./rabbiteer.py -r "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check_id}"
-                output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check_id}")
-                echo $output
+            for agent_id in ${!containers[*]} ; do  
+                output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}" -t "${agent_id}" -c "${check_id}")
+
+                if [ $? -ne 0 ] ; then 
+                    print_err "rabbiteer: ${output}" 
+                    continue
+                fi 
+
+                result=$(jq -r .result <<< "${output}")
+                message=$(jq -r .check_results[].agents_check_results[].facts[].message  <<< "${output}")
+                case "${result}" in 
+                    passing)
+                        print_pass "${containers[${agent_id}]}"
+                        ;;
+                    critical)
+                        print_fail "${containers[${agent_id}]}: ${message}"
+
+                        # ADD REMIDIATION!!
+                        ;;
+                    *)
+                        print_fail "${containers[${agent_id}]} [${result}]: ${message}"
+                        ;;
+                    esac 
+                #jq <<< "${output}"
             done
             ;;
         multi)
             id_opts=''
-            for machine_id in ${ids} ; do  
-                id_opts="-t ${machine_id} ${id_opts}"
+            for agent_id in ${!containers[*]} ; do  
+                id_opts="-t ${agent_id} ${id_opts}"
             done
             echo "|${id_opts}|"
-            output=$(./rabbiteer.py -r  "${wanda_url}" ExecuteCheck -p "${provider}" ${id_opts} -c "${check}")
+            output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}" ${id_opts} -c "${check}")
             echo $output
             ;;
     esac 
-
 
     
 

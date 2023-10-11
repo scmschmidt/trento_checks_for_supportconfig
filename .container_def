@@ -1,0 +1,14 @@
+# Contains container definitions. For each supportconfig a separate container is required.
+#
+# syntax:  container_name:machine id:trento id
+#
+#   container_name:  name of the generated container
+#   machine id:      manual generated machine id for the container (the command 'dbus-uuidgen' can be used for that)
+#   trento id:       manual forecasted trento id (the command 'uuidgen -N MACHINE-ID -n fb92284e-aa5e-47f6-a883-bf9469e7a0dc --sha1' can be used for that)
+#
+# The correct way would be to call 'trento-agent id' to retrieve the agent id. For the prove-of-value the id is generated
+# the same way the Trento agent is doing it by creating a sha-1 uuid from the machine id and a fixed namespace of fb92284e-aa5e-47f6-a883-bf9469e7a0dc. 
+
+tcsc_1:cffaa776a54cf188852faae16525242d:ddefc515-f5ce-587c-9953-cb1ab65bb278
+#tcsc_2:c1e6282d3535a2a18cc07aa465252430:3b2bcdd3-f79b-5796-b0c8-aab9e9f39a2b
+

@@ -3,6 +3,7 @@
 while read def ; do
 
     # Split components.
+    def="${def%:*}"    # cut away trento id
     name="${def%:*}"
     id="${def#*:}"
     
