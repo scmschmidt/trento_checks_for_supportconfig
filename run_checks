@@ -10,16 +10,16 @@ function print_bold() {
     echo -e "\e[1m${@}\e[0m"
 }
  
-function print_dim() {
-    echo -e "\e[2m${@}\e[0m"
-}
-
 function print_skip() {
-    echo -e "  \e[33m[SKIP]\e[0m  ${@}"
+    echo -e "  \e[93m[SKIP]\e[0m  ${@}"
 }
 
 function print_pass() {
     echo -e "  \e[92m[PASS]\e[0m  ${@}"
+}
+
+function print_warn() {
+    echo -e "  \e[93m[WARN]\e[0m  ${@}"
 }
 
 function print_fail() {
@@ -27,8 +27,104 @@ function print_fail() {
 }
 
 function print_err() {
-    echo -e "  \e[91m[ERROR]\e[0m ${@}"
+    echo -e "  \e[31m[ERROR]\e[0m ${@}"
 }
+
+function print_info() {
+    local indent=$(printf ' %.0s' $(seq ${#1}))
+    local c=0
+    echo -en "\e[2m    ${1}: "
+    shift
+    while read -r line ; do 
+        if [ ${c} -ne 0 ] ; then
+            echo -e "      ${indent}${line} "
+        else    
+            echo -e "${line}"
+        fi
+        (( c++ )) 
+    done < <(echo -e "${@}")
+    echo -en '\e[0m'
+}
+
+# SYNTAX:
+#   catch STDOUT_VARIABLE STDERR_VARIABLE EXITCODE_VARIABLE COMMAND [ARG1[ ARG2[ ...[ ARGN]]]]
+# https://stackoverflow.com/questions/11027679/capture-stdout-and-stderr-into-different-variables 
+# (https://stackoverflow.com/a/74626954)
+function catch() {
+  {
+    IFS=$'\n' read -r -d '' "${1}";
+    IFS=$'\n' read -r -d '' "${2}";
+    IFS=$'\n' read -r -d '' "${3}";
+
+    return 0;
+  }\
+  < <(
+    (printf '\0%s\0%d\0' \
+      "$(
+        (
+          (
+            (
+              {
+                shift 3;
+                eval "${@}";
+                echo "${?}" 1>&3-;
+              } | tr -d '\0' 1>&4-
+            ) 4>&2- 2>&1- | tr -d '\0' 1>&4-
+          ) 3>&1- | exit "$(cat)"
+        ) 4>&1-
+      )" "${?}" 1>&2
+    ) 2>&1
+  )
+}
+
+# SYNTAX:
+#   report CONTAINERNAME REMEDIATION OUTPUT
+report() {
+
+    local container_name output result message should_be is expectations containers remediation
+
+    container_name="${1}"
+    remediation="${2}"
+    shift 2
+    output=$(sed 's/^\.*//' <<< "${@}")    # remove leading dots of the progress bar if executuon takes longer
+
+    result=$(jq -r .result <<< "${output}" 2> /dev/null)
+    message=$(jq -r .check_results[].agents_check_results[].facts[].message <<< "${output}" 2> /dev/null)
+    should_be=$(jq -r '.check_results[].agents_check_results[].values[] | "\(.name)=\(.value)"' <<< "${output}" 2> /dev/null)
+    is=$(jq -r '.check_results[].agents_check_results[].facts[] | "\(.name)=\(.value)"' <<< "${output}" 2> /dev/null)
+    expectations=$(jq -r '.check_results[].expectation_results[] | "\(.name): \(.result)"' <<< "${output}" 2> /dev/null)
+    case "${result}" in 
+        passing)
+            print_pass "${container_name}"
+            print_info "Expectations" "${expectations}"
+            print_info "Should      " "${should_be}"
+            print_info "Is          " "${is}"
+            ;;
+        critical)
+            print_fail "${container_name}"
+            [ "${message}" != 'null' ] && print_info "Message     " "\e[0m\e[91m${message}"
+            print_info "Expectations" "${expectations}"
+            print_info "Should      " "${should_be}"
+            print_info "Is          " "${is}"
+            print_info "Remediation " ""
+            print_info "Remediation " "\e[0m\e[96m${remediation}"
+            ;;
+        warning)
+            print_warn "${container_name}"
+            [ "${message}" != 'null' ] && print_info "Message     " "\e[0m\e[91m${message}"
+            print_info "Expectations" "${expectations}"
+            print_info "Should      " "${should_be}"
+            print_info "Is          " "${is}"
+            print_info "Remediation " "\e[0m\e[96m${remediation}"
+            ;;
+        *)
+            print_fail "${container_name} [${result}]: ${message}"
+            print_info "JSON output " "${output}"
+            ;;
+        esac 
+    #jq <<< "${output}"
+}
+
 
 # === MAIN ===
 
@@ -40,30 +136,42 @@ fi
 provider=${1}
 category=${2}
 type=${3}
-
-# Load valid checks
-valid_checks=
+shift 3 
+requested_checks="${@}"
 
 # Get trento ids for running supportconfig containers.
 declare -A containers
 while IFS=: read name agent_id ; do
-    docker ps -f "name=${name}" --format '{{.Names}}'
-    #if [ ! -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
+    if [ ! -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then 
         containers["${agent_id}"]="${name}"
-    #fi
+    fi
 done < <(grep '^[^ #]' .container_def | cut -d ':' -f 1,3)
 
-# # No containers, no checking.
-# if [ ${#containers[*]} -eq 0 ] ; then
-#     echo "No supportconfig container is running. Terminating." >&2
-#     exit 1 
-# fi 
+# No containers, no checking.
+if [ ${#containers[*]} -eq 0 ] ; then
+    echo "No supportconfig container is running. Terminating." >&2
+    exit 1 
+fi 
 
 # We can terminate if only multi checks are wanted, but we have only one container.
 if [ "${type}" == 'multi' -a ${#containers[*]} -eq 1 ] ; then
     echo "Only one supportconfig container is running, which is not sufficient for type \"multi\". Terminating." >&2
     exit 1 
 fi 
+
+# Get same data, including remediation, for checks from Wanda.
+declare -A check_descriptions check_remediations
+while read -r id ; read -r description ; read -r remediation ; do
+
+    # Remove double qoutes and control characters.
+    id="${id//\"/}" ; id="${id//\\?/}" 
+    description="${description//\"/}" ; description="${description//\\?/}"
+    remediation="${remediation%\"}" ; remediation="${remediation#\"}"
+
+    check_descriptions[${id}]="${description}"
+    check_remediations[${id}]="${remediation}"
+
+done < <(./rabbiteer.py -r http://localhost:4000 ListChecks | jq '.items[] | (.id, .description, .remediation)' | paste)
 
 # Run checks.
 while read line ; do
@@ -72,7 +180,12 @@ while read line ; do
     line="${line%% *}"  
     IFS=: read -r check_id check_type check_category <<< "${line}"
 
-    print_bold "\n${check_id}:"
+    # Check if check is in requested checks (a lot of checks in thsis sentence...).
+    if [ -n "${requested_checks}" ] ; then 
+        [[ ${requested_checks[@]} =~ ${check_id} ]] || continue 
+    fi 
+
+    print_bold "\n${check_id} - ${check_descriptions[${check_id}]}"
 
     # Skip not matching categories and types.
     if [ "${type}" != 'all' ] ; then 
@@ -91,57 +204,45 @@ while read line ; do
     # Single checks must be run on each container separately, multi checks on all containers simultaneously.
     case "${check_type}" in
         single)
-            for agent_id in ${!containers[*]} ; do  
-                output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}" -t "${agent_id}" -c "${check_id}")
+            for agent_id in ${!containers[*]} ; do 
 
-                if [ $? -ne 0 ] ; then 
-                    print_err "rabbiteer: ${output}" 
+                catch output error exitcode ./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 15 -p "${provider}" -t "${agent_id}" -c "${check_id}"
+
+                if [ ${exitcode} -ne 0 ] ; then 
+                    print_err "rabbiteer: ${error}" 
                     continue
                 fi 
 
-                result=$(jq -r .result <<< "${output}")
-                message=$(jq -r .check_results[].agents_check_results[].facts[].message  <<< "${output}")
-                case "${result}" in 
-                    passing)
-                        print_pass "${containers[${agent_id}]}"
-                        ;;
-                    critical)
-                        print_fail "${containers[${agent_id}]}: ${message}"
+                report "${containers[${agent_id}]}" "${check_remediations[${check_id}]}" "${output}"
 
-                        # ADD REMIDIATION!!
-                        ;;
-                    *)
-                        print_fail "${containers[${agent_id}]} [${result}]: ${message}"
-                        ;;
-                    esac 
-                #jq <<< "${output}"
+                
             done
             ;;
+
         multi)
             id_opts=''
+            container_names=''
             for agent_id in ${!containers[*]} ; do  
                 id_opts="-t ${agent_id} ${id_opts}"
+                container_names="${containers[${agent_id}]} ${container_names}"
             done
-            echo "|${id_opts}|"
-            output=$(./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}" ${id_opts} -c "${check}")
-            echo $output
+
+            echo /rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}"  ${id_opts} -c "${check_id}"
+            catch output error exitcode ./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}"  ${id_opts} -c "${check_id}"
+
+                if [ ${exitcode} -ne 0 ] ; then 
+                    print_err "rabbiteer: ${error}" 
+                    continue
+                fi 
+
+                report "${container_names}" "${check_remediations[${check_id}]}" "${output}"
+            ;;
+
+        *)
+            print_skip "Skipping check ${check_id}. Category \"${check_category}\" instead of \"${category}\"."
+            continue
             ;;
     esac 
-
-    
-
-
-
-    # # Execute check and retireve output (JSON).
-    # output=$(./rabbiteer.py -r  "${wanda_url}" ExecuteCheck -p "${provider}" -t "${machine_id}" -c "${check}")
-
-    # # Extract data.
-    # result=$(jq -r .result <<< "${output}")
-    # #message=$(jq -r .check_results[0].agents_check_results[0].facts[0].message  <<< "${output}")
-    # message=$(jq -r .check_results[].agents_check_results[].facts[].message  <<< "${output}")
-
-
-    # echo ${result} ${message}
 
 done < <(grep '^[0-9A-F]' "${checks_file}" | cut -d ':' -f 1-3)
 

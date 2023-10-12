@@ -68,3 +68,6 @@ trento-agent facts gather --gatherer "corosync.conf"
 supportconfig for 
 corosync.conf
 sbd_config
+
+
+multi checks don't work: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}

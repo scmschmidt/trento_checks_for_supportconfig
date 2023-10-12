@@ -30,7 +30,8 @@ DA114A:single:corosync  # Corosync rings (Corosync)                             
 # It is worth to investigate, if scripts with the same name as the commands can be provided, which
 # use data from the supportconfig and additional data to mimic correct and incorrect behaviour.
 # In case of checks with the package_version gatherer, which uses zypper/rpm to get information, 
-# the rpm database could be manipulated to contain the content of rpm.txt.
+# the rpm database could be manipulated to contain the content of rpm.txt. If this proves to difficult
+# an alternative could be to build "empty" packages on the fly and install them.
 #
 # 00081D:single:corosync   # Check Corosync max_messages during runtime (Corosync)                             [gatherer: corosync-cmapctl]
 # 15F7A8:single:corosync   # Check Corosync token_retransmits_before_loss_const during runtime (Corosync)      [gatherer: corosync-cmapctl]
@@ -62,7 +63,7 @@ DA114A:single:corosync  # Corosync rings (Corosync)                             
 # Premium checks wich need to be downloaded from the GitLab repo and need to put into
 # the directory wanda/priv/catalog/ of the cloned Wanda project, which is mounted intor the
 # Wanda container.
-# BA215C:multi:corosync  corosync.conf files are identical [gatherer: corosync.conf]                    !!!! ENABLE LATER !!!
+BA215C:multi:corosync    # corosync.conf files are identical [gatherer: corosync.conf]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster. See comments in Community Checks part.
