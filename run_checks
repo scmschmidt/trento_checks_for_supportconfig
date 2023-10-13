@@ -106,7 +106,6 @@ report() {
             print_info "Expectations" "${expectations}"
             print_info "Should      " "${should_be}"
             print_info "Is          " "${is}"
-            print_info "Remediation " ""
             print_info "Remediation " "\e[0m\e[96m${remediation}"
             ;;
         warning)
@@ -227,7 +226,6 @@ while read line ; do
                 container_names="${containers[${agent_id}]} ${container_names}"
             done
 
-            echo /rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}"  ${id_opts} -c "${check_id}"
             catch output error exitcode ./rabbiteer.py -r "${wanda_url}" ExecuteCheck  --timeout 5 -p "${provider}"  ${id_opts} -c "${check_id}"
 
                 if [ ${exitcode} -ne 0 ] ; then 

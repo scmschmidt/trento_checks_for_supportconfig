@@ -1,14 +1,9 @@
 # Ignore Wanda project
 wanda/
 
-# Ignore downloaded rabbiteer.
-rabbiteer.py
-
-# Ignore downloaded split-supportconfig.
-split-supportconfig
-
 # Ignor vcode workspace file.
 *.code-workspace
 
 # Ignore scrap directory.
 scrap/
+
