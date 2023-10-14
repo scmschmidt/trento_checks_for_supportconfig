@@ -16,26 +16,35 @@ Clone this repo on your system: `git clone https://github.com/scmschmidt/trento_
 We don't need a full-fledged Trento, just the Wanda component: https://github.com/trento-project/wanda/tree/main, which
 contains the Trento checks and the checks engine.
 
-Clone the repo with `git clone https://github.com/trento-project/wanda.git` and follow the instruction there to build and start the containers, which comes down to a `docker-compose -f docker-compose.checks.yaml up -d` executed in the project directory. \
+Clone the repo with `git clone https://github.com/trento-project/wanda.git` and follow the instruction there to build and start the containers, which comes down to a `docker-compose -f docker-compose.checks.yaml up -d` executed in the project directory:
 
-
-> :bulb: To remove the containers call `docker-compose -f docker-compose.checks.yaml down` in the project directory. \
-> To start and stop the Wanda containers run `docker start wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` and `docker stop wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` respectively. \
-> To make them start automatically with `dockerd` execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` once.
-
-
-The GitHub repo only contains community checks. The premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. Put the files from `/priv/catalog` in `priv/catalog/` of the Wanda project directory. If you don't want to use them, comment them out in the `.valid_checks` file.
-
-> :bulb: The directory `wanda/priv/catalog/` is mounted into the container. You can put your own checks there, if you know how to write them (https://www.trento-project.io/wanda/specification.html#introduction)!
+```
+git clone https://github.com/trento-project/wanda.git
+cd wanda
+docker-compose -f docker-compose.checks.yaml up -d
+```
 
 Now Wanda should be ready and listen on port 4000/tcp! 
 
 Wanda can be accessed via the RestAPI. To explore the API and verify that Wanda is running, enter http://localhost:4000/swaggerui#/ in your browser.
 
+> :bulb: To remove the containers call `docker-compose -f docker-compose.checks.yaml down` in the project directory. \
+> To start and stop the Wanda containers run `docker start wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` and `docker stop wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` respectively. \
+> To make them start automatically with `dockerd` execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` once.
+
+The GitHub repo only contains community checks. The premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. Put the files from `/priv/catalog` in `priv/catalog/` of the Wanda project directory. If you don't want to use them, comment them out in the `.valid_checks` file.
+
+> :bulb: The directory `wanda/priv/catalog/` is mounted into the container. You can put your own checks there, if you know how to write them (https://www.trento-project.io/wanda/specification.html#introduction)!
+
 
 ##  Build the supportconfig container image
 
-Run `docker build -t sc_runner`. If the build process was successful, a `docker images` should list the image:
+Run:
+ ```
+ docker build -t sc_runner .
+ ```
+ 
+ If the build process was successful, a `docker images` should list the image:
 
 ```
 REPOSITORY    TAG       IMAGE ID       CREATED         SIZE
@@ -181,7 +190,6 @@ Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocess
 
 Currently two tools are part of this repos, which are simply copied from other repos.
 - `rabbiteer.py` \
-
   This repo contains a version of `rabbiter.py` from https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks and is located in `utils/`. \
   In case of problems with newer Wanda versions, try a more recent version if its available.
 

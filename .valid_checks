@@ -30,6 +30,8 @@ DA114A:single:corosync  # Corosync rings (Corosync)                             
 C3166E:single:package   # unsupported sbd version (OS and package versions)                   [gatherer: package_version]
 DC5429:single:package   # supported corosync version (OS and package versions)                [gatherer: package_version]
 F50AF5:single:package   # supported python3 version (OS and package versions)                 [gatherer: package_version]
+CAEFF1:single:os        # OS flavor SLES_SAP (OS and package versions)                        [gatherer: package_version]
+D028B9:single:os        # OS version SLES_SAP (OS and package versions)                       [gatherer: package_version]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster.
@@ -50,8 +52,6 @@ F50AF5:single:package   # supported python3 version (OS and package versions)   
 # B089BE:single:sbd        # SBD watchdog timeout (SBD)                                                        [gatherer: sbd_dump]
 # 790926:single:misc       # hacluster password (Miscellaneous)                                                [gatherer: verify_password]
 # 816815:single:sbd        # SBD service state (SBD)                                                           [gatherer: systemd]
-# CAEFF1:single:os         # OS flavor SLES_SAP (OS and package versions)                                      [gatherer: package_version]
-# D028B9:single:os         # OS version SLES_SAP (OS and package versions)                                     [gatherer: package_version]
 
 
 # Premium Checks (part of https://gitlab.suse.de/trento-project/wanda-premium-checks)
