@@ -12,26 +12,28 @@
 
 # Community Checks (part of https://github.com/trento-project/wanda/tree/main)
 # ----------------------------------------------------------------------------
-156F64:single:corosync  # Check Corosync token_timeout value (Corosync)                       [gatherer: corosync.conf]
-21FCA6:single:corosync  # Check Corosync token_retransmits_before_loss_const value (Corosync) [gatherer: corosync.conf]
-24ABCB:single:corosync  # Check Corosync join timeout value (Corosync)                        [gatherer: corosync.conf]
-33403D:single:corosync  # Check Corosync transport mechanism (Corosync)                       [gatherer: corosync.conf]
-6E9B82:single:corosync  # Check Corosync two_node value (Corosync)                            [gatherer: corosync.conf]
-845CC9:single:corosync  # Check Corosync max_messages value (Corosync)                        [gatherer: corosync.conf]
-A1244C:single:corosync  # Check Corosync consensus timeout (Corosync)                         [gatherer: corosync.conf]
-C620DC:single:corosync  # Check Corosync expected_votes value (Corosync)                      [gatherer: corosync.conf]
-DA114A:single:corosync  # Corosync rings (Corosync)                                           [gatherer: corosync.conf]
-49591F:single:sbd       # sbd SBD_STARTMODE (SBD)                                             [gatherer: sbd_config]
-61451E:single:sbd       # multiple SBD devices (SBD)                                          [gatherer: sbd_config]
-0B6DB2:single:sbd       # SBD_PACEMAKER (SBD)                                                 [gatherer: sbd_config]
-222A57:single:package   # supported sbd version (OS and package versions)                     [gatherer: package_version]
-9FAAD0:single:package   # unsupported pacemaker version (OS and package versions)             [gatherer: package_version]
-9FEFB0:single:package   # supported pacemaker version (OS and package versions)               [gatherer: package_version]
-C3166E:single:package   # unsupported sbd version (OS and package versions)                   [gatherer: package_version]
-DC5429:single:package   # supported corosync version (OS and package versions)                [gatherer: package_version]
-F50AF5:single:package   # supported python3 version (OS and package versions)                 [gatherer: package_version]
-CAEFF1:single:os        # OS flavor SLES_SAP (OS and package versions)                        [gatherer: package_version]
-D028B9:single:os        # OS version SLES_SAP (OS and package versions)                       [gatherer: package_version]
+156F64:single:corosync   # Check Corosync token_timeout value (Corosync)                                     [gatherer: corosync.conf]
+21FCA6:single:corosync   # Check Corosync token_retransmits_before_loss_const value (Corosync)               [gatherer: corosync.conf]
+24ABCB:single:corosync   # Check Corosync join timeout value (Corosync)                                      [gatherer: corosync.conf]
+33403D:single:corosync   # Check Corosync transport mechanism (Corosync)                                     [gatherer: corosync.conf]
+6E9B82:single:corosync   # Check Corosync two_node value (Corosync)                                          [gatherer: corosync.conf]
+845CC9:single:corosync   # Check Corosync max_messages value (Corosync)                                      [gatherer: corosync.conf]
+A1244C:single:corosync   # Check Corosync consensus timeout (Corosync)                                       [gatherer: corosync.conf]
+C620DC:single:corosync   # Check Corosync expected_votes value (Corosync)                                    [gatherer: corosync.conf]
+DA114A:single:corosync   # Corosync rings (Corosync)                                                         [gatherer: corosync.conf]
+49591F:single:sbd        # sbd SBD_STARTMODE (SBD)                                                           [gatherer: sbd_config]
+61451E:single:sbd        # multiple SBD devices (SBD)                                                        [gatherer: sbd_config]
+0B6DB2:single:sbd        # SBD_PACEMAKER (SBD)                                                               [gatherer: sbd_config]
+222A57:single:package    # supported sbd version (OS and package versions)                                   [gatherer: package_version]
+9FAAD0:single:package    # unsupported pacemaker version (OS and package versions)                           [gatherer: package_version]
+9FEFB0:single:package    # supported pacemaker version (OS and package versions)                             [gatherer: package_version]
+C3166E:single:package    # unsupported sbd version (OS and package versions)                                 [gatherer: package_version]
+DC5429:single:package    # supported corosync version (OS and package versions)                              [gatherer: package_version]
+F50AF5:single:package    # supported python3 version (OS and package versions)                               [gatherer: package_version]
+CAEFF1:single:os         # OS flavor SLES_SAP (OS and package versions)                                      [gatherer: package_version]
+D028B9:single:os         # OS version SLES_SAP (OS and package versions)                                     [gatherer: package_version]
+205AF7:single:pacemaker  # fencing enabled (Pacemaker)                                                       [gatherer: cibadmin]
+373DB8:single:pacemaker  # fencing timeout (Pacemaker)                                                       [gatherer: cibadmin]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster.
@@ -46,8 +48,6 @@ D028B9:single:os        # OS version SLES_SAP (OS and package versions)         
 # FB0E0D:single:corosync   # Check Corosync consensus timeout during runtime (Corosync)                        [gatherer: corosync-cmapctl]
 # 32CFC6:single:corosync   # corosync running 2 ring configuration (Corosync)                                  [gatherer: corosync-cmapctl]
 # 7E0221:multi:corosync    # Check Corosync transport settings during runtime (Corosync)                       [gatherer: corosync-cmapctl]
-# 205AF7:single:pacemaker  # fencing enabled (Pacemaker)                                                       [gatherer: cibadmin]
-# 373DB8:single:pacemaker  # fencing timeout (Pacemaker)                                                       [gatherer: cibadmin]
 # 68626E:single:sbd        # SBD msgwait timeout (SBD)                                                         [gatherer: sbd_dump]
 # B089BE:single:sbd        # SBD watchdog timeout (SBD)                                                        [gatherer: sbd_dump]
 # 790926:single:misc       # hacluster password (Miscellaneous)                                                [gatherer: verify_password]
@@ -71,14 +71,15 @@ DF8328:single:package     # corosync version identical on all nodes             
 48EEDC:single:package     # supported sap_suse_cluster_connector version                                      [gatherer: package_version]
 801E6A:single:package     # supported sap_suse_cluster_connector version                                      [gatherer: package_version]
 C74B02:single:package     # supported resource-agents version                                                 [gatherer: package_version]
+6E0DEC:single:pacemaker   # concurrent fencing option is enabled                                              [gatherer: cibadmin]
+B3DA7E:single:pacemaker   # Cluster resource-stickiness and migration-threshold                               [gatherer: cibadmin]
+DE74B2:single:pacemaker   # Azure Fence agent configuration                                                   [gatherer: cibadmin]
+58002B:single:pacemaker   # order constraint present                                                          [gatherer: cibadmin]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster. See comments in Community Checks part.
 #
 # ABA3CA:multi:???       # SAP Host Agent is running                            [gatherer: saphostctrl]
 # 438525:multi:???       # Cluster hostnames resolution                         [gatherer: hosts,cibadmin]    
-# 6E0DEC:single:???      # concurrent fencing option is enabled                 [gatherer: cibadmin]
-# B3DA7E:single:???      # Cluster resource-stickiness and migration-threshold  [gatherer: cibadmin]
-# DE74B2:single:???      # Azure Fence agent configuration                      [gatherer: cibadmin]
-# 58002B:single:???      # order constraint present                             [gatherer: cibadmin]
+
 

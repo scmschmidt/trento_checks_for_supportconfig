@@ -8,13 +8,17 @@
     supportconfig="${SUPPORTCONFIG}"
     supportconfig_dir="${SUPPORTCONFIG%.*}"
     tar xf "${supportconfig}"
-    ./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt"  "${supportconfig_dir}/basic-environment.txt"
+    ./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt"  "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt"
 
     # Copy files from supportconfig into root fs.
     mkdir /etc/corosync/
     cp -b /rootfs/etc/corosync/corosync.conf /etc/corosync/
     cp -b /rootfs/etc/sysconfig/sbd /etc/sysconfig/
     cp -b /rootfs/etc/os-release /etc/
+    cp -r /rootfs/var/lib/pacemaker /var/lib/
+
+    # Copy prepared scripts.
+    cp /sc/cibadmin /bin/
 
     # Setup RPM build tree.
     rpmdev-setuptree

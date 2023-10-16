@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Currently we only support '--query --local'.
+case "${@}" in 
+
+    '--query --local')
+        cat /var/lib/pacemaker/cib/cib.xml
+        ;;
+    *)
+        echo "\"${@}\" not supported" >> cibadmin.log
+        exit 1
+        ;;
+esac
+
+exit 0
+
