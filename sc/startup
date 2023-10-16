@@ -18,13 +18,17 @@
     cp -r /rootfs/var/lib/pacemaker /var/lib/
 
     # Copy prepared scripts.
-    cp /sc/cibadmin /bin/
+    cp /sc/cibadmin /sc/sbd /bin/
+
+    # Create sbd dumps.
+    sed -n '/==Dumping header on disk/,/==Header on disk/p' "${supportconfig_dir}/ha.txt" > /tmp/sbd_dumps
+
 
     # Setup RPM build tree.
     rpmdev-setuptree
 
     # Build RPM packages.
-    for package in pacemaker corosync python3 SAPHanaSR supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release ; do 
+    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release ; do 
         entry=$(grep -e "^${package}[[:space:]]"  "${supportconfig_dir}/rpm.txt" | tr -s ' ')
         [[ -z "${entry}" ]] && continue
 

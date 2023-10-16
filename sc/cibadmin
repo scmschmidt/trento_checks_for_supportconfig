@@ -7,7 +7,7 @@ case "${@}" in
         cat /var/lib/pacemaker/cib/cib.xml
         ;;
     *)
-        echo "\"${@}\" not supported" >> cibadmin.log
+        echo "\"${@}\" not supported"
         exit 1
         ;;
 esac

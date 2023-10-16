@@ -34,6 +34,8 @@ CAEFF1:single:os         # OS flavor SLES_SAP (OS and package versions)         
 D028B9:single:os         # OS version SLES_SAP (OS and package versions)                                     [gatherer: package_version]
 205AF7:single:pacemaker  # fencing enabled (Pacemaker)                                                       [gatherer: cibadmin]
 373DB8:single:pacemaker  # fencing timeout (Pacemaker)                                                       [gatherer: cibadmin]
+68626E:single:sbd        # SBD msgwait timeout (SBD)                                                         [gatherer: sbd_dump]
+B089BE:single:sbd        # SBD watchdog timeout (SBD)                                                        [gatherer: sbd_dump]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster.
@@ -48,8 +50,6 @@ D028B9:single:os         # OS version SLES_SAP (OS and package versions)        
 # FB0E0D:single:corosync   # Check Corosync consensus timeout during runtime (Corosync)                        [gatherer: corosync-cmapctl]
 # 32CFC6:single:corosync   # corosync running 2 ring configuration (Corosync)                                  [gatherer: corosync-cmapctl]
 # 7E0221:multi:corosync    # Check Corosync transport settings during runtime (Corosync)                       [gatherer: corosync-cmapctl]
-# 68626E:single:sbd        # SBD msgwait timeout (SBD)                                                         [gatherer: sbd_dump]
-# B089BE:single:sbd        # SBD watchdog timeout (SBD)                                                        [gatherer: sbd_dump]
 # 790926:single:misc       # hacluster password (Miscellaneous)                                                [gatherer: verify_password]
 # 816815:single:sbd        # SBD service state (SBD)                                                           [gatherer: systemd]
 
