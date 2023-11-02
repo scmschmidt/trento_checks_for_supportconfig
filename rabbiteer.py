@@ -20,7 +20,11 @@ Changelog:
 13.02.2023      v0.4        - added support for fetching authorization keys from web interface (-f|-F)
 14.02.2023      v0.5        - print dot when waiting for a still running test 
 30.03.2023      v0.6        - bug fixed in Rabbiteer.execute_check(): API change in reporting a not (yet) found execution?
-
+30.10.2023      v0.7        - Latest changes in the API require the presence of the key `target_type` in the check execution request, 
+                              which must match the value in the check. Fetching the check catalog now and add the key to the request.
+                            - Also implementing "healthz" and "readyz".
+                            - Issue: For some reason starting an execution requires explicitly "v1" in the uri. Its a bug.
+30.10.2023      v0.7.1      - Fixed two typos and removed the "v1" from the URI to start executions. Trento Core Team has fixed the issue.                            
 """
 
 import argparse
@@ -35,7 +39,7 @@ import json
 import uuid
 
 
-__version__ = '0.6'
+__version__ = '0.7.1'
 __author__ = 'soeren.schmidt@suse.com'
 
 
@@ -118,6 +122,20 @@ class Rabbiteer():
         self.make_request('/api/checks/catalog')
         self._http_status_err() 
         return self.response.json()
+    
+    def health(self):
+        """Returns health of Wanda."""
+
+        self.make_request('/api/healthz')
+        self._http_status_err() 
+        return self.response.json()
+
+    def readiness(self):
+        """Returns readiness of Wanda."""
+
+        self.make_request('/api/readyz')
+        self._http_status_err() 
+        return self.response.json()
 
     def execute_checks(self, agent_ids, provider, check_ids, timeout=None):
         """Execute checks for provider on agents and returns 
@@ -125,12 +143,33 @@ class Rabbiteer():
         Terminates if anything goes wrong or the result is not as expected. 
         """
 
+        # We need to fetch keys from the check's metadata, which have to be part of the request.
+        metadata = {}
+        for check in self.list_catalog()['items']:
+            if check['id'] in check_ids:
+                current_metadata = {}
+                try:
+                    for mandatory_key in ['target_type']:
+                        current_metadata[mandatory_key] = check['metadata'][mandatory_key]
+                except:
+                    print(f'''Mandatory key "{mandatory_key}" is not part of metadata of check {check['id']}.''', file=sys.stderr)
+                    print('This is a bug in the check', file=sys.stderr)
+                    sys.exit(2)
+                if metadata:
+                    if metadata != current_metadata:
+                        print(f'If multiple checks are executed, the metadata must be identical!', file=sys.stderr)
+                        print(f'''"{current_metadata}" of check {check['id']} differs from the metadata of the previous checks "{metadata}".''', file=sys.stderr)
+                        sys.exit(2)
+                else:
+                    metadata = current_metadata
+
         execution_id = str(uuid.uuid4())
         data = {'env': {'provider': provider},
                 'execution_id': execution_id,
                 'group_id': str(uuid.uuid4()),
                 'targets': []
                }
+        data.update(metadata)
         for agent_id in agent_ids:
             data['targets'].append({'agent_id': agent_id, 'checks': check_ids})
 
@@ -213,6 +252,8 @@ class ArgParser(argparse.ArgumentParser):
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ListExecutions [SCOPE]
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ExecuteCheck -p|--provider PROVIDER -t|--target TARGET... -c|--check CHECK... [--timeout TIMEOUT]
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ListChecks
+                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL Health
+                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL Ready
 
                 v{__version__}
             
@@ -237,6 +278,8 @@ class ArgParser(argparse.ArgumentParser):
                     ListExecutions  list executions (for options and arguments see below) 
                     ExecuteCheck    execute checks on target hosts (for options and arguments see below)
                     ListChecks      list all available checks
+                    Health          gives the health status of Wanda
+                    Ready           gives the readiness status of Wanda
 
                 Command Options and Arguments:
 
@@ -268,6 +311,7 @@ class ArgParser(argparse.ArgumentParser):
 
                 Examples:
 
+                    Check the health of Wanda:                  rabbiteer.py http://localhost:4000 Health
                     List all available checks:                  rabbiteer.py http://localhost:4000 ListChecks
                     List all available checks (JSON dump):      rabbiteer.py -r http://localhost:4000 ListChecks
                     Execute a check for a (azure) host:         rabbiteer.py http://localhost:4000 ExecuteCheck -p azure -c 156F64 -t b651491b-904d-5448-9350-fe817c1f2c6e
@@ -359,8 +403,13 @@ def argument_parse():
 
     # Command: ListChecks
     parser_list_checks = subparsers.add_parser('ListChecks')
+  
+    # Command: Health
+    parser_list_checks = subparsers.add_parser('Health')
     
-    
+    # Command: Ready
+    parser_list_checks = subparsers.add_parser('Ready')  
+
     # Parse arguments.
     args_parsed = parser.parse_args()
 
@@ -487,6 +536,40 @@ def main():
                 print(f'Could not evaluate response:\n{response}\n\nError: {err}', file=sys.stderr)
                 sys.exit(3)
             print(f'\n{len(checks)} check(s) found.')
+            
+    # Command: Health
+    elif arguments.command == 'Health':
+    
+        # Retrieve health.
+        response = connection.health()
+
+        # Print full response or evaluation.
+        if arguments.raw_output:
+            print(json.dumps(response))
+        else:
+            try:
+                for key, value in response.items():
+                    print(f'{key}: {value}')
+            except Exception as err:
+                print(f'Could not evaluate response:\n{response}\n\nError: {err}', file=sys.stderr)
+                sys.exit(3)
+
+    # Command: Ready
+    elif arguments.command == 'Ready':
+    
+        # Retrieve health.
+        response = connection.readiness()
+
+        # Print full response or evaluation.
+        if arguments.raw_output:
+            print(json.dumps(response))
+        else:
+            try:
+                print(f'''{response['ready']}''')
+            except Exception as err:
+                print(f'Could not evaluate response:\n{response}\n\nError: {err}', file=sys.stderr)
+                sys.exit(3)
+
 
     sys.exit(0)
 

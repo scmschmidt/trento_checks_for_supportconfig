@@ -199,21 +199,30 @@ Currently two tools are part of this repos, which are simply copied from other r
 
 # Troubleshooting
 
-If a supportconfig container starts, but the checks don't work, enter the container and take a look at the logs:
+- If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers do run and are fine.
 
-```
-# docker exec -it tcsc_1 /bin/bash
-627061cabfc8:/ # cat /var/log/startup.log 
-/scc_vmhana01_231011_1528/etc.txt
-    splitting to etc/iscsid.conf
-    splitting to etc/yp.conf
-    ...
+- If a supportconfig container starts, but the checks don't work, enter the container and take a look at the logs:
 
-627061cabfc8:/ # cat /var/log/trento-agent
-time="2023-10-13 15:08:19" level=info msg="Using config file: /sc/agent-config.yaml"
-time="2023-10-13 15:08:19" level=info msg="Starting the Console Agent..."
-...
-```
+  ```
+  # docker exec -it tcsc_1 /bin/bash
+  627061cabfc8:/ # cat /var/log/startup.log 
+  /scc_vmhana01_231011_1528/etc.txt
+      splitting to etc/iscsid.conf
+      splitting to etc/yp.conf
+      ...
+
+  627061cabfc8:/ # cat /var/log/trento-agent
+  time="2023-10-13 15:08:19" level=info msg="Using config file: /sc/agent-config.yaml"
+  time="2023-10-13 15:08:19" level=info msg="Starting the Console Agent..."
+  ...
+  ```
+
+- If all checks return the same error message or time out and the supportconfig container is there, then most certainly something has changed in Wanda or the agent. Trento is a very active project and changes happen often. One thing you should try:
+  1. Get the latest version of `rabbiteer.py`.
+  1. Stop all Wanda containers and delete images **and** volumes!
+  1. Deploy the Wanda containers again (`docker-compose -f docker-compose.checks.yaml up -d`).
+  1. Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
+
 # To Do
 
 - Updating the project with new checks. Trento is growing.

@@ -1,6 +1,9 @@
 #FROM registry.suse.com/bci/bci-base:latest
 FROM opensuse/leap:latest
 
+# Add Trento development repo
+RUN zypper ar -G https://download.opensuse.org/repositories/devel:/sap:/trento:/factory/15.4/ trento-devel
+
 # Install needed packages.
 RUN zypper --non-interactive in trento-agent ruby tar xz python3 sudo rpm-build rpmdevtools
 
