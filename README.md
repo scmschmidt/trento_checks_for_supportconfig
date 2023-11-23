@@ -290,7 +290,7 @@ The directory `sc/` contains:
     - copies relevant extracted files into the rootfs,
     - copies the command replacements from `sc/` into the roots,
     - creates sbd header dumps from `ha.txt`,
-    - creates and installs empty dummy RPM packages with the version info from `rpm.txt` for selected packages
+    - creates and installs empty RPM packages with the version info from `rpm.txt` for selected packages
     - and finally starts the `trento-agent`.
 
 For each container an entry must be present in `.container_def`. The file contains comments explaining the details.
@@ -304,14 +304,13 @@ The primary configuration file for `run_checks` is `.valid_checks`. See the comm
 You also can start the container in the foreground with `./start_container --fg SUPPORTCONFIG` to see the logs.
 
 - If a supportconfig container starts, but the checks don't work, you can watch the logs with `docker log [-f] CONTAINER` or enter the running container with: `docker exec -it CONTAINER /bin/bash`. \
-Inside the container you can run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatheres, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
+Inside the container you can run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatherers, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
 
-- If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is a very active project and changes happen often. You should try:
+- If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is an active project and changes happen often. You should try:
 
   - Get the latest version of `rabbiteer.py`: (https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks/-/raw/main/utils/rabbiteer.py)
-  - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing and Updating)
+  - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing-and-Updating)
   - Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
-
 
 
 # To Do (if this PoV hits a nerve)
