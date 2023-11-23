@@ -2,40 +2,100 @@
 
 Makes Trento checks usable for support cases by using them on supportconfigs.
 
+[[_toc_]]
+
 ## Prerequisites
 
 You need `docker` and `docker-compose` installed to run containers.
-
-## Setup the project.
-
-Clone this repo on your system: `git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git`
 
 
 ## Setup Wanda
 
 We don't need a full-fledged Trento, just the Wanda component: https://github.com/trento-project/wanda/tree/main, which
-contains the Trento checks and the checks engine.
-
-Clone the repo with `git clone https://github.com/trento-project/wanda.git` and follow the instruction there to build and start the containers, which comes down to a `docker-compose -f docker-compose.checks.yaml up -d` executed in the project directory:
+contains the Trento checks and the checks engine. Setting it up, comes down to:
 
 ```
 git clone https://github.com/trento-project/wanda.git
 cd wanda
 docker-compose -f docker-compose.checks.yaml up -d
 ```
+> :exclamation: To be sure read the `README.md` of the Wanda project, if there are any changes to the procedure!
 
 Now Wanda should be ready and listen on port 4000/tcp! 
 
-Wanda can be accessed via the RestAPI. To explore the API and verify that Wanda is running, enter http://localhost:4000/swaggerui#/ in your browser.
+```
+> docker ps
+CONTAINER ID   IMAGE                                         COMMAND                  CREATED       STATUS             PORTS                                                                                                                                                 NAMES
+90f939b65da8   ghcr.io/trento-project/trento-wanda:rolling   "/bin/sh -c '/app/bi…"   3 weeks ago   Up 19 minutes      0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             wanda_wanda_1
+d4eeb7e2f222   rabbitmq:3.10.5-management-alpine             "docker-entrypoint.s…"   3 weeks ago   Up 19 minutes      4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   wanda_rabbitmq_1
+9bd4216f6d33   postgres:latest                               "docker-entrypoint.s…"   3 weeks ago   Up 19 minutes      0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             wanda_postgres_1
 
-> :bulb: To remove the containers call `docker-compose -f docker-compose.checks.yaml down` in the project directory. \
-> To start and stop the Wanda containers run `docker start wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` and `docker stop wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` respectively. \
-> To make them start automatically with `dockerd` execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` once.
+> sudo ss -nlp sport 4000
+Netid   State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port  Process                                    
+tcp     LISTEN   0        512              0.0.0.0:4000          0.0.0.0:*      users:(("docker-proxy",pid=16505,fd=4))   
+tcp     LISTEN   0        512                 [::]:4000             [::]:*      users:(("docker-proxy",pid=16513,fd=4))
 
-The GitHub repo only contains community checks. The premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. Put the files from `/priv/catalog` in `priv/catalog/` of the Wanda project directory. If you don't want to use them, comment them out in the `.valid_checks` file.
+> curl http://localhost:4000/api/readyz
+{"ready":true}
+```
+> :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1`.
 
-> :bulb: The directory `wanda/priv/catalog/` is mounted into the container. You can put your own checks there, if you know how to write them (https://www.trento-project.io/wanda/specification.html#introduction)!
+> To start and stop the Wanda containers run `docker start wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` and `docker stop wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` respectively.
 
+### Removing and Updating
+
+To remove the containers call `docker-compose -f docker-compose.checks.yaml down` in the project directory. 
+
+When updating, remove the containers and also delete the images, pull the git repo and call `docker-compose` again:
+
+```
+> docker-compose -f docker-compose.checks.yaml down
+Stopping wanda_wanda_1    ... done
+Stopping wanda_rabbitmq_1 ... done
+Stopping wanda_postgres_1 ... done
+Removing wanda_wanda_1    ... done
+Removing wanda_rabbitmq_1 ... done
+Removing wanda_postgres_1 ... done
+Removing network wanda_default
+
+> docker image rm ghcr.io/trento-project/trento-wanda:rolling postgres:latest rabbitmq:3.10.5-management-alpine
+...
+Deleted: sha256:43dcc2f3a056abd441bd4a46b75fe3bc37d83a0d48eabe5367b761d5c28cc668
+Deleted: sha256:24302eb7d9085da80f016e7e4ae55417e412fb7e0a8021e95e3b60c67cde557d
+
+> cd wanda
+> git pull
+...
+
+> docker-compose -f docker-compose.checks.yaml up -d
+Creating network "wanda_default" with the default driver
+Pulling rabbitmq (rabbitmq:3.10.5-management-alpine)...
+3.10.5-management-alpine: Pulling from library/rabbitmq
+...
+Creating wanda_postgres_1 ... done
+Creating wanda_rabbitmq_1 ... done
+Creating wanda_wanda_1    ... done
+```
+
+### Premium checks and custom checks
+
+Trento differs between community checks which are part of the GitHub repo and premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
+
+To add the premium checks, copy the files from `https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog` into `priv/catalog/` of the Wanda project directory.
+
+You can put your own checks in `priv/catalog/` as well, if you know how to write them (https://www.trento-project.io/wanda/specification.html#introduction).
+
+> :bulb: The directory `wanda/priv/catalog/` is mounted into the container. Any changes are immediately visible to Wanda. It is not necessary to restart or rebuild the container.
+
+
+## Setup this project.
+
+Leave the Wanda project directory, clone this repo and enter the project directory: 
+
+```
+git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
+cd trento_checks_for_supportconfig
+```
 
 ##  Build the supportconfig container image
 
@@ -56,10 +116,19 @@ That's it!
 
 # Inspect a supportconfig.
 
-You have to start one container per supportconfig. 
-Having multiple containers makes sense if you want inspect multiple supportconfigs in one step or if you have supportconfigs of a cluster. Some Trento checks (labeled as `multi`) compare settings of cluster nodes and therefore require all supportconfigs at the same time. 
+## Start Container for supportconfig
+You have to start one container per supportconfig. Having multiple containers makes sense, if 
+
+- you want inspect multiple supportconfigs in one step or 
+- if you have supportconfigs of a cluster. 
+
+Some Trento checks (labeled as `multi`) compare settings of cluster nodes and therefore require all supportconfigs of that cluster at the same time. 
+
+The syntax is: `./start_container SUPPORTCONFIG...`
 
 > :bulb: For each container you need one entry in `.container_def`. Currently two entries are prepared.
+
+> :exclamation: Always call `start_container` from the project directory. The subdirectory `sc/` gets mounted into the container.
 
 ```
 # ./start_container ~/Cases/00999999/scc_vmhana01_231011_1528.txz 
@@ -75,7 +144,13 @@ CONTAINER ID   IMAGE       COMMAND          CREATED          STATUS          POR
 ...
 ```
 
-If they are not there, then Wanda is not running or the `trento-agent` could not connect to Wanda for other reasons.
+If they are not there, then Wanda is not running or the `trento-agent` could not connect to Wanda for other reasons. \
+To debug you can start the container in the foreground with: `./start_container --fg SUPPORTCONFIG`
+
+To check the logs of a running container, run `docker log [-f] CONTAINER`, eg.  `docker logs tcsc_1`.
+
+
+## Run the Checks
 
 Now simply run the checks: `./run_checks PROVIDER CATEGORY|all TYPE:all [CHECK...]`
 
@@ -98,20 +173,14 @@ Now simply run the checks: `./run_checks PROVIDER CATEGORY|all TYPE:all [CHECK..
 - `CHECK`\
   You can further restrict the amount of executed checks by simply list them on the command line.
 
+> :exclamation: If you don't have added the premium checks when setting up Wanda, you have to comment them out in the `.valid_checks` file.
+
 Example:
 ```
 ./run_checks default all all
 ```
 
-If your done with the supportconfigs you can stop (all) containers with:
-
-```
-# ./stop_container 
-Container "tcsc_1" stopped.
-Container "tcsc_2" not running.
-```
-
-# Check Results
+## Check Results
 
 If everything is ok, then a check will pass:
 
@@ -186,6 +255,19 @@ Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocess
 
 > :bulb: All the information like descriptions, expectations, remediation, etc. comes directly from the check and is retrieved from Wanda without further processing.
 
+
+## Stop Container for supportconfig
+
+If you have done your work, just stop the containers by running:
+
+```
+> ./stop_container 
+Container "tcsc_1" stopped.
+Container "tcsc_2" not running.
+```
+
+This will stop **all** supportconfig containers listed in `.container_def`.
+
 # Tools from different repos
 
 Currently two tools are part of this repos, which are simply copied from other repos.
@@ -223,7 +305,7 @@ Currently two tools are part of this repos, which are simply copied from other r
   1. Deploy the Wanda containers again (`docker-compose -f docker-compose.checks.yaml up -d`).
   1. Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
 
-# To Do
+# To Do (if this PoV hits a nerve)
 
 - Updating the project with new checks. Trento is growing.
 - Enable existing checks which currently can not be used, because they run commands on active clusters.
