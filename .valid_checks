@@ -67,19 +67,13 @@ BA215C:multi:corosync     # corosync.conf files are identical                   
 82A031:multi:package      # pacemaker version identical on all nodes                                          [gatherer: package_version]
 BC9DF9:multi:package      # Python3 version identical on all nodes                                            [gatherer: package_version]
 DF8328:single:package     # corosync version identical on all nodes                                           [gatherer: package_version]
-33B87B:single:package     # supported supportutils-plugin-ha-sap version                                      [gatherer: package_version]    
-48EEDC:single:package     # supported sap_suse_cluster_connector version                                      [gatherer: package_version]
-801E6A:single:package     # supported sap_suse_cluster_connector version                                      [gatherer: package_version]
-C74B02:single:package     # supported resource-agents version                                                 [gatherer: package_version]
 6E0DEC:single:pacemaker   # concurrent fencing option is enabled                                              [gatherer: cibadmin]
 B3DA7E:single:pacemaker   # Cluster resource-stickiness and migration-threshold                               [gatherer: cibadmin]
 DE74B2:single:pacemaker   # Azure Fence agent configuration                                                   [gatherer: cibadmin]
-58002B:single:pacemaker   # order constraint present                                                          [gatherer: cibadmin]
+#58002B:single:pacemaker   # order constraint present                                                          [gatherer: cibadmin]
 
 # The following checks are disabled because the gatherer calls commands which will not work
 # without a running SAP system or cluster. See comments in Community Checks part.
 #
 # ABA3CA:multi:???       # SAP Host Agent is running                            [gatherer: saphostctrl]
 # 438525:multi:???       # Cluster hostnames resolution                         [gatherer: hosts,cibadmin]    
-
-

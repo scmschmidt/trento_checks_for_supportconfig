@@ -4,6 +4,7 @@ wanda/
 # Ignor vcode workspace file.
 *.code-workspace
 
-# Ignore scrap directory.
+# Ignore scrap and examples directory.
 scrap/
+examples/
 

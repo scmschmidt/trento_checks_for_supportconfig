@@ -117,7 +117,7 @@ sc_runner     latest    01d133a6ca5f   3 hours ago     842MB
 That's it!
 
 
-# Inspect a supportconfig.
+# Inspect a supportconfig
 
 ## Start Container for supportconfig
 You have to start one container per supportconfig. Having multiple containers makes sense, if 
@@ -184,6 +184,7 @@ Example:
 
 ## Check Results
 
+### `PASS`, `FAIL`, `WARN` and `SKIP`
 If everything is ok, then a check will pass:
 
 ```
@@ -223,7 +224,7 @@ A1244C - Corosync `consensus` timeout is set to expected value
 
 you not only get the expected and found value, but also an explanation how to fix the problem as well as references to the official documentation.
 
-> :exclamation: **If a check is not meant for a provider, it is currently not filtered out! This needs to be added in the future, so false negatives can occur!**
+> :exclamation: **If a check is not meant for a provider, it is currently not filtered out. This needs to be added in the future, so false negatives can occur. Make sure, you use the matching provider for the supportconfig!**
 
 Similar to a fail is a warning. If a check is reporting a warning, then the deviation is not critical, but the customer should act:
 
@@ -245,17 +246,79 @@ DA114A - Corosync has at least 2 rings configured
 
 ```
 
-If a check throws an error, this can have multiple reasons.
-
-```
-BA215C - corosync.conf files are identical across all nodes
-  [ERROR] rabbiteer: Error parsing response checking execution 3fc37483-28e3-4d19-9407-a50d74968761: 'error'
-Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
-```
-((TBD))
-
-
 > :bulb: All the information like descriptions, expectations, remediation, etc. comes directly from the check and is retrieved from Wanda without further processing.
+
+If you have specified a specific category or typem then you also will see skipped checks like this:
+
+```
+0B0F87 - Installed SAPHanaSR version is identical on all nodes
+  [SKIP]  Skipping check 0B0F87. Type "multi" instead of "single".
+```
+
+### `ERROR`
+
+If something is wrong with Wanda or the check, you get errors. Let's walk through some examples.
+
+- **The check does not exist.** 
+
+  ```
+  33B87B - 
+    [ERROR] rabbiteer: Error parsing response checking execution 5884cf8d-94c2-4cf6-907b-c48e85b499bf: 'error'
+  Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
+  ```
+  The name of the check is not displayed. It should be after the Id and the dash in the first line. \
+  This is an indicator, that the check is in `.valid_checks` but not present in `priv/catalog` of Wanda.
+  Reasons can be:
+    - You have forgotten to add the premium checks ([Premium Checks and Custom Checks](#Premium-Checks-and-Custom-Checks))
+    - You have updated your local Wanda and either the premium checks have been deleted or a check actually has been retracted.
+
+
+- **The check has a bug**
+
+  ```
+  DE74B2 - Azure Fence agent configuration parameters are correct
+    [ERROR] rabbiteer: Mandatory key "target_type" is not part of metadata of check DE74B2.
+  This is a bug in the check
+  ```
+  Most likely changes in the API or check format have been made, but the check itself has not been updated yet. This proof-of-value uses the development repos of Trento, so those things can happen.
+  
+
+- **Anything else...**
+
+  ```
+  BA215C - corosync.conf files are identical across all nodes
+    [ERROR] rabbiteer: Error parsing response checking execution 3fc37483-28e3-4d19-9407-a50d74968761: 'error'
+  Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
+  ```
+
+  The most probable cause is an incompatibility. Something in the check or the Wanda API has changed and the checks or tools (like `rabbiteer.py`) are not up to date yet. Trento is very active.
+
+
+
+
+
+
+
+multi checks don't work: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
+
+Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]} can mean:
+
+  - Check is not valid for the provider!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## Stop Container for supportconfig
