@@ -2,8 +2,6 @@
 
 Makes Trento checks usable for support cases by using them on supportconfigs.
 
-[[_toc_]]
-
 ## Prerequisites
 
 You need `docker` and `docker-compose` installed to run containers.
@@ -15,9 +13,11 @@ We don't need a full-fledged Trento, just the Wanda component: https://github.co
 contains the Trento checks and the checks engine. Setting it up, comes down to:
 
 ```
-git clone https://github.com/trento-project/wanda.git
-cd wanda
-docker-compose -f docker-compose.checks.yaml up -d
+> git clone https://github.com/trento-project/wanda.git
+...
+> cd wanda
+> docker-compose -f docker-compose.checks.yaml up -d
+...
 ```
 > :exclamation: To be sure read the `README.md` of the Wanda project, if there are any changes to the procedure!
 
@@ -44,9 +44,9 @@ tcp     LISTEN   0        512                 [::]:4000             [::]:*      
 
 ### Removing and Updating
 
-To remove the containers call `docker-compose -f docker-compose.checks.yaml down` in the project directory. 
+To remove the containers, call `docker-compose -f docker-compose.checks.yaml down` in the project directory. 
 
-When updating, remove the containers and also delete the images, pull the git repo and call `docker-compose` again:
+When updating, remove the containers and also delete the images and volumes, pull the git repo and call `docker-compose` again:
 
 ```
 > docker-compose -f docker-compose.checks.yaml down
@@ -63,6 +63,9 @@ Removing network wanda_default
 Deleted: sha256:43dcc2f3a056abd441bd4a46b75fe3bc37d83a0d48eabe5367b761d5c28cc668
 Deleted: sha256:24302eb7d9085da80f016e7e4ae55417e412fb7e0a8021e95e3b60c67cde557d
 
+> docker volume rm wanda_pg_data
+...
+
 > cd wanda
 > git pull
 ...
@@ -77,9 +80,9 @@ Creating wanda_rabbitmq_1 ... done
 Creating wanda_wanda_1    ... done
 ```
 
-### Premium checks and custom checks
+### Premium Checks and Custom Checks
 
-Trento differs between community checks which are part of the GitHub repo and premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
+Trento differentiates between community checks which are part of the GitHub repo and premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
 
 To add the premium checks, copy the files from `https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog` into `priv/catalog/` of the Wanda project directory.
 
@@ -144,10 +147,9 @@ CONTAINER ID   IMAGE       COMMAND          CREATED          STATUS          POR
 ...
 ```
 
-If they are not there, then Wanda is not running or the `trento-agent` could not connect to Wanda for other reasons. \
-To debug you can start the container in the foreground with: `./start_container --fg SUPPORTCONFIG`
+If they are not there, then Wanda is not running or the `trento-agent` could not connect to Wanda for other reasons. 
 
-To check the logs of a running container, run `docker log [-f] CONTAINER`, eg.  `docker logs tcsc_1`.
+See section [Troubleshooting](#Troubleshooting) below, if the container terminates immediately or does not work as expected.
 
 
 ## Run the Checks
@@ -268,45 +270,53 @@ Container "tcsc_2" not running.
 
 This will stop **all** supportconfig containers listed in `.container_def`.
 
-# Tools from different repos
+# Some Technical Background
 
-Currently two tools are part of this repos, which are simply copied from other repos.
-- `rabbiteer.py` \
-  This repo contains a version of `rabbiter.py` from https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks and is located in `utils/`. \
-  In case of problems with newer Wanda versions, try a more recent version if its available.
+The image `sc_runner` for the supportconfig container is built from `Dockerfile`. It fetches an OpenLeap 15.4 image, adds the development repo for trento, install needed packages and added the `split-supportconfig` script from https://github.com/SUSE/supportconfig-utils.
 
-- `split-supportconfig` \
-  To split a supportconfig text file into real files `(bin/split-supportconfig` of the https://github.com/SUSE/supportconfig-utils/tree/master is used.
+If a container gets started from that image by `./start_container` the subdirectory `sc/` as well as the given supportconfig archive is mounted into the container. \
+The directory `sc/` contains:
+
+- `agent-config.yaml` \
+  Configuration file for the `trento-agent`.
+- `cibadmin` \
+  Command replacement for `cibadmin`, which only supports the options `--query --local` and then simply prints the content of `/var/lib/pacemaker/cib/cib.xml`.
+- `sbd` \
+  Command replacement for `sbd`, which only supports dumping the header (`-d ... dump`). It prints the dumps created by `startup` form `ha.txt` of the supportconfig.
+- `startup` \
+  Startup script executed when the container is started. It:
+    - sets `/etc/machine-id`,
+    - extracts and splits the supportconfig into files (https://github.com/SUSE/supportconfig-utils/blob/master/bin/split-supportconfig),
+    - copies relevant extracted files into the rootfs,
+    - copies the command replacements from `sc/` into the roots,
+    - creates sbd header dumps from `ha.txt`,
+    - creates and installs empty dummy RPM packages with the version info from `rpm.txt` for selected packages
+    - and finally starts the `trento-agent`.
+
+For each container an entry must be present in `.container_def`. The file contains comments explaining the details.
+
+The primary configuration file for `run_checks` is `.valid_checks`. See the comments for details. Important is, that a check must be listed there to be available for `run_check`.
 
 
 # Troubleshooting
 
-- If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers do run and are fine.
+- If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers are running and are fine. \
+You also can start the container in the foreground with `./start_container --fg SUPPORTCONFIG` to see the logs.
 
-- If a supportconfig container starts, but the checks don't work, enter the container and take a look at the logs:
+- If a supportconfig container starts, but the checks don't work, you can watch the logs with `docker log [-f] CONTAINER` or enter the running container with: `docker exec -it CONTAINER /bin/bash`. \
+Inside the container you can run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatheres, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
 
-  ```
-  # docker exec -it tcsc_1 /bin/bash
-  627061cabfc8:/ # cat /var/log/startup.log 
-  /scc_vmhana01_231011_1528/etc.txt
-      splitting to etc/iscsid.conf
-      splitting to etc/yp.conf
-      ...
+- If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is a very active project and changes happen often. You should try:
 
-  627061cabfc8:/ # cat /var/log/trento-agent
-  time="2023-10-13 15:08:19" level=info msg="Using config file: /sc/agent-config.yaml"
-  time="2023-10-13 15:08:19" level=info msg="Starting the Console Agent..."
-  ...
-  ```
+  - Get the latest version of `rabbiteer.py`: (https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks/-/raw/main/utils/rabbiteer.py)
+  - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing and Updating)
+  - Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
 
-- If all checks return the same error message or time out and the supportconfig container is there, then most certainly something has changed in Wanda or the agent. Trento is a very active project and changes happen often. One thing you should try:
-  1. Get the latest version of `rabbiteer.py`.
-  1. Stop all Wanda containers and delete images **and** volumes!
-  1. Deploy the Wanda containers again (`docker-compose -f docker-compose.checks.yaml up -d`).
-  1. Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
+
 
 # To Do (if this PoV hits a nerve)
 
 - Updating the project with new checks. Trento is growing.
 - Enable existing checks which currently can not be used, because they run commands on active clusters.
 - Make the project more user-friendly.
+- ...

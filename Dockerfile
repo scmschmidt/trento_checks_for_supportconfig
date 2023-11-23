@@ -1,5 +1,4 @@
-#FROM registry.suse.com/bci/bci-base:latest
-FROM opensuse/leap:latest
+FROM opensuse/leap:15.4
 
 # Add Trento development repo
 RUN zypper ar -G https://download.opensuse.org/repositories/devel:/sap:/trento:/factory/15.4/ trento-devel

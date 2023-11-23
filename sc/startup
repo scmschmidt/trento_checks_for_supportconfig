@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Set machine id.
 echo "${MACHINE_ID}" > /etc/machine-id
 

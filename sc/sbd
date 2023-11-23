@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Currently we only support '--query --local'.
+# Currently we only support '-d * dump'.
 case "${@}" in 
     -d\ *\ dump)
         device=$(sed 's/^-d *// ; s/ *dump.*$//' <<< "${@}")
