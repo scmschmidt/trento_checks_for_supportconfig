@@ -77,3 +77,6 @@ DE74B2:single:pacemaker   # Azure Fence agent configuration                     
 #
 # ABA3CA:multi:???       # SAP Host Agent is running                            [gatherer: saphostctrl]
 # 438525:multi:???       # Cluster hostnames resolution                         [gatherer: hosts,cibadmin]    
+  
+                              
+              

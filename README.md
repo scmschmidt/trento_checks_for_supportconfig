@@ -19,7 +19,7 @@ contains the Trento checks and the checks engine. Setting it up, comes down to:
 > docker-compose -f docker-compose.checks.yaml up -d
 ...
 ```
-> :exclamation: To be sure read the `README.md` of the Wanda project, if there are any changes to the procedure!
+> :exclamation: To be sure, that this procedure is still valid, read the `README.md` of the Wanda project.
 
 Now Wanda should be ready and listen on port 4000/tcp! 
 
@@ -82,7 +82,7 @@ Creating wanda_wanda_1    ... done
 
 ### Premium Checks and Custom Checks
 
-Trento differentiates between community checks which are part of the GitHub repo and premium checks are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
+Trento differentiates between community checks which are part of the GitHub repo and premium checks, which are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
 
 To add the premium checks, copy the files from `https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog` into `priv/catalog/` of the Wanda project directory.
 
