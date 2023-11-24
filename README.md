@@ -248,7 +248,7 @@ DA114A - Corosync has at least 2 rings configured
 
 > :bulb: All the information like descriptions, expectations, remediation, etc. comes directly from the check and is retrieved from Wanda without further processing.
 
-If you have specified a specific category or typem then you also will see skipped checks like this:
+If you a check does not match a given category or type, then you will get skipped checks:
 
 ```
 0B0F87 - Installed SAPHanaSR version is identical on all nodes
@@ -283,6 +283,18 @@ If something is wrong with Wanda or the check, you get errors. Let's walk throug
   Most likely changes in the API or check format have been made, but the check itself has not been updated yet. This proof-of-value uses the development repos of Trento, so those things can happen.
   
 
+- **Wrong provider**
+
+  ```
+  C3166E - SBD version is not the recommended value
+    [ERROR] rabbiteer: Error parsing response checking execution e6f0668f-db9f-4b4a-bbb2-3d4d44c8265d: 'error'
+  Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
+  ```
+
+  If you get an `"Unprocessable Entity"` error, you should first check, if the given provider matches the host.
+  Some checks (like the SBD one in this example) are only valid on for certain providers (e.g. AWS) and do not work on others. Trento's discovery prevents the executions of those checks. This is not (yet) implemented here.
+
+
 - **Anything else...**
 
   ```
@@ -291,34 +303,8 @@ If something is wrong with Wanda or the check, you get errors. Let's walk throug
   Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
   ```
 
-  The most probable cause is an incompatibility. Something in the check or the Wanda API has changed and the checks or tools (like `rabbiteer.py`) are not up to date yet. Trento is very active.
-
-
-
-
-
-
-
-multi checks don't work: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]}
-
-Response was: {"errors":[{"detail":"No checks were selected.","title":"Unprocessable Entity"}]} can mean:
-
-  - Check is not valid for the provider!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  Wanda is not very chatty in regards of error messages. If you get an `"Unprocessable Entity"` error and the cause is not a wrong provider, then the most probable cause is an incompatibility. Something in the check or the Wanda API has changed and the checks or tools (like `rabbiteer.py`) are not up to date yet. Trento is very active.
+  Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue. 
 
 
 ## Stop Container for supportconfig

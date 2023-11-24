@@ -179,7 +179,7 @@ while read line ; do
     line="${line%% *}"  
     IFS=: read -r check_id check_type check_category <<< "${line}"
 
-    # Check if check is in requested checks (a lot of checks in thsis sentence...).
+    # Check if check is in requested checks (a lot of checks in this sentence...).
     if [ -n "${requested_checks}" ] ; then 
         [[ ${requested_checks[@]} =~ ${check_id} ]] || continue 
     fi 
@@ -190,6 +190,11 @@ while read line ; do
     if [ "${type}" != 'all' ] ; then 
         if [ "${type}" != "${check_type}" ] ; then
             print_skip "Skipping check ${check_id}. Type \"${check_type}\" instead of \"${type}\"."
+            continue
+        fi
+    else
+        if [ "${check_type}" == 'multi' -a ${#containers[*]} -eq 1 ] ; then
+            print_skip "Skipping check ${check_id}. Type \"${check_type}\", but only one container exists."
             continue
         fi
     fi
