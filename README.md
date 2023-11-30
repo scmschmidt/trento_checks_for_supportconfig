@@ -1,6 +1,6 @@
 # trento_checks_for_supportconfig
 
-Makes Trento checks usable for support cases by using them on supportconfigs.
+Makes Trento checks usable for support cases by using them on supportconfigs. Also `jq` is needed by the scripts to parse JSON.
 
 ## Prerequisites
 
