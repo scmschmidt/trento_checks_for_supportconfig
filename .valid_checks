@@ -57,7 +57,7 @@ B089BE:single:sbd        # SBD watchdog timeout (SBD)                           
 # Premium Checks (part of https://gitlab.suse.de/trento-project/wanda-premium-checks)
 # -----------------------------------------------------------------------------------
 #
-# Premium checks wich need to be downloaded from the GitLab repo and need to put into
+# Premium checks which need to be downloaded from the GitLab repo and need to put into
 # the directory wanda/priv/catalog/ of the cloned Wanda project, which is mounted into the
 # Wanda container.
 BA215C:multi:corosync     # corosync.conf files are identical                                                 [gatherer: corosync.conf]

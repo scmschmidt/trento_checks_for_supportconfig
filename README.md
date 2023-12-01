@@ -361,6 +361,35 @@ Inside the container you can run `trento-agent facts gather --gatherer GATHERER`
   - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing-and-Updating)
   - Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
 
+# What is Missing To Get All Checks Running
+
+This chapter contains an evaluation for the gatherers which are not currently working.
+
+## Checks with the `corosync-cmapctl` gatherer
+**Chances: :thumbsdown:**
+
+The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non- persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
+
+## Checks with the `verify_passwd` gatherer
+**Chances: :thumbsdown:**
+
+The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer will not work.
+
+## Checks with the `systemd` gatherer
+**Chances: :thumbsup:**
+
+The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and either the real `systemd` answering the questions of the gatherer or a fake version is providing answers coming from the supportconfig.
+
+
+## Checks with the `hosts` gatherer
+**Chances: :thumbsup:**
+
+Reads `/etc/hosts` which is provided by the supportconfig. Should work.
+
+## Checks with the `saphostctrl` gatherer
+**Chances: :thumbsdown:**
+
+Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
 
 # To Do (if this PoV hits a nerve)
 
