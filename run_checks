@@ -129,7 +129,7 @@ report() {
 
 # Check arguments.
 if [ ${#} -lt 3 ] ; then
-    echo "Usage: ${0} PROVIDER CATEGORY|all TYPE:all [CHECK...]" >&2
+    echo "Usage: ${0} PROVIDER CATEGORY|all TYPE|all [CHECK...]" >&2
     exit 1
 fi 
 provider=${1}

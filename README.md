@@ -40,7 +40,7 @@ tcp     LISTEN   0        512                 [::]:4000             [::]:*      
 ```
 > :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1`.
 
-> To start and stop the Wanda containers run `docker start wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` and `docker stop wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1` respectively.
+To start and stop the Wanda containers you can use the provided scripts `start_wanda` and `stop_wanda`
 
 ### Removing and Updating
 
@@ -361,12 +361,14 @@ Inside the container you can run `trento-agent facts gather --gatherer GATHERER`
   - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing-and-Updating)
   - Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
 
-# What is Missing To Get All Checks Running
+# Which Gatherer Will Work?
 
-This chapter contains an evaluation for the gatherers which are not currently (December 2023) working.
+For a check to work, the called gatherer must work with the confinements of the container. basically we have to hurdles:
 
+1. The data must part of the supportconfig or the project must be extended to consume more input data.
+2. The gatherer must retrieve the data in the ways the programmer has intended it. 
 
-
+This chapter contains an evaluation for the gatherers (December 2023).
 
 ## `cibadmin`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/cibadmin.go \
@@ -515,9 +517,6 @@ https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers
 **Chances: :frowning_face:**
 
 The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer will not work.
-
-
-
 
 # To Do (if this PoV hits a nerve)
 

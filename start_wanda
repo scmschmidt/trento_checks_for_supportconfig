@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+
+
+fails=0
+
+# Walk trough wanda containers.
+for name in wanda_postgres_1 wanda_rabbitmq_1 wanda_wanda_1 ; do 
+
+   # Check if container is already running.
+    if [ -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then
+        if docker start "${name}" > /dev/null ; then 
+            echo "Container \"${name}\" started."
+        else
+            echo "Starting container \"${name}\" failed!" >&2
+            (( fails++ ))
+        fi
+    else
+        echo "Container \"${name}\" already running."
+    fi    
+
+done
+
+# Terminate with appropriate exit code.
+if [ ${fails} -eq 0 ] ; then
+    exit 0
+else
+    exit 1
+fi
