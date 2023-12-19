@@ -1,0 +1,56 @@
+#!/bin/bash
+
+current_checks=$(egrep '^[0-9A-F]{6}:' .valid_checks | cut -d : -f 1)
+disabled_checks=$(egrep '^#[[:space:]]*[0-9A-F]{6}:' .valid_checks | cut -d : -f 1 | tr -d '# ')
+community_checks=$(curl -s -H "Accept: application/json" https://api.github.com/repos/trento-project/wanda/contents/priv/catalog | jq -r '.[].name')
+premium_checks='
+0B0F87.yaml
+31BDCB.yaml
+438525.yaml
+53D33E.yaml
+6E0DEC.yaml
+82A031.yaml
+ABA3CA.yaml
+B3DA7E.yaml
+BA215C.yaml
+BC9DF9.yaml
+DE74B2.yaml
+DF8328.yaml'
+
+good=0
+bad=0
+
+# Check if Trento checks are covered by the project.
+for check_file in ${community_checks} ${premium_checks}; do
+    check="${check_file%*.yaml}"
+
+    echo -n "${check}: "
+    if grep -q "^${check}$" <<< "${current_checks}" ; then 
+        echo "YES"
+        (( good++ ))
+    else
+        if grep -q "^${check}$" <<< "${disabled_checks}" ; then 
+            echo "DISABLED"
+        else
+            echo "NO"
+        fi
+        (( bad++ ))
+    fi
+done
+echo -e "\n${good} of $(( good + bad )) checks are covered.\n"
+
+# Check if implemented checks are not part of Wanda (anymore).
+for check in ${current_checks} ; do
+    if ! grep -q "^${check}.yaml$" <<< "${community_checks} ${premium_checks}" ; then 
+        echo "${check} is enabled, but not part of the Trento checks! Recalled?"
+    fi
+done
+for check in ${disabled_checks} ; do
+    if ! grep -q "^${check}.yaml$" <<< "${community_checks} ${premium_checks}" ; then 
+        echo "${check} is disabled, but not part of the Trento checks! Recalled?"
+    fi
+done
+
+echo -e "\nPremium checks are hardcoded in the script!\nVerify and adapt from time to time by checking https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog."
+
+exit 0
