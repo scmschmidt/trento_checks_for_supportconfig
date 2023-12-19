@@ -363,33 +363,161 @@ Inside the container you can run `trento-agent facts gather --gatherer GATHERER`
 
 # What is Missing To Get All Checks Running
 
-This chapter contains an evaluation for the gatherers which are not currently working.
+This chapter contains an evaluation for the gatherers which are not currently (December 2023) working.
 
-## Checks with the `corosync-cmapctl` gatherer
-**Chances: :thumbsdown:**
+
+
+
+## `cibadmin`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/cibadmin.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing a script as `cibadmin` command, which returns `/var/lib/pacemaker/cib/cib.xml` (`ha.txt`) when called with `--query --local`
+
+## `corosync.conf`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosyncconf.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing `/etc/corosync./corosync.conf` (`ha.txt`) in the container rootfs.
+
+## `corosync-cmapctl`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosynccmapctl.go \
+**Chances: :frowning_face:**
 
 The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non- persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
 
-## Checks with the `verify_passwd` gatherer
-**Chances: :thumbsdown:**
+## `dir_scan`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dir_scan.go \
+**Chances: :neutral_face:**
+
+The gatherer scans directories with a glob pattern provided as argument and returns a list of files matched by the pattern with group/user information associated to each file. Only such checks would work, which address directories/files provided by the supportconfig. **It depends therefore on the check if it will work or not.**
+
+## `disp+work`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dispwork.go \
+**Chances: :frowning_face:**
+
+With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks will not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same as the original `disp+work`.
+
+## `fstab`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/fstab.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing `/etc/fstab` (`fs-diskio.txt`) in the container rootfs.
+
+## `groups`
+https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
+**Chances: :frowning_face:**
+
+With `/etc/groups` not part of the supportconfig, checks using this gatherer won't work.
+
+## `host`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/hostsfile.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing `/etc/hosts` (`env.txt`) in the container rootfs.
+
+## `mount_info` 
+https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
+**Chances: :frowning_face:**
+
+The gatherer will most probably not work. It relies on https://github.com/moby/sys/tree/main/mountinfo to get the mount information. It has to be checked how the project is doing it, but if it accesses `/proc` it can become difficult to provide the supportconfig data. 
+
+Also `blkid DEVICE -o export` will be called by the gatherer. The original command must be replaced by a script presenting the output of `blkid` (`fs-diskio.txt`) in the way the gatherer expects it.
+
+## `os-release`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/osrelease.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing `/etc/os-release` (`basic-environment.txt`) in the container rootfs.
+
+## `package_version`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/packageversion.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing an empty on-the-fly created RPM package from `rpm.txt`.
+
+## `passwd`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/passwd.go \
+**Chances: :frowning_face:**
+
+With `/etc/passwd` not part of the supportconfig, checks using this gatherer won't work.
+
+## `products`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/products.go \
+**Chances: :frowning_face:**
+
+With only the file list of `/etc/products.d/` but not the content of those files part of the supportconfig, checks using this gatherer won't work.
+
+## `sapcontrol`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapcontrol.go \
+**Chances: :frowning_face:**
+
+This is a complex gatherer and from reading the description it uses a unix socket connection with `/tmp/.sapstream5xx13`.
+Besides the fact, that those data is not part of the supprotconifg, this approach would require to write a programm that present the data via a socket to the gatherer.
+
+## `saphostctrl`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saphostctrl.go \
+**Chances: :frowning_face:**
+
+Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
+
+
+## `sap_profiles`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
+**Chances: :frowning_face:**
+
+Returns content of `/sapmnt/<SID>/profile` which is not part of the supportconfig.
+
+## `sapinstance_hostname_resolver`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapinstancehostnameresolver.go \
+**Chances: :frowning_face:**
+
+Th gatherer needs to be investigated further, but the required data is not part of the supportconfig.
+
+## `sapservices`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
+**Chances: :frowning_face:**
+
+Presents `/usr/sap/sapservices` which is not part of the supportconfig.
+
+## `saptune`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
+**Chances: :slightly_smiling_face:**
+
+Calls `saptune` command with limited set of commands. It should be possible to provide a script which returns the information extracted from files of `plugin-saptune.txt`.
+
+## `sbd_config`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
+**Chances: :slightly_smiling_face:**
+
+Works by providing `/etc/sysconfig/sbd` (`ha.txt`) in the container rootfs.
+
+## `sbd_dump`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbddump.go \
+**Chances: :slightly_smiling_face:**
+
+Works by having a `sbd` script which returns the expected output from `sbd -d <device> dump` by processing the sbd dumps of `ha.txt`.
+
+## `sysctl`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sysctl.go \
+**Chances: :slightly_smiling_face:**
+
+The gatherer executes `sysctl -a` which is part of the supportconfig. Just a script named `sysctl` is needed which returns that part of `env.txt`.
+
+## `systemd`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/systemd_v2.go \
+**Chances: :neutral_face:**
+
+The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and a fake `systemd` answering the questions of the gatherer from the supportconfig.
+
+## `verify_passwd`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/verifypassword.go \
+**Chances: :frowning_face:**
 
 The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer will not work.
 
-## Checks with the `systemd` gatherer
-**Chances: :thumbsup:**
-
-The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and either the real `systemd` answering the questions of the gatherer or a fake version is providing answers coming from the supportconfig.
 
 
-## Checks with the `hosts` gatherer
-**Chances: :thumbsup:**
-
-Reads `/etc/hosts` which is provided by the supportconfig. Should work.
-
-## Checks with the `saphostctrl` gatherer
-**Chances: :thumbsdown:**
-
-Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
 
 # To Do (if this PoV hits a nerve)
 
