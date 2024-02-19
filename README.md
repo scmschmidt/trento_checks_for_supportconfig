@@ -26,9 +26,10 @@ Now Wanda should be ready and listen on port 4000/tcp!
 ```
 > docker ps
 CONTAINER ID   IMAGE                                         COMMAND                  CREATED       STATUS             PORTS                                                                                                                                                 NAMES
-90f939b65da8   ghcr.io/trento-project/trento-wanda:rolling   "/bin/sh -c '/app/bi…"   3 weeks ago   Up 19 minutes      0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             wanda_wanda_1
-d4eeb7e2f222   rabbitmq:3.10.5-management-alpine             "docker-entrypoint.s…"   3 weeks ago   Up 19 minutes      4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   wanda_rabbitmq_1
-9bd4216f6d33   postgres:latest                               "docker-entrypoint.s…"   3 weeks ago   Up 19 minutes      0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             wanda_postgres_1
+1ea1fbdb1e78   ghcr.io/trento-project/trento-wanda:rolling   "/bin/sh -c '/app/bi…"   3 weeks ago     Up 15 minutes   0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             wanda-wanda-1
+3575af9d60c7   rabbitmq:3.10.5-management-alpine             "docker-entrypoint.s…"   3 weeks ago     Up 15 minutes   4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   wanda-rabbitmq-1
+a6f652bee18f   postgres:latest                               "docker-entrypoint.s…"   3 weeks ago     Up 15 minutes   0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             wanda-postgres-1
+
 
 > sudo ss -nlp sport 4000
 Netid   State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port  Process                                    
@@ -82,7 +83,7 @@ Creating wanda_wanda_1    ... done
 
 ### Premium Checks and Custom Checks
 
-Trento differentiates between community checks which are part of the GitHub repo and premium checks, which are located in https://gitlab.suse.de/trento-project/wanda-premium-checks. 
+Trento differentiates between community checks which are part of the GitHub repo and premium checks, which are located in https://gitlab.suse.de/trento-project/wanda-premium-checks (Access to SUSE Engineering VPN required!). 
 
 To add the premium checks, copy the files from `https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog` into `priv/catalog/` of the Wanda project directory.
 
@@ -353,7 +354,7 @@ The primary configuration file for `run_checks` is `.valid_checks`. See the comm
 You also can start the container in the foreground with `./start_container --fg SUPPORTCONFIG` to see the logs.
 
 - If a supportconfig container starts, but the checks don't work, you can watch the logs with `docker log [-f] CONTAINER` or enter the running container with: `docker exec -it CONTAINER /bin/bash`. \
-Inside the container you can run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatherers, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
+Inside the container run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatherers, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
 
 - If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is an active project and changes happen often. You should try:
 
@@ -363,7 +364,7 @@ Inside the container you can run `trento-agent facts gather --gatherer GATHERER`
 
 # Which Gatherer Will Work?
 
-For a check to work, the called gatherer must work with the confinements of the container. basically we have to hurdles:
+For a check to work, the called gatherer must work with the confinements of the container. basically we have two hurdles:
 
 1. The data must part of the supportconfig or the project must be extended to consume more input data.
 2. The gatherer must retrieve the data in the ways the programmer has intended it. 
@@ -386,7 +387,7 @@ Works by providing `/etc/corosync./corosync.conf` (`ha.txt`) in the container ro
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosynccmapctl.go \
 **Chances: :frowning_face:**
 
-The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non- persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
+The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non-persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
 
 ## `dir_scan`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dir_scan.go \
@@ -398,7 +399,7 @@ The gatherer scans directories with a glob pattern provided as argument and retu
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dispwork.go \
 **Chances: :frowning_face:**
 
-With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks will not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same as the original `disp+work`.
+With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks will not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same way as the original `disp+work`.
 
 ## `fstab`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/fstab.go \
@@ -455,14 +456,13 @@ https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers
 **Chances: :frowning_face:**
 
 This is a complex gatherer and from reading the description it uses a unix socket connection with `/tmp/.sapstream5xx13`.
-Besides the fact, that those data is not part of the supprotconifg, this approach would require to write a programm that present the data via a socket to the gatherer.
+Besides the fact, that those data is not part of the supportconfig, this approach would require to write a program that present the data via a socket to the gatherer.
 
 ## `saphostctrl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saphostctrl.go \
 **Chances: :frowning_face:**
 
 Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
-
 
 ## `sap_profiles`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
