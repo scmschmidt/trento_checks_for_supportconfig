@@ -46,9 +46,9 @@ while read def ; do
     if [ -z $(docker ps -f "name=${name}" --format '{{.Names}}') ] ; then
         if [ ${foreground} -eq 1 ] ; then
             echo "Starting container \"${name}\" for supportconfig \"${supportconfig}\" in the foreground:"
-            docker run --name="${name}" --rm -e "MACHINE_ID=${id}" -e "SUPPORTCONFIG=${supportconfig_container}" -v ./sc:/sc -v "${supportconfig}:${supportconfig_container}" --network=wanda_default -t sc_runner /sc/startup
+            docker run --name="${name}" --rm -e "MACHINE_ID=${id}" -e "SUPPORTCONFIG=${supportconfig_container}" -v ./sc:/sc -v "${supportconfig}:${supportconfig_container}" --network=trento_checks_for_supportconfig_default -t sc_runner /sc/startup
         else 
-            if docker run -d -i --name="${name}" --rm -e "MACHINE_ID=${id}" -e "SUPPORTCONFIG=${supportconfig_container}" -v ./sc:/sc -v "${supportconfig}:${supportconfig_container}" --network=wanda_default -t sc_runner /sc/startup > /dev/null ; then
+            if docker run -d -i --name="${name}" --rm -e "MACHINE_ID=${id}" -e "SUPPORTCONFIG=${supportconfig_container}" -v ./sc:/sc -v "${supportconfig}:${supportconfig_container}" --network=trento_checks_for_supportconfig_default -t sc_runner /sc/startup > /dev/null ; then
                 echo "Container \"${name}\" started for supportconfig \"${supportconfig}\"."
             else
                 echo "Starting container \"${name}\" for supportconfig \"${supportconfig}\" failed!" >&2

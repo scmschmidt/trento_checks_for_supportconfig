@@ -1,0 +1,50 @@
+# This is an **adpated** version of https://github.com/trento-project/wanda/blob/main/docker-compose.checks.yaml
+
+version: "3.7"
+
+services:
+
+  wanda:
+    #image: ghcr.io/trento-project/trento-wanda:rolling
+    image: registry.suse.com/trento/trento-wanda:latest
+    container_name: trento-wanda
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@postgres/postgres
+      SECRET_KEY_BASE: dummyS3cr3t
+      AMQP_URL: amqp://wanda:wanda@rabbitmq
+      CORS_ENABLED: "false"
+      CATALOG_PATH: /app/catalog
+      JWT_AUTHENTICATION_ENABLED: "false"
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - 4000:4000
+    entrypoint: /bin/sh -c "ln -s $(find /app/lib/wanda-* -name catalog) catalog ; /app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
+    # volumes:
+    #   - ./priv/catalog/:/app/catalog:rw
+
+  rabbitmq:
+    image: rabbitmq:3.10.5-management-alpine
+    container_name: trento-rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: wanda
+      RABBITMQ_DEFAULT_PASS: wanda
+
+  postgres:
+    image: postgres:latest
+    container_name: trento-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - 5434:5432
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:

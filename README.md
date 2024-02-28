@@ -7,28 +7,32 @@ Makes Trento checks usable for support cases by using them on supportconfigs. Al
 You need `docker` and `docker-compose` installed to run containers.
 
 
-## Setup Wanda
+## Setup
 
-We don't need a full-fledged Trento, just the Wanda component: https://github.com/trento-project/wanda/tree/main, which
-contains the Trento checks and the checks engine. Setting it up, comes down to:
+Clone this repo and enter the project directory: 
 
 ```
-> git clone https://github.com/trento-project/wanda.git
-...
-> cd wanda
-> docker-compose -f docker-compose.checks.yaml up -d
-...
+git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
+cd trento_checks_for_supportconfig
 ```
-> :exclamation: To be sure, that this procedure is still valid, read the `README.md` of the Wanda project.
+
+
+### Setup Wanda
+
+We do not need a full-fledged Trento, just the Wanda component. Setting it up, comes down to:
+
+```
+docker-compose -f docker-compose-wanda.yaml up -d
+```
 
 Now Wanda should be ready and listen on port 4000/tcp! 
 
 ```
 > docker ps
-CONTAINER ID   IMAGE                                         COMMAND                  CREATED       STATUS             PORTS                                                                                                                                                 NAMES
-1ea1fbdb1e78   ghcr.io/trento-project/trento-wanda:rolling   "/bin/sh -c '/app/bi…"   3 weeks ago     Up 15 minutes   0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             wanda-wanda-1
-3575af9d60c7   rabbitmq:3.10.5-management-alpine             "docker-entrypoint.s…"   3 weeks ago     Up 15 minutes   4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   wanda-rabbitmq-1
-a6f652bee18f   postgres:latest                               "docker-entrypoint.s…"   3 weeks ago     Up 15 minutes   0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             wanda-postgres-1
+CONTAINER ID   IMAGE                                          COMMAND                  CREATED         STATUS         PORTS                                                                                                                                                 NAMES
+b8b7a67fbd8b   registry.suse.com/trento/trento-wanda:latest   "/bin/sh -c '/app/bi…"   8 seconds ago   Up 7 seconds   0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             trento-wanda
+26a2aeb7d070   rabbitmq:3.10.5-management-alpine              "docker-entrypoint.s…"   8 seconds ago   Up 7 seconds   4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   trento-rabbitmq
+6ac5565f181e   postgres:latest                                "docker-entrypoint.s…"   8 seconds ago   Up 7 seconds   0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             trento-postgres
 
 
 > sudo ss -nlp sport 4000
@@ -39,69 +43,46 @@ tcp     LISTEN   0        512                 [::]:4000             [::]:*      
 > curl http://localhost:4000/api/readyz
 {"ready":true}
 ```
-> :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always wanda_wanda_1 wanda_postgres_1 wanda_rabbitmq_1`.
 
-To start and stop the Wanda containers you can use the provided scripts `start_wanda` and `stop_wanda`
-
-### Removing and Updating
-
-To remove the containers, call `docker-compose -f docker-compose.checks.yaml down` in the project directory. 
-
-When updating, remove the containers and also delete the images and volumes, pull the git repo and call `docker-compose` again:
+Also Wanda should display you the available Trento checks:
 
 ```
-> docker-compose -f docker-compose.checks.yaml down
-Stopping wanda_wanda_1    ... done
-Stopping wanda_rabbitmq_1 ... done
-Stopping wanda_postgres_1 ... done
-Removing wanda_wanda_1    ... done
-Removing wanda_rabbitmq_1 ... done
-Removing wanda_postgres_1 ... done
-Removing network wanda_default
-
-> docker image rm ghcr.io/trento-project/trento-wanda:rolling postgres:latest rabbitmq:3.10.5-management-alpine
+./list_checks 
+00081D - community - Corosync is running with max_messages set to the recommended value 
 ...
-Deleted: sha256:43dcc2f3a056abd441bd4a46b75fe3bc37d83a0d48eabe5367b761d5c28cc668
-Deleted: sha256:24302eb7d9085da80f016e7e4ae55417e412fb7e0a8021e95e3b60c67cde557d
+F50AF5 - community - Python3 version is supported 
+FB0E0D - community - Corosync is running with consensus timeout set to the recommended value 
 
-> docker volume rm wanda_pg_data
-...
-
-> cd wanda
-> git pull
-...
-
-> docker-compose -f docker-compose.checks.yaml up -d
-Creating network "wanda_default" with the default driver
-Pulling rabbitmq (rabbitmq:3.10.5-management-alpine)...
-3.10.5-management-alpine: Pulling from library/rabbitmq
-...
-Creating wanda_postgres_1 ... done
-Creating wanda_rabbitmq_1 ... done
-Creating wanda_wanda_1    ... done
+46 checks available.
 ```
 
-### Premium Checks and Custom Checks
-
-Trento differentiates between community checks which are part of the GitHub repo and premium checks, which are located in https://gitlab.suse.de/trento-project/wanda-premium-checks (Access to SUSE Engineering VPN required!). 
-
-To add the premium checks, copy the files from `https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog` into `priv/catalog/` of the Wanda project directory.
-
-You can put your own checks in `priv/catalog/` as well, if you know how to write them (https://www.trento-project.io/wanda/specification.html#introduction).
-
-> :bulb: The directory `wanda/priv/catalog/` is mounted into the container. Any changes are immediately visible to Wanda. It is not necessary to restart or rebuild the container.
 
 
-## Setup this project.
+> :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always trento-wanda trento-rabbitmq trento-postgres`.
 
-Leave the Wanda project directory, clone this repo and enter the project directory: 
+
+#### Removing and Updating
+
+When updating Wanda, remove the containers and also delete the images and volumes before you repeat the setup step again.
+
+To remove the containers, call from the project directory:
 
 ```
-git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
-cd trento_checks_for_supportconfig
+docker-compose -f docker-compose-wanda.yaml down
 ```
 
-##  Build the supportconfig container image
+To remove the images, call: 
+
+```
+docker image rm registry.suse.com/trento/trento-wanda:latest postgres:latest rabbitmq:3.10.5-management-alpine
+```
+
+To remove the volumes, call:
+```
+docker volume rm trento_checks_for_supportconfig_pg_data
+```
+
+### Build the supportconfig container image
 
 Run:
  ```
@@ -117,10 +98,18 @@ sc_runner     latest    01d133a6ca5f   3 hours ago     842MB
 ```
 That's it!
 
+#### Updating
 
-# Inspect a supportconfig
+To force a rebuild, call: `docker build --no-cache -t sc_runner`
 
-## Start Container for supportconfig
+
+## Inspect a supportconfig
+
+### Start Wanda
+
+To start the Wanda containers run: `./start_wanda`
+
+### Start Container for supportconfig
 You have to start one container per supportconfig. Having multiple containers makes sense, if 
 
 - you want inspect multiple supportconfigs in one step or 
@@ -139,7 +128,7 @@ The syntax is: `./start_container SUPPORTCONFIG...`
 Container "tcsc_1" started for supportconfig "/home/sschmidt/Cases/00999999/scc_vmhana01_231011_1528.txz".
 ```
 
-You can check with `docker ps` if the containers are running:
+You can check with `docker ps` if the `tcsc` containers are running:
 
 ```
 # docker ps
@@ -153,7 +142,7 @@ If they are not there, then Wanda is not running or the `trento-agent` could not
 See section [Troubleshooting](#Troubleshooting) below, if the container terminates immediately or does not work as expected.
 
 
-## Run the Checks
+### Run the Checks
 
 Now simply run the checks: `./run_checks PROVIDER CATEGORY|all TYPE:all [CHECK...]`
 
@@ -183,9 +172,9 @@ Example:
 ./run_checks default all all
 ```
 
-## Check Results
+### Check Results
 
-### `PASS`, `FAIL`, `WARN` and `SKIP`
+#### `PASS`, `FAIL`, `WARN` and `SKIP`
 If everything is ok, then a check will pass:
 
 ```
@@ -256,7 +245,7 @@ If you a check does not match a given category or type, then you will get skippe
   [SKIP]  Skipping check 0B0F87. Type "multi" instead of "single".
 ```
 
-### `ERROR`
+#### `ERROR`
 
 If something is wrong with Wanda or the check, you get errors. Let's walk through some examples.
 
@@ -308,7 +297,7 @@ If something is wrong with Wanda or the check, you get errors. Let's walk throug
   Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue. 
 
 
-## Stop Container for supportconfig
+### Stop Container for supportconfig
 
 If you have done your work, just stop the containers by running:
 
@@ -320,7 +309,12 @@ Container "tcsc_2" not running.
 
 This will stop **all** supportconfig containers listed in `.container_def`.
 
-# Some Technical Background
+### Stop Wanda
+
+To start the Wanda containers run: `./stop_wanda`
+
+
+## Some Technical Background
 
 The image `sc_runner` for the supportconfig container is built from `Dockerfile`. It fetches an OpenLeap 15.4 image, adds the development repo for trento, install needed packages and added the `split-supportconfig` script from https://github.com/SUSE/supportconfig-utils.
 
@@ -348,21 +342,21 @@ For each container an entry must be present in `.container_def`. The file contai
 The primary configuration file for `run_checks` is `.valid_checks`. See the comments for details. Important is, that a check must be listed there to be available for `run_check`.
 
 
-# Troubleshooting
+## Troubleshooting
 
 - If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers are running and are fine. \
 You also can start the container in the foreground with `./start_container --fg SUPPORTCONFIG` to see the logs.
 
-- If a supportconfig container starts, but the checks don't work, you can watch the logs with `docker log [-f] CONTAINER` or enter the running container with: `docker exec -it CONTAINER /bin/bash`. \
+- If a supportconfig container starts, but the checks do not work, you can watch the logs with `docker log [-f] CONTAINER` or enter the running container with: `docker exec -it CONTAINER /bin/bash`. \
 Inside the container run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatherers, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
 
 - If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is an active project and changes happen often. You should try:
 
   - Get the latest version of `rabbiteer.py`: (https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks/-/raw/main/utils/rabbiteer.py)
   - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing-and-Updating)
-  - Rebuild the supportconfig container to get the latest agent: `docker build -t sc_runner`
+  - Rebuild the supportconfig container to get the latest agent: `docker build --no-cache -t sc_runner`
 
-# Which Gatherer Will Work?
+## Which Gatherer Will Work?
 
 For a check to work, the called gatherer must work with the confinements of the container. basically we have two hurdles:
 
@@ -371,55 +365,55 @@ For a check to work, the called gatherer must work with the confinements of the 
 
 This chapter contains an evaluation for the gatherers (December 2023).
 
-## `cibadmin`
+### `cibadmin`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/cibadmin.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing a script as `cibadmin` command, which returns `/var/lib/pacemaker/cib/cib.xml` (`ha.txt`) when called with `--query --local`
 
-## `corosync.conf`
+### `corosync.conf`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosyncconf.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing `/etc/corosync./corosync.conf` (`ha.txt`) in the container rootfs.
 
-## `corosync-cmapctl`
+### `corosync-cmapctl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosynccmapctl.go \
 **Chances: :frowning_face:**
 
 The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non-persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
 
-## `dir_scan`
+### `dir_scan`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dir_scan.go \
 **Chances: :neutral_face:**
 
 The gatherer scans directories with a glob pattern provided as argument and returns a list of files matched by the pattern with group/user information associated to each file. Only such checks would work, which address directories/files provided by the supportconfig. **It depends therefore on the check if it will work or not.**
 
-## `disp+work`
+### `disp+work`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dispwork.go \
 **Chances: :frowning_face:**
 
 With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks will not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same way as the original `disp+work`.
 
-## `fstab`
+### `fstab`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/fstab.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing `/etc/fstab` (`fs-diskio.txt`) in the container rootfs.
 
-## `groups`
+### `groups`
 https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
 **Chances: :frowning_face:**
 
 With `/etc/groups` not part of the supportconfig, checks using this gatherer won't work.
 
-## `host`
+### `host`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/hostsfile.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing `/etc/hosts` (`env.txt`) in the container rootfs.
 
-## `mount_info` 
+### `mount_info` 
 https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
 **Chances: :frowning_face:**
 
@@ -427,98 +421,98 @@ The gatherer will most probably not work. It relies on https://github.com/moby/s
 
 Also `blkid DEVICE -o export` will be called by the gatherer. The original command must be replaced by a script presenting the output of `blkid` (`fs-diskio.txt`) in the way the gatherer expects it.
 
-## `os-release`
+### `os-release`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/osrelease.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing `/etc/os-release` (`basic-environment.txt`) in the container rootfs.
 
-## `package_version`
+### `package_version`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/packageversion.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing an empty on-the-fly created RPM package from `rpm.txt`.
 
-## `passwd`
+### `passwd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/passwd.go \
 **Chances: :frowning_face:**
 
 With `/etc/passwd` not part of the supportconfig, checks using this gatherer won't work.
 
-## `products`
+### `products`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/products.go \
 **Chances: :frowning_face:**
 
 With only the file list of `/etc/products.d/` but not the content of those files part of the supportconfig, checks using this gatherer won't work.
 
-## `sapcontrol`
+### `sapcontrol`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapcontrol.go \
 **Chances: :frowning_face:**
 
 This is a complex gatherer and from reading the description it uses a unix socket connection with `/tmp/.sapstream5xx13`.
 Besides the fact, that those data is not part of the supportconfig, this approach would require to write a program that present the data via a socket to the gatherer.
 
-## `saphostctrl`
+### `saphostctrl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saphostctrl.go \
 **Chances: :frowning_face:**
 
 Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
 
-## `sap_profiles`
+### `sap_profiles`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
 **Chances: :frowning_face:**
 
 Returns content of `/sapmnt/<SID>/profile` which is not part of the supportconfig.
 
-## `sapinstance_hostname_resolver`
+### `sapinstance_hostname_resolver`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapinstancehostnameresolver.go \
 **Chances: :frowning_face:**
 
 Th gatherer needs to be investigated further, but the required data is not part of the supportconfig.
 
-## `sapservices`
+### `sapservices`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
 **Chances: :frowning_face:**
 
 Presents `/usr/sap/sapservices` which is not part of the supportconfig.
 
-## `saptune`
+### `saptune`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
 **Chances: :slightly_smiling_face:**
 
 Calls `saptune` command with limited set of commands. It should be possible to provide a script which returns the information extracted from files of `plugin-saptune.txt`.
 
-## `sbd_config`
+### `sbd_config`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
 **Chances: :slightly_smiling_face:**
 
 Works by providing `/etc/sysconfig/sbd` (`ha.txt`) in the container rootfs.
 
-## `sbd_dump`
+### `sbd_dump`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbddump.go \
 **Chances: :slightly_smiling_face:**
 
 Works by having a `sbd` script which returns the expected output from `sbd -d <device> dump` by processing the sbd dumps of `ha.txt`.
 
-## `sysctl`
+### `sysctl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sysctl.go \
 **Chances: :slightly_smiling_face:**
 
 The gatherer executes `sysctl -a` which is part of the supportconfig. Just a script named `sysctl` is needed which returns that part of `env.txt`.
 
-## `systemd`
+### `systemd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/systemd_v2.go \
 **Chances: :neutral_face:**
 
 The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and a fake `systemd` answering the questions of the gatherer from the supportconfig.
 
-## `verify_passwd`
+### `verify_passwd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/verifypassword.go \
 **Chances: :frowning_face:**
 
 The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer will not work.
 
-# To Do (if this PoV hits a nerve)
+## To Do (if this PoV hits a nerve)
 
 - Updating the project with new checks. Trento is growing.
 - Enable existing checks which currently can not be used, because they run commands on active clusters.

@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+
+# List all checks Wanda knows.
+count=0
+while read -r id ; read -r description ; read -r premium ; do
+
+    # Remove double qoutes and control characters.
+    id="${id//\"/}" ; id="${id//\\?/}" 
+    description="${description//\"/}" ; description="${description//\\?/}"
+    
+    case "${premium}" in
+        true)   check_type=' premium '
+                ;;
+        false)  check_type='community'
+                ;;
+        *)      check_type=' unknown '
+                ;;
+    esac
+
+    echo "${id} - ${check_type} - ${description} "
+    (( count++ ))
+
+done < <(./rabbiteer.py -r http://localhost:4000 ListChecks | jq '.items[] | (.id, .description, .premium)' | paste)
+
+echo -e "\n${count} checks available."
+
+# Bye.
+exit 0
