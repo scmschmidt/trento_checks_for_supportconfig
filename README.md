@@ -352,7 +352,6 @@ Inside the container run `trento-agent facts gather --gatherer GATHERER` to see 
 
 - If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is an active project and changes happen often. You should try:
 
-  - Get the latest version of `rabbiteer.py`: (https://gitlab.suse.de/trento-project/robot-tests-for-trento-checks/-/raw/main/utils/rabbiteer.py)
   - Stop all Wanda containers and delete images **and** volumes and deploy Wanda again: [Setup Wanda:Removing and Updating](#Removing-and-Updating)
   - Rebuild the supportconfig container to get the latest agent: `docker build --no-cache -t sc_runner`
 

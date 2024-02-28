@@ -10,8 +10,8 @@
 #   comment:    comment separated by at least one space (the # is optional)
  
 
-# Community Checks (part of https://github.com/trento-project/wanda/tree/main)
-# ----------------------------------------------------------------------------
+# Community Checks
+# ----------------
 156F64:single:corosync   # Check Corosync token_timeout value (Corosync)                                     [gatherer: corosync.conf]
 21FCA6:single:corosync   # Check Corosync token_retransmits_before_loss_const value (Corosync)               [gatherer: corosync.conf]
 24ABCB:single:corosync   # Check Corosync join timeout value (Corosync)                                      [gatherer: corosync.conf]
@@ -54,8 +54,8 @@ B089BE:single:sbd        # SBD watchdog timeout (SBD)                           
 # 816815:single:sbd        # SBD service state (SBD)                                                           [gatherer: systemd]
 
 
-# Premium Checks (part of https://gitlab.suse.de/trento-project/wanda-premium-checks)
-# -----------------------------------------------------------------------------------
+# Premium Checks
+# --------------
 #
 # Premium checks which need to be downloaded from the GitLab repo and need to put into
 # the directory wanda/priv/catalog/ of the cloned Wanda project, which is mounted into the

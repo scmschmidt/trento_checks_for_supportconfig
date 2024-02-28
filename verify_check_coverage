@@ -51,6 +51,6 @@ for check in ${disabled_checks} ; do
     fi
 done
 
-echo -e "\nPremium checks are hardcoded in the script!\nVerify and adapt from time to time by checking https://gitlab.suse.de/trento-project/wanda-premium-checks/-/tree/main/priv/catalog."
+echo -e "\nPremium checks are hardcoded in the script!\nVerify and adapt from time to time."
 
 exit 0
