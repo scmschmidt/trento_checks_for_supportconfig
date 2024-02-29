@@ -1,28 +1,60 @@
 #!/usr/bin/bash
 
+function clean() {
+    local text="${1}"
+    text="${text//\"/}" ; text="${text//\\?/}"
+    echo "${text}"
+}
+
+
 # List all checks Wanda knows.
 count=0
-while read -r id ; read -r description ; read -r premium ; do
+while read -r id ; read -r description ; read -r premium ; read -r group ; read -r provider ; do
 
     # Remove double qoutes and control characters.
-    id="${id//\"/}" ; id="${id//\\?/}" 
-    description="${description//\"/}" ; description="${description//\\?/}"
-    
-    case "${premium}" in
-        true)   check_type=' premium '
-                ;;
-        false)  check_type='community'
-                ;;
-        *)      check_type=' unknown '
-                ;;
-    esac
+    id=$(clean "${id}")
+    description=$(clean "${description}")
+    group=$(clean "${group}")
+    provider=$(clean "${provider}") ; provider="${provider//[\[\]]/}" ; provider="${provider//,/ }" 
 
-    echo "${id} - ${check_type} - ${description} "
+    if [ "${1}" == '-s' ] ; then
+        echo "${id} - ${description} "
+    else    
+        case "${premium}" in
+                true)   check_type='premium'
+                        ;;
+                false)  check_type='community'
+                        ;;
+                *)      check_type='unknown'
+                        ;;
+        esac
+
+        echo -e "${id} - ${description}\n           check:    ${check_type}\n           group:    ${group}\n           provider: ${provider}\n"
+    fi
+
     (( count++ ))
 
-done < <(./rabbiteer.py -r http://localhost:4000 ListChecks | jq '.items[] | (.id, .description, .premium)' | paste)
+done < <(./rabbiteer.py -r http://localhost:4000 ListChecks | jq -c '.items[] | (.id, .description, .premium, .group, .metadata.provider)' | paste)
 
 echo -e "\n${count} checks available."
 
 # Bye.
 exit 0
+
+
+#  "metadata": {
+#         "cluster_type": "hana_scale_up",
+#         "provider": [
+#           "azure",
+#           "nutanix",
+#           "kvm",
+#           "vmware"
+#         ],
+#         "target_type": "cluster"
+
+#               "facts": [
+#         {
+#           "argument": "runtime.config.totem.join",
+#           "gatherer": "corosync-cmapctl@v1",
+#           "name": "runtime_join"
+#         }
