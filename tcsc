@@ -1,0 +1,265 @@
+#!/usr/bin/env python3.10
+# -*- coding: utf-8 -*-
+
+"""
+... TBD ...
+
+ToDo:
+-----
+    - Rework help output.
+    - Implement JSON output
+    
+    
+Changelog:
+----------
+01.03.2024      v0.0        - and so it begins...
+"""
+
+import argparse
+import os
+import docker
+import re
+import subprocess
+import sys
+import termcolor
+import textwrap
+import time
+import json
+import uuid
+from collections import Counter
+from typing import List, Dict, Tuple
+
+
+__version__ = '0.0'
+__author__ = 'Sören Schmidt'
+__email__ = 'soren.schmidt@suse.com'
+__maintainer__ = __author__
+__license__ = "GPLv3"
+__status__ = 'Prototype'
+
+
+# -----------------
+# CLASS DEFINITIONS
+# -----------------
+
+class CLI():
+    """Provides methods to prints colored messages on the terminal."""
+    
+    @classmethod
+    def print_fail(cls, text: str) -> None:
+        print(termcolor.colored(text, 'red'))
+
+    @classmethod
+    def print_warn(cls, text: str) -> None:
+        print(termcolor.colored(text, 'yellow'))
+
+    @classmethod
+    def print_ok(cls, text: str) -> None:
+        print(termcolor.colored(text, 'green'))
+
+    @classmethod
+    def print_okfail(cls, text: str, fail: bool) -> None:
+        if fail:
+            cls.print_fail(text)
+        else:
+            cls.print_ok(text)
+
+
+class Config():
+    """Represents tcsc configuration.
+    
+    - self.id (str):    UUID used to mark the created containers. 
+    
+    """
+
+    def __init__(self, configfile: str, create: bool = True) -> None:
+        """Loads the configuration from `configfile`. If `create` is
+        true and `configfile` does not exists, a default configuration
+        will be created.
+
+        Args:
+            configfile (str):           Filename of JSON configuration.
+            create (bool, optional):    Flag if a default configuration shall be created,
+                                        if the config file is missing. Defaults to True.
+        """
+
+        configfile = os.path.realpath(os.path.expandvars(os.path.expanduser(configfile)))
+        try:
+            if not os.path.exists(configfile) and create:
+                dir, _ = os.path.split(configfile)
+                if dir:
+                    os.makedirs(dir, mode=0o700, exist_ok=True)
+                with open(configfile, 'w') as f:
+                    f.write(f'{{"id": "{uuid.uuid1()}"}}')
+            with open(configfile) as f:
+                config = json.load(f)
+                self.id = config['id']
+        except Exception as err:
+            print(f'Error accessing configuration file: {err}', file=sys.stderr)
+            sys.exit(1)
+        
+
+class Wanda():
+    """Represents a Wanda container stack."""
+
+    def __init__(self) -> None:
+        pass
+
+
+# ----------------
+# HELPER FUNCTIONS
+# ----------------
+
+def argument_parse() -> dict:
+    """Evaluates the command line arguments."""
+
+    parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
+                                     #usage='\n'.join(usage),
+                                     description='Manages containers to use Wanda checks on support files.',
+                                     epilog='')
+
+    parser.add_argument('-j', '--json',
+                        dest='json_output',
+                        action='store_true',
+                        required=False,
+                        help='output is done in JSON')  
+     
+    subparsers = parser.add_subparsers(dest='selectors')
+    subparsers.required = True
+    
+    # Selector: wanda
+    parser_wanda = subparsers.add_parser('wanda', help='Manages Wanda container stack')
+    
+    parser_wanda.add_argument(dest='command',
+                              action='store',
+                              type=str,
+                              choices=['start', 'status', 'stop', 'checks'],
+                              help='starts, stops, prints the status of the Wanda stack or lists all available checks')
+    
+    # Selector: hosts
+    parser_hosts = subparsers.add_parser('hosts', help='Manages host containers')
+    
+    # Selector: checks
+    parser_checks = subparsers.add_parser('checks',  help='Executes checks')
+     
+    args_parsed = parser.parse_args()
+    
+    return args_parsed
+
+
+# --------------
+# TCSC FUNCTIONS
+# --------------
+
+def wanda_start(docker_client: docker.DockerClient) -> bool:
+    """Starts the Wanda stack and returns the success."""
+
+    status = True
+    
+    present = {c.name: c for c in docker_client.containers.list(all=True, filters={'label': 'com.suse.tcsc.stack'})}
+    for name in 'tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda':
+        if name not in present:
+            CLI.print_fail(f'{name:<20} [not found]')
+        else:
+            if present[name].status == 'running':
+                CLI.print_warn(f'{name:<20} [already running]')
+            else:
+                present[name].start()  # Add catching docker.errors.APIError
+                while present[name].status != 'running':
+                    CLI.print_warn(f'{name:<20} {[present[name].status]}\r')  
+                    time.sleep(1)
+                
+                
+                
+                
+                print('START', name, present[name].status)
+        
+    return status
+
+
+def wanda_stop(docker_client: docker.DockerClient) -> bool:
+    """Stops the Wanda stack and returns the success."""
+
+    status = True
+
+    present = docker_client.containers.list(filters={'label': 'com.suse.tcsc.stack'})
+    for container in present:
+        name = container.name
+        ret = container.stop()  # Add catching docker.errors.APIError
+        print('STOP', container.name, name), ret
+    
+    return status
+
+
+
+
+def wanda_status(docker_client: docker.DockerClient) -> bool:
+    """Determines status of Wanda stack and prints it on screen
+    and returns if everything is ok or not."""
+
+    status = True
+    labels = []
+    
+    for container in docker_client.containers.list(filters={'label': 'com.suse.tcsc.stack'}):
+        labels.append(container.labels['com.suse.tcsc.stack'])
+        text = f'{container.name:<20} [{container.status}]'
+        CLI.print_okfail(text, fail=container.status != 'running')
+    stats = Counter(labels)
+    
+    if len(stats) != 3:
+        CLI.print_fail(f'{len(stats)} container found, but 3 expected!')
+        status = False
+        
+    for expected in 'tcsc-wanda', 'tcsc-postgres', 'tcsc-rabbitmq':
+        if expected not in stats:
+            CLI.print_fail(f'Container "{expected}" not found! The Wanda stack is incomplete.')
+            status = False
+        elif stats[expected] != 1:
+            CLI.print_fail(f'{stats[expected]} "{expected}" container found instead of 1! The Wanda stack is invalid.')
+            status = False
+    
+    #TODO: Enhance to list all containers and distinguish between Running and Exited!
+    #TODO: ADD HEALTH CHECK!        
+            
+    return status
+
+
+def main() -> None:
+    
+    # Read arguments.
+    arguments = argument_parse()  
+    
+    # Load configuration (or create a default one, if none exists).
+    config = Config('~/.config/tcsc/config')
+    
+    print(arguments)
+    if arguments.selectors == 'wanda':
+        
+        docker_client = docker.from_env()
+        
+        
+        if arguments.command == 'start':
+            sys.exit(0) if wanda_start(docker_client) else sys.exit(2)
+            
+        elif arguments.command == 'stop':
+            sys.exit(0) if wanda_stop(docker_client) else sys.exit(2)
+        
+        elif arguments.command == 'status':
+            sys.exit(0) if wanda_status(docker_client) else sys.exit(2)
+            
+        elif arguments.command == 'checks':
+            pass            
+    
+    elif arguments.selectors == 'hosts': 
+        pass 
+    
+    elif arguments.selectors == 'checks': 
+        pass 
+    
+    # Bye.
+    sys.exit(0)
+
+
+    
+if __name__ == '__main__':
+    main()

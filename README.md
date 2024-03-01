@@ -56,12 +56,12 @@ FB0E0D - community - Corosync is running with consensus timeout set to the recom
 46 checks available.
 ```
 
-
-
 > :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always trento-wanda trento-rabbitmq trento-postgres`.
 
 
 #### Removing and Updating
+
+**#TODO: IF WE HAVE INTRODUCED A NAMING SCHEME AND LABELS, THAT CAN BE DONE EASILY BY A SCRIPT.**
 
 When updating Wanda, remove the containers and also delete the images and volumes before you repeat the setup step again.
 
@@ -105,72 +105,122 @@ To force a rebuild, call: `docker build --no-cache -t sc_runner`
 
 ## Inspect a supportconfig
 
-### Start Wanda
+The primary tool to work with is `tcsc`. It can
 
-To start the Wanda containers run: `./start_wanda`
+  - manage the Wanda stack,
+  - manages the required supportconfig containers
+  - executes the checks.
 
-### Start Container for supportconfig
-You have to start one container per supportconfig. Having multiple containers makes sense, if 
+#TODO: THE TOOL NEEDS TO BE PACKAGED, SO IT CAN BE INSTALLED EASILY.
 
-- you want inspect multiple supportconfigs in one step or 
-- if you have supportconfigs of a cluster. 
+### Manage Wanda
 
-Some Trento checks (labeled as `multi`) compare settings of cluster nodes and therefore require all supportconfigs of that cluster at the same time. 
-
-The syntax is: `./start_container SUPPORTCONFIG...`
-
-> :bulb: For each container you need one entry in `.container_def`. Currently two entries are prepared.
-
-> :exclamation: Always call `start_container` from the project directory. The subdirectory `sc/` gets mounted into the container.
-
+To inspect a supportconfig, the Wanda stack must running. To verify the status, run:
 ```
-# ./start_container ~/Cases/00999999/scc_vmhana01_231011_1528.txz 
-Container "tcsc_1" started for supportconfig "/home/sschmidt/Cases/00999999/scc_vmhana01_231011_1528.txz".
+tcsc wanda status
 ```
 
-You can check with `docker ps` if the `tcsc` containers are running:
+It reports the status of the Wanda stack and if Wanda could be reached and appears to be operational.
 
+In case Wanda is not there, run:
 ```
-# docker ps
-CONTAINER ID   IMAGE       COMMAND          CREATED          STATUS          PORTS     NAMES
-627061cabfc8   sc_runner   "/sc/startup"    23 minutes ago   Up 23 minutes             tcsc_1
-...
+tcsc wanda start
+``` 
+
+To list all the available checks, ruin:
+```
+tcsc wanda checks [-d|--detail]
 ```
 
-If they are not there, then Wanda is not running or the `trento-agent` could not connect to Wanda for other reasons. 
+If you do not need Wanda anymore, you can stop the stack easily:
+```
+tcsc wanda stop
+``` 
 
-See section [Troubleshooting](#Troubleshooting) below, if the container terminates immediately or does not work as expected.
+
+
+> :construction: It should be easily possible to manage individual Wanda stacks if required. 
+The stacks can be named or labeled with the individual tcsc id, like the supportconfig containers.
+
+
+## Manage supportconfig Containers
+
+To run checks, for each supportconfig an individual container must be started. Such a container runs
+the `trento-agent` inside and connects to Wanda. For Wanda the container represents just a host which
+shell be checked. The content of the supportconfig as well as all the additional support files are placed inside 
+the container in a way, the `trento-agent` accepts it as system data.
+
+Currently there are two types of Trento checks. Single checks and multi checks. \
+Single checks run only on one individual host, contrary multi checks which need at least two systems
+(depending on the check of cause) and it most cases compare settings between them.
+
+As consequence you should always start one container for each host with the appropriate support files if
+you deal with a cluster. \
+The idea is to "simulate" the customers setup using the support files and let Wanda check it.
+
+To start a host container, run:
+```
+tcsc hosts start GROUPNAME FILE...
+```
+
+- `GROUPNAME` is a free name to group hosts which belong together. This name is later used to execute checks
+on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
+
+- `FILE` is the support file you wish to be incorporated. Currently only supportconfigs are supported. In the
+future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
+
+
+If you have finished your work, stop and destroy the containers with:
+```
+tcsc hosts stop GROUPNAME
+```
+
+> :exclamation: Example for a HA cluster:
+> ```
+> tcsc hosts start ACME-HANAProd cases/47114711/scc_vmhana01_231011_1528.txz
+> tcsc hosts start ACME-HANAProd cases/47114711/scc_vmhana02_231011_1533.txz
+> ```
+> 
+> This starts two containers, one for *scc_vmhana01_231011_1528* and one for *scc_vmhana02_231011_1533*, which
+> can be addressed via *ACME-HANAProd* together. 
+>
+> After running checks, destroy the containers by:
+> ```
+> tcsc hosts stop ACME-HANAProd
+> ```
+
+Anytime you can get an overview about your running host containers with:
+```
+tcsc hosts status [GROUPNAME]
+```
+
+If a previously started container is not listed, see section [Troubleshooting](#Troubleshooting) below.
 
 
 ### Run the Checks
 
-Now simply run the checks: `./run_checks PROVIDER CATEGORY|all TYPE:all [CHECK...]`
+After all your host containers have been started, you can start executing the checks:
 
-- `PROVIDER`\
-  Either `default`, `kvm`, `azure` or `gcp`. \
-  Depending on the infrastructure the checks expect different settings or may not run at all.
-  Chose the correct value depending on the system where the supportconfig is coming from.
-
-- `CATEGORY`\
-  Either `corosync`, `sbd`, `package` or `all`.
-  An arbitrary grouping of the checks to make it easier to run subsets of them. The available
-  categories depend on the third column of `.valid_checks`.
-
-- `TYPE`\
-  Either `single`, `multi` or `all`.
-  Single checks get executed on each supportconfig individual, multi checks on all supportconfigs
-  simultaneously. The check defines the type. Multi checks are mostly meant to verify if certain settings are identical on all cluster nodes. \
-  Types depend on the third column of `.valid_checks`.
-
-- `CHECK`\
-  You can further restrict the amount of executed checks by simply list them on the command line.
-
-> :exclamation: If you don't have added the premium checks when setting up Wanda, you have to comment them out in the `.valid_checks` file.
-
-Example:
 ```
-./run_checks default all all
+tcsc checks GROUPNAME [-p PROVIDER] [-g GROUP...] [CHECK...]
 ```
+
+- `GROUPNAME` identifies the host containers where the checks should be executed.
+
+- `PROVIDER` defines the infrastructure of the hosts the support files are coming from.
+  Depending on the infrastructure some checks use different settings or may not. \
+  Either `default`, `kvm`, `vmware`, `azure` or `gcp`.
+
+  > :grey_exclamation: Currently you have to provide the correct provider yourself. Future versions will get an auto-detection.
+  
+- `GROUP` allows to select a subset of checks depending on their group.
+  The group a check belongs to is defined in the check itself and can be listed with `tcsc wanda checks -d`
+  
+  > :grey_exclamation: Currently an arbitrary grouAn arbitrary grouping of the checks to make it easier to run subsets of them. The available
+  categories depend on the third column of `.valid_checks`. \
+
+- `CHECK` allows you to select a specific check.
+
 
 ### Check Results
 

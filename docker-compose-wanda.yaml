@@ -7,7 +7,9 @@ services:
   wanda:
     #image: ghcr.io/trento-project/trento-wanda:rolling
     image: registry.suse.com/trento/trento-wanda:latest
-    container_name: trento-wanda
+    container_name: tcsc-wanda
+    labels:
+      - com.suse.tcsc.stack=tcsc-wanda
     environment:
       DATABASE_URL: ecto://postgres:postgres@postgres/postgres
       SECRET_KEY_BASE: dummyS3cr3t
@@ -26,7 +28,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.10.5-management-alpine
-    container_name: trento-rabbitmq
+    container_name: tcsc-rabbitmq
+    labels:
+      - com.suse.tcsc.stack=tcsc-rabbitmq
     ports:
       - 5672:5672
       - 15672:15672
@@ -36,7 +40,9 @@ services:
 
   postgres:
     image: postgres:latest
-    container_name: trento-postgres
+    container_name: tcsc-postgres
+    labels:
+      - com.suse.tcsc.stack=tcsc-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
