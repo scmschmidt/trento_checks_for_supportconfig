@@ -4,11 +4,26 @@
 """
 ... TBD ...
 
+Exit Codes:
+-----------
+    0   Everything went fine.
+    1   Exception occurred accessing or parsing the configuration file.
+    2   Exception occurred in communicating with Docker.
+    3   Exception occurred in communicating with Wanda.
+    4   A problem with Wanda ocurred.
+
+
 ToDo:
 -----
+    - wanda_status() needs Wanda health check.
     - Rework help output.
     - Implement JSON output
     
+    
+Future:
+-------
+    - Implement container creation, update and destruction as well.
+
     
 Changelog:
 ----------
@@ -43,8 +58,12 @@ __status__ = 'Prototype'
 # -----------------
 
 class CLI():
-    """Provides methods to prints colored messages on the terminal."""
+    """Provides methods to print colored messages on the terminal."""
     
+    @classmethod
+    def print_info(cls, text: str) -> None:
+        print(termcolor.colored(text, 'blue'))
+        
     @classmethod
     def print_fail(cls, text: str) -> None:
         print(termcolor.colored(text, 'red'))
@@ -58,18 +77,16 @@ class CLI():
         print(termcolor.colored(text, 'green'))
 
     @classmethod
-    def print_okfail(cls, text: str, fail: bool) -> None:
-        if fail:
-            cls.print_fail(text)
-        else:
-            cls.print_ok(text)
+    def print_okfail(cls, text: str, fail: bool = True) -> None:
+        cls.print_fail(text) if fail else cls.print_ok(text)
 
 
 class Config():
     """Represents tcsc configuration.
     
-    - self.id (str):    UUID used to mark the created containers. 
-    
+        - self.id (str): UUID used to mark the created containers. 
+        - self.wanda_containers (List[str]): List of all Wanda container names.  
+        - self.wanda_tag (str): Tag used to identify Wnada containers for tcsc.
     """
 
     def __init__(self, configfile: str, create: bool = True) -> None:
@@ -90,20 +107,84 @@ class Config():
                 if dir:
                     os.makedirs(dir, mode=0o700, exist_ok=True)
                 with open(configfile, 'w') as f:
-                    f.write(f'{{"id": "{uuid.uuid1()}"}}')
+                    f.write(json.dumps({
+                                       'id': str(uuid.uuid1()),
+                                       'wanda_containers': ['tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda'],
+                                       'wanda_tag': 'com.suse.tcsc.stack'
+                                       }, indent=4
+                                       )
+                            )
             with open(configfile) as f:
                 config = json.load(f)
                 self.id = config['id']
+                self.wanda_containers = config['wanda_containers']
+                self.wanda_tag = config['wanda_tag']
         except Exception as err:
-            print(f'Error accessing configuration file: {err}', file=sys.stderr)
-            sys.exit(1)
-        
+            raise ConfigException(f'Error accessing configuration: {err}')
+
+
+class ConfigException(Exception):
+    pass
+
 
 class Wanda():
-    """Represents a Wanda container stack."""
+    """Represents a Wanda container stack.
+    
+        - self._containers (Dict[str, Container]):  Dict with the Wand container instances referenced by name.
+        - self._docker (docker.DockerClient):  Instance of DockerClient.
+    """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, config: Config) -> None:
+        self._docker: docker.DockerClient = docker.from_env()
+        self._containers = {container.name: container for container in 
+                            self._docker.containers.list(all=True, filters={'label': config.wanda_tag})}
+        if set(self._containers.keys()) != set(config.wanda_containers):
+            raise WandaException('Not all required Wanda containers are present.')
+
+    @property
+    def status(self) -> Dict[str, str]:
+        """Returns a dictionary with all Wanda containers and there current status."""
+        
+        self._update()
+        return {container.name: container.status for container in self._containers.values()}
+        
+    def start(self) -> List[str]:
+        """Initiate start of Wanda containers. Only containers, which are in the states
+        'exited' or 'created' are going to be started. The method will *not* wait for 
+        the containers to be up.
+        Returns the names of the started containers."""
+        
+        started = []
+        for container in [c for c in self._containers.values() if c.status in ['exited', 'created']]:
+            started.append(container.name)
+            container.start()
+            
+        #TODO: ADD WAITING LOOP WITH TIMEOUT.    
+            
+            
+        return started
+
+    def stop(self) -> List[str]:
+        """Stops all Wanda containers. Only containers, which are in the state 'running'
+        are going to be stopped.
+        Returns the names of the stopped containers."""
+        
+        stopped = []
+        for container in [c for c in self._containers.values() if c.status in ['running']]:
+            stopped.append(container.name)
+            container.stop()
+            
+        #TODO: ADD WAITING LOOP WITH TIMEOUT.
+            
+        return stopped
+
+    def _update(self) -> None:  #TODO: CAN IT BECOME A DECORATOR?
+        """Updates the container objects."""
+        for container in self._containers.values():
+            container.reload()
+
+class WandaException(Exception):
+    pass
 
 
 # ----------------
@@ -151,110 +232,108 @@ def argument_parse() -> dict:
 # TCSC FUNCTIONS
 # --------------
 
-def wanda_start(docker_client: docker.DockerClient) -> bool:
+def wanda_start(wanda: Wanda) -> bool:
     """Starts the Wanda stack and returns the success."""
 
     status = True
+
+    started = wanda.start()   
+    print(f'Started: {started}')
     
-    present = {c.name: c for c in docker_client.containers.list(all=True, filters={'label': 'com.suse.tcsc.stack'})}
-    for name in 'tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda':
-        if name not in present:
-            CLI.print_fail(f'{name:<20} [not found]')
-        else:
-            if present[name].status == 'running':
-                CLI.print_warn(f'{name:<20} [already running]')
-            else:
-                present[name].start()  # Add catching docker.errors.APIError
-                while present[name].status != 'running':
-                    CLI.print_warn(f'{name:<20} {[present[name].status]}\r')  
-                    time.sleep(1)
+    while True:
+        print(wanda.status)
+        time.sleep(.5)
+     
+    
+    # present = {c.name: c for c in docker_client.containers.list(all=True, filters={'label': 'com.suse.tcsc.stack'})}
+    # for name in 'tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda':
+    #     if name not in present:
+    #         CLI.print_fail(f'{name:<20} [not found]')
+    #     else:
+    #         if present[name].status == 'running':
+    #             CLI.print_warn(f'{name:<20} [already running]')
+    #         else:
+    #             present[name].start()  # Add catching docker.errors.APIError
+    #             while present[name].status != 'running':
+    #                 CLI.print_warn(f'{name:<20} {[present[name].status]}\r')  
+    #                 time.sleep(1)
                 
                 
                 
                 
-                print('START', name, present[name].status)
+    #             print('START', name, present[name].status)
         
-    return status
+    # return status
 
 
-def wanda_stop(docker_client: docker.DockerClient) -> bool:
+def wanda_stop(wanda: Wanda) -> bool:
     """Stops the Wanda stack and returns the success."""
 
     status = True
 
-    present = docker_client.containers.list(filters={'label': 'com.suse.tcsc.stack'})
-    for container in present:
-        name = container.name
-        ret = container.stop()  # Add catching docker.errors.APIError
-        print('STOP', container.name, name), ret
-    
+    wanda.stop()
     return status
 
 
 
 
-def wanda_status(docker_client: docker.DockerClient) -> bool:
-    """Determines status of Wanda stack and prints it on screen
-    and returns if everything is ok or not."""
+def wanda_status(wanda: Wanda) -> bool:
+    """Prints the status of Wanda stack on screen
+    and returns operational state."""
 
-    status = True
-    labels = []
-    
-    for container in docker_client.containers.list(filters={'label': 'com.suse.tcsc.stack'}):
-        labels.append(container.labels['com.suse.tcsc.stack'])
-        text = f'{container.name:<20} [{container.status}]'
-        CLI.print_okfail(text, fail=container.status != 'running')
-    stats = Counter(labels)
-    
-    if len(stats) != 3:
-        CLI.print_fail(f'{len(stats)} container found, but 3 expected!')
-        status = False
-        
-    for expected in 'tcsc-wanda', 'tcsc-postgres', 'tcsc-rabbitmq':
-        if expected not in stats:
-            CLI.print_fail(f'Container "{expected}" not found! The Wanda stack is incomplete.')
-            status = False
-        elif stats[expected] != 1:
-            CLI.print_fail(f'{stats[expected]} "{expected}" container found instead of 1! The Wanda stack is invalid.')
-            status = False
-    
-    #TODO: Enhance to list all containers and distinguish between Running and Exited!
-    #TODO: ADD HEALTH CHECK!        
-            
-    return status
+    operational = True
+
+    for name, status in wanda.status.items():
+        text = f'{name:<20} [{status}]'
+        if status != 'running':
+            operational = False
+        CLI.print_okfail(text, fail=status != 'running')
+
+    if operational: #TODO: ADD HEALTH CHECK!        
+        pass     
+              
+    CLI.print_ok('\nWanda is operational.') if operational else CLI.print_fail('\nWanda is not operational!')
+    return operational
 
 
 def main() -> None:
     
-    # Read arguments.
     arguments = argument_parse()  
     
-    # Load configuration (or create a default one, if none exists).
-    config = Config('~/.config/tcsc/config')
-    
-    print(arguments)
-    if arguments.selectors == 'wanda':
-        
-        docker_client = docker.from_env()
-        
-        
-        if arguments.command == 'start':
-            sys.exit(0) if wanda_start(docker_client) else sys.exit(2)
+    try:
+        config = Config('~/.config/tcsc/config')
+        wanda = Wanda(config)
+
+        # print(arguments)
+        if arguments.selectors == 'wanda':
             
-        elif arguments.command == 'stop':
-            sys.exit(0) if wanda_stop(docker_client) else sys.exit(2)
-        
-        elif arguments.command == 'status':
-            sys.exit(0) if wanda_status(docker_client) else sys.exit(2)
+            if arguments.command == 'start':
+                sys.exit(0) if wanda_start(wanda) else sys.exit(4)
+                
+            elif arguments.command == 'stop':
+                sys.exit(0) if wanda_stop(wanda) else sys.exit(4)
             
-        elif arguments.command == 'checks':
-            pass            
+            elif arguments.command == 'status':
+                sys.exit(0) if wanda_status(wanda) else sys.exit(4)
+                
+            elif arguments.command == 'checks':
+                pass            
+        
+        elif arguments.selectors == 'hosts': 
+            pass 
+        
+        elif arguments.selectors == 'checks': 
+            pass 
     
-    elif arguments.selectors == 'hosts': 
-        pass 
-    
-    elif arguments.selectors == 'checks': 
-        pass 
+    except ConfigException as err:
+        print(err, file=sys.stderr)
+        sys.exit(1)
+    except docker.errors.DockerException as err:
+        print(f'Docker error: {err}', file=sys.stderr)
+        sys.exit(2)
+    except WandaException as err:
+        print(f'Wanda error: {err}', file=sys.stderr)
+        sys.exit(3)
     
     # Bye.
     sys.exit(0)
