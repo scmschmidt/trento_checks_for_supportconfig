@@ -1,10 +1,12 @@
-# Ignore Wanda project
+# Ignore Wanda project.
 wanda/
 
-# Ignor vcode workspace file.
+# Ignore vcode workspace file.
 *.code-workspace
 
 # Ignore scrap and examples directory.
 scrap/
 examples/
 
+# Ignore Python cache.
+__pycache__

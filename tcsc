@@ -18,6 +18,7 @@ ToDo:
     - wanda_status() needs Wanda health check.
     - Rework help output.
     - Implement JSON output
+    - Implement signal handling (catching interrupts)
     
     
 Future:
@@ -42,6 +43,7 @@ import time
 import json
 import uuid
 from collections import Counter
+from rabbiteer import Rabbiteer
 from typing import List, Dict, Tuple
 
 
@@ -84,9 +86,13 @@ class CLI():
 class Config():
     """Represents tcsc configuration.
     
-        - self.id (str): UUID used to mark the created containers. 
-        - self.wanda_containers (List[str]): List of all Wanda container names.  
-        - self.wanda_tag (str): Tag used to identify Wnada containers for tcsc.
+        - self.id (str):  UUID used to mark the created containers. 
+        - self.wanda_containers (List[str]):  List of all Wanda container names.  
+        - self.wanda_tag (str):  Tag used to identify Wanda containers for tcsc.
+        - self.docker_timeout (int):  Timeout for docker (and Wanda) operations in seconds.
+        - self.wanda_url (str):  URL to connect to the Wanda container.
+        
+    #TODO: DESCRIBE (DEFAULT) CONFIG CONTENT.
     """
 
     def __init__(self, configfile: str, create: bool = True) -> None:
@@ -110,7 +116,9 @@ class Config():
                     f.write(json.dumps({
                                        'id': str(uuid.uuid1()),
                                        'wanda_containers': ['tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda'],
-                                       'wanda_tag': 'com.suse.tcsc.stack'
+                                       'wanda_tag': 'com.suse.tcsc.stack',
+                                       'docker_timeout': 10,
+                                       'wanda_url': 'http://localhost:4000'
                                        }, indent=4
                                        )
                             )
@@ -119,6 +127,8 @@ class Config():
                 self.id = config['id']
                 self.wanda_containers = config['wanda_containers']
                 self.wanda_tag = config['wanda_tag']
+                self.docker_timeout = abs(int(config['docker_timeout']))
+                self.wanda_url = config['wanda_url']
         except Exception as err:
             raise ConfigException(f'Error accessing configuration: {err}')
 
@@ -132,21 +142,44 @@ class Wanda():
     
         - self._containers (Dict[str, Container]):  Dict with the Wand container instances referenced by name.
         - self._docker (docker.DockerClient):  Instance of DockerClient.
+        - self._rabbiteer (Rabbiteer):  Rabbiteer instance to talk to Wanda.
     """
 
     def __init__(self, config: Config) -> None:
         self._docker: docker.DockerClient = docker.from_env()
+        self.timeout = config.docker_timeout
         self._containers = {container.name: container for container in 
                             self._docker.containers.list(all=True, filters={'label': config.wanda_tag})}
         if set(self._containers.keys()) != set(config.wanda_containers):
             raise WandaException('Not all required Wanda containers are present.')
+        self._rabbiteer = Rabbiteer(config.wanda_url)
 
     @property
-    def status(self) -> Dict[str, str]:
+    def container_status(self) -> Dict[str, str]:
         """Returns a dictionary with all Wanda containers and there current status."""
         
         self._update()
         return {container.name: container.status for container in self._containers.values()}
+        
+    @property
+    def status(self) -> bool:
+        """Returns a boolean with the WAnda status.
+        """    
+        for status in self.container_status.values():
+            if status != 'running':
+                return False
+
+        try:
+            health = self._rabbiteer.health()['database']
+            ready = self._rabbiteer.readiness()['ready']
+        except:
+            return False
+        else:
+            if ready and health == 'pass':
+                return True 
+
+        return False
+        
         
     def start(self) -> List[str]:
         """Initiate start of Wanda containers. Only containers, which are in the states
@@ -155,13 +188,17 @@ class Wanda():
         Returns the names of the started containers."""
         
         started = []
+        self._update()
         for container in [c for c in self._containers.values() if c.status in ['exited', 'created']]:
             started.append(container.name)
             container.start()
             
-        #TODO: ADD WAITING LOOP WITH TIMEOUT.    
-            
-            
+        start_time = time.time()    
+        while not self.status:
+            if  (time.time() - start_time) > self.timeout: 
+                raise WandaException(f'''Timeout of {self.timeout}s reached. Wanda did not became operational after start of containers: {', '.join(started)}''')
+            time.sleep(1) 
+        
         return started
 
     def stop(self) -> List[str]:
@@ -170,15 +207,24 @@ class Wanda():
         Returns the names of the stopped containers."""
         
         stopped = []
+        self._update()
         for container in [c for c in self._containers.values() if c.status in ['running']]:
             stopped.append(container.name)
-            container.stop()
+            container.stop(timeout=self.timeout)
             
-        #TODO: ADD WAITING LOOP WITH TIMEOUT.
-            
+        start_time = time.time()
+        while True:
+            self._update()
+            not_exited = [name for name, status in self.container_status.items() if status != 'exited']
+            if not not_exited:
+                break
+            if  (time.time() - start_time) > self.timeout: 
+                raise WandaException(f'''Timeout of {self.timeout}s reached. Container not yet exited: {', '.join(not_exited)}''')
+            time.sleep(1)   
+        
         return stopped
 
-    def _update(self) -> None:  #TODO: CAN IT BECOME A DECORATOR?
+    def _update(self) -> None:
         """Updates the container objects."""
         for container in self._containers.values():
             container.reload()
@@ -235,44 +281,30 @@ def argument_parse() -> dict:
 def wanda_start(wanda: Wanda) -> bool:
     """Starts the Wanda stack and returns the success."""
 
-    status = True
-
-    started = wanda.start()   
-    print(f'Started: {started}')
-    
-    while True:
-        print(wanda.status)
-        time.sleep(.5)
-     
-    
-    # present = {c.name: c for c in docker_client.containers.list(all=True, filters={'label': 'com.suse.tcsc.stack'})}
-    # for name in 'tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda':
-    #     if name not in present:
-    #         CLI.print_fail(f'{name:<20} [not found]')
-    #     else:
-    #         if present[name].status == 'running':
-    #             CLI.print_warn(f'{name:<20} [already running]')
-    #         else:
-    #             present[name].start()  # Add catching docker.errors.APIError
-    #             while present[name].status != 'running':
-    #                 CLI.print_warn(f'{name:<20} {[present[name].status]}\r')  
-    #                 time.sleep(1)
-                
-                
-                
-                
-    #             print('START', name, present[name].status)
+    try:
+        started = wanda.start()   
+    except WandaException as err:
+        CLI.print_fail(err)
+        return False
+    else:
+        if started:
+            CLI.print_info(f'''Started containers: {', '.join(started)}''')
+        CLI.print_ok('Wanda completely started.')
+    return True
         
-    # return status
-
-
 def wanda_stop(wanda: Wanda) -> bool:
     """Stops the Wanda stack and returns the success."""
 
-    status = True
-
-    wanda.stop()
-    return status
+    try:
+        stopped = wanda.stop()
+    except WandaException as err:
+        CLI.print_fail(err)
+        return False
+    else:
+        if stopped:
+            CLI.print_info(f'''Stopped containers: {', '.join(stopped)}''')
+        CLI.print_ok('Wanda completely stopped.')
+    return True
 
 
 
@@ -281,19 +313,16 @@ def wanda_status(wanda: Wanda) -> bool:
     """Prints the status of Wanda stack on screen
     and returns operational state."""
 
-    operational = True
-
-    for name, status in wanda.status.items():
+    for name, status in wanda.container_status.items():
         text = f'{name:<20} [{status}]'
-        if status != 'running':
-            operational = False
         CLI.print_okfail(text, fail=status != 'running')
 
-    if operational: #TODO: ADD HEALTH CHECK!        
-        pass     
-              
-    CLI.print_ok('\nWanda is operational.') if operational else CLI.print_fail('\nWanda is not operational!')
-    return operational
+    if wanda.status:
+        CLI.print_ok('\nWanda is operational.') 
+        return True
+    else:
+        CLI.print_fail('\nWanda is not operational!')
+        return False
 
 
 def main() -> None:
