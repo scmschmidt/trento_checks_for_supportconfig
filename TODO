@@ -2,4 +2,3 @@
 
 - The docker compose file needs to be extended to label all created resources (like volumes).
   This shall allow it easily to remove remnants by using the label.
-

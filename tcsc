@@ -34,6 +34,7 @@ Changelog:
 import argparse
 import os
 import docker
+import functools
 import re
 import subprocess
 import sys
@@ -41,7 +42,7 @@ import termcolor
 import textwrap
 import time
 import json
-import uuid
+import uuid 
 from collections import Counter
 from rabbiteer import Rabbiteer
 from typing import List, Dict, Tuple
@@ -79,8 +80,9 @@ class CLI():
         print(termcolor.colored(text, 'green'))
 
     @classmethod
-    def print_okfail(cls, text: str, fail: bool = True) -> None:
-        cls.print_fail(text) if fail else cls.print_ok(text)
+    def print_status(cls, text: str, status_text: str, status: int = 0) -> None:
+        print(text + termcolor.colored(status_text, {2: 'red', 1: 'yellow', 0: 'green'}.get(status, 2)))
+        
 
 
 class Config():
@@ -180,7 +182,25 @@ class Wanda():
 
         return False
         
+    @property    
+    def checks(self) -> List[dict]:
+        """Returns list of all available checks.""" 
         
+        return self._rabbiteer.list_catalog().get('items')       
+    
+    def filter_checks(self, requested: List[str]) -> List[dict]:
+        """Returns list of all available checks, with the requested attributes only.
+        It is possible to use dot notation to access nested objects. The result will
+        always be a flat dictionary with deep references resolved.""" 
+       
+        def deep_get(dictionary, keys, default=None):
+            return functools.reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("."), dictionary)
+        
+        result = []
+        for check in self.checks:
+            result.append({attribute: deep_get(check, attribute) for attribute in requested})
+        return result
+     
     def start(self) -> List[str]:
         """Initiate start of Wanda containers. Only containers, which are in the states
         'exited' or 'created' are going to be started. The method will *not* wait for 
@@ -251,23 +271,31 @@ def argument_parse() -> dict:
                         required=False,
                         help='output is done in JSON')  
      
-    subparsers = parser.add_subparsers(dest='selectors')
-    subparsers.required = True
+    selectors = parser.add_subparsers(dest='selectors')
+    selectors.required = True
     
     # Selector: wanda
-    parser_wanda = subparsers.add_parser('wanda', help='Manages Wanda container stack')
+    wanda = selectors.add_parser('wanda', help='Manages Wanda container stack.')
     
-    parser_wanda.add_argument(dest='command',
-                              action='store',
-                              type=str,
-                              choices=['start', 'status', 'stop', 'checks'],
-                              help='starts, stops, prints the status of the Wanda stack or lists all available checks')
+    wanda_commands = wanda.add_subparsers(dest='wanda_commands')
+    wanda_commands.required = True
     
+    wanda_start = wanda_commands.add_parser('start', help='Starts Wanda containers.')
+    wanda_status = wanda_commands.add_parser('status', help='Prints status of Wanda.')
+    wanda_stop = wanda_commands.add_parser('stop', help='Stops Wanda containers.')
+    wanda_checks = wanda_commands.add_parser('checks', help='Lists available checks.')
+    
+    wanda_checks.add_argument('-d', '--details',
+                              dest='check_details',
+                              action='store_true',
+                              required=False,
+                              help='shoes more details.')  
+
     # Selector: hosts
-    parser_hosts = subparsers.add_parser('hosts', help='Manages host containers')
+    parser_hosts = selectors.add_parser('hosts', help='Manages host containers')
     
     # Selector: checks
-    parser_checks = subparsers.add_parser('checks',  help='Executes checks')
+    parser_checks = selectors.add_parser('checks',  help='Executes checks')
      
     args_parsed = parser.parse_args()
     
@@ -307,15 +335,12 @@ def wanda_stop(wanda: Wanda) -> bool:
     return True
 
 
-
-
 def wanda_status(wanda: Wanda) -> bool:
     """Prints the status of Wanda stack on screen
     and returns operational state."""
 
     for name, status in wanda.container_status.items():
-        text = f'{name:<20} [{status}]'
-        CLI.print_okfail(text, fail=status != 'running')
+        CLI.print_status(f'{name:<20}', f'[{status}]', status = 0 if status == 'running' else 2)
 
     if wanda.status:
         CLI.print_ok('\nWanda is operational.') 
@@ -325,9 +350,29 @@ def wanda_status(wanda: Wanda) -> bool:
         return False
 
 
+def wanda_checks(wanda: Wanda, details: bool = False) -> int:
+    """Prints the checks on screen returned by Wanda."""
+
+    c = 0
+    if details:
+        for check in wanda.filter_checks(['id', 'description', 'group', 'metadata.provider']):
+            c += 1    
+            for attribute in 'id', 'description', 'group', 'metadata.provider':
+                print(f'{attribute:<18}: {check[attribute]}'.strip())
+            print()
+    else:        
+        for check in wanda.filter_checks(['id', 'description']):
+            c += 1
+            print(f'''{check['id']} - {check['description'].strip()}''')
+        print()
+        
+    CLI.print_info(f'{c} checks available.')
+
+
 def main() -> None:
     
     arguments = argument_parse()  
+    print(arguments)
     
     try:
         config = Config('~/.config/tcsc/config')
@@ -336,17 +381,17 @@ def main() -> None:
         # print(arguments)
         if arguments.selectors == 'wanda':
             
-            if arguments.command == 'start':
+            if arguments.wanda_commands == 'start':
                 sys.exit(0) if wanda_start(wanda) else sys.exit(4)
                 
-            elif arguments.command == 'stop':
+            elif arguments.wanda_commands == 'stop':
                 sys.exit(0) if wanda_stop(wanda) else sys.exit(4)
             
-            elif arguments.command == 'status':
+            elif arguments.wanda_commands == 'status':
                 sys.exit(0) if wanda_status(wanda) else sys.exit(4)
                 
-            elif arguments.command == 'checks':
-                pass            
+            elif arguments.wanda_commands == 'checks':
+                sys.exit(0) if wanda_checks(wanda, arguments.check_details) else sys.exit(4)            
         
         elif arguments.selectors == 'hosts': 
             pass 
