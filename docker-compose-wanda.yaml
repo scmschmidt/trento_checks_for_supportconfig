@@ -9,7 +9,7 @@ services:
     image: registry.suse.com/trento/trento-wanda:latest
     container_name: tcsc-wanda
     labels:
-      - com.suse.tcsc.stack=tcsc-wanda
+      - com.suse.tcsc.stack=wanda
     environment:
       DATABASE_URL: ecto://postgres:postgres@postgres/postgres
       SECRET_KEY_BASE: dummyS3cr3t
@@ -30,7 +30,7 @@ services:
     image: rabbitmq:3.10.5-management-alpine
     container_name: tcsc-rabbitmq
     labels:
-      - com.suse.tcsc.stack=tcsc-rabbitmq
+      - com.suse.tcsc.stack=wanda
     ports:
       - 5672:5672
       - 15672:15672
@@ -42,7 +42,7 @@ services:
     image: postgres:latest
     container_name: tcsc-postgres
     labels:
-      - com.suse.tcsc.stack=tcsc-postgres
+      - com.suse.tcsc.stack=wanda
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

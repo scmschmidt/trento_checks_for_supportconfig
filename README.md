@@ -127,17 +127,15 @@ In case Wanda is not there, run:
 tcsc wanda start
 ``` 
 
-To list all the available checks, ruin:
+To list all the available checks, run:
 ```
-tcsc wanda checks [-d|--detail]
+tcsc wanda checks [-d|--details]
 ```
 
 If you do not need Wanda anymore, you can stop the stack easily:
 ```
 tcsc wanda stop
 ``` 
-
-
 
 > :construction: It should be easily possible to manage individual Wanda stacks if required. 
 The stacks can be named or labeled with the individual tcsc id, like the supportconfig containers.
@@ -147,7 +145,7 @@ The stacks can be named or labeled with the individual tcsc id, like the support
 
 To run checks, for each supportconfig an individual container must be started. Such a container runs
 the `trento-agent` inside and connects to Wanda. For Wanda the container represents just a host which
-shell be checked. The content of the supportconfig as well as all the additional support files are placed inside 
+shall be checked. The content of the supportconfig as well as all the additional support files are placed inside 
 the container in a way, the `trento-agent` accepts it as system data.
 
 Currently there are two types of Trento checks. Single checks and multi checks. \
@@ -567,3 +565,73 @@ The command `getent shadow USER` must work. Since the supportconfig does not con
 - Enable existing checks which currently can not be used, because they run commands on active clusters.
 - Make the project more user-friendly.
 - ...
+
+
+## Labeling an Naming Concept
+
+`tcsc` does not track started, stopped or removed containers, but relies on the correct labeling of docker objects, like container.
+The following labels are used:
+
+- `com.suse.tcsc.stack`\
+  Each image, container, volume and network handled by this project has this label.
+  Wanda objects have the value `wanda` and host objects the value `hosts`
+
+- `com.suse.tcsc.hostgroup`\
+  This label exists only for host objects and has the hostgroup name given by the user as value.
+
+- `com.suse.tcsc.uuid`\
+  This label exists only for host objects and contains the UUID of the `tcsc` installation.
+
+- `com.suse.tcsc.supportfiles`\
+  This label exists only for host objects and contains a list of the associated support files.
+
+
+All container names start with the prefix `tcsc-`. For the three Wanda containers the names are:
+
+  - `tcsc-rabbitmq`
+  - `tcsc-postgres`
+  - `tcsc-wanda`
+
+For host container names the prefix is followed by the string `host`, the hostgroup name and a random string of 8 characters separated by a dash:
+`tcsc-host-<HOSTGROUP>-<UUID>`
+
+For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
+
+> Example:
+>
+> Assumed the `tcsc` UUID is *691f589c-da35-11ee-994d-2df1b03e5ad0* and the user has two host groups *ACMEprod_1* and *ACMEprod_2* which two hosts each, the naming and labeling would be:
+>
+> Wanda:
+> 
+>  - tcsc-rabbitmq
+>     - com.suse.tcsc.stack=wanda
+>  - tcsc-postgres
+>     - com.suse.tcsc.stack=wanda
+>  - tcsc-wanda
+>     - com.suse.tcsc.stack=wanda
+>
+> Hosts:
+>
+>  - tcsc-host-ACMEprod_1-eo3fbp4w
+>     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.hostgroup=ACMEprod_1
+>     - com.suse.tcsc.supportfiles=[scc_hdbprda1_231011_1528.txz]
+>     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
+>
+>  - tcsc-host-ACMEprod_1-qvmscofr
+>     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.hostgroup=ACMEprod_1
+>     - com.suse.tcsc.supportfiles=[scc_hdbprda2_231011_1533.txz]
+>     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
+>
+>  - tcsc-host-ACMEprod_2-bcakg5vz
+>     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.hostgroup=ACMEprod_2
+>     - com.suse.tcsc.supportfiles=[scc_hdbprdb1_231011_1643.txz]
+>     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
+>
+>  - tcsc-host-ACMEprod_2-eaf7dyjt
+>     - com.suse.tcsc.supportfiles=[scc_hdbprdb2_231011_1658.txz]
+>     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.hostgroup=ACMEprod_2
+>     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
