@@ -15,7 +15,11 @@ class CLI():
     @classmethod
     def print_info(cls, text: str) -> None:
         print(termcolor.colored(text, 'blue'))
-        
+
+    @classmethod
+    def print_details(cls, text: str) -> None:
+        print(termcolor.colored(text, 'grey'))
+                
     @classmethod
     def print_fail(cls, text: str) -> None:
         print(termcolor.colored(text, 'red'))

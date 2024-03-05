@@ -40,21 +40,3 @@ echo -e "\n${count} checks available."
 
 # Bye.
 exit 0
-
-
-#  "metadata": {
-#         "cluster_type": "hana_scale_up",
-#         "provider": [
-#           "azure",
-#           "nutanix",
-#           "kvm",
-#           "vmware"
-#         ],
-#         "target_type": "cluster"
-
-#               "facts": [
-#         {
-#           "argument": "runtime.config.totem.join",
-#           "gatherer": "corosync-cmapctl@v1",
-#           "name": "runtime_join"
-#         }

@@ -10,7 +10,7 @@ import docker
 import functools
 import time
 from rabbiteer import Rabbiteer
-from typing import List, Dict
+from typing import List, Dict, Any
 from tcsc_config import *
 
 
@@ -25,9 +25,12 @@ class WandaStack():
 
     def __init__(self, config: Config) -> None:
         self._docker: docker.DockerClient = docker.from_env()
-        self.timeout = config.docker_timeout
-        self._containers = {container.name: container for container in 
-                            self._docker.containers.list(all=True, filters={'label': config.wanda_label})}
+        self.timeout: int = config.docker_timeout
+        self._containers: Dict[str, docker.Container] = {container.name: container for container in 
+                                                         self._docker.containers.list(
+                                                             all=True, 
+                                                             filters={'label': config.wanda_label})
+                                                        }
         if set(self._containers.keys()) != set(config.wanda_containers):
             raise WandaException('Not all required Wanda containers are present.')
         self._rabbiteer = Rabbiteer(config.wanda_url)
@@ -41,15 +44,15 @@ class WandaStack():
         
     @property
     def status(self) -> bool:
-        """Returns a boolean with the Wanda status.
-        """    
+        """Returns a boolean with the Wanda status."""    
+        
         for status in self.container_status.values():
             if status != 'running':
                 return False
 
         try:
-            health = self._rabbiteer.health()['database']
-            ready = self._rabbiteer.readiness()['ready']
+            health: str = self._rabbiteer.health()['database']
+            ready: bool = self._rabbiteer.readiness()['ready']
         except:
             return False
         else:
@@ -69,10 +72,10 @@ class WandaStack():
         It is possible to use dot notation to access nested objects. The result will
         always be a flat dictionary with deep references resolved.""" 
        
-        def deep_get(dictionary, keys, default=None):
+        def deep_get(dictionary: dict, keys: Any, default=None) -> Any:
             return functools.reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("."), dictionary)
         
-        result = []
+        result: List[Dict[str, Any]] = []
         for check in self.checks:
             result.append({attribute: deep_get(check, attribute) for attribute in requested})
         return result
@@ -83,7 +86,7 @@ class WandaStack():
         the containers to be up.
         Returns the names of the started containers."""
         
-        started = []
+        started: List[str] = []
         self._update()
         for container in [c for c in self._containers.values() if c.status in ['exited', 'created']]:
             started.append(container.name)
@@ -102,13 +105,13 @@ class WandaStack():
         are going to be stopped.
         Returns the names of the stopped containers."""
         
-        stopped = []
+        stopped: List[str] = []
         self._update()
         for container in [c for c in self._containers.values() if c.status in ['running']]:
             stopped.append(container.name)
             container.stop(timeout=self.timeout)
             
-        start_time = time.time()
+        start_time: time.Time = time.time()
         while True:
             self._update()
             not_exited = [name for name, status in self.container_status.items() if status != 'exited']

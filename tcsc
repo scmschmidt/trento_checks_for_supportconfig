@@ -18,10 +18,12 @@ Exit Codes:
 
 ToDo:
 -----
-    - wanda_status() needs Wanda health check.
+    - Think about labels and stuff and what really needs to be in the config file.
+    - Check if all created docker resources really get removed.
     - Rework help output.
     - Implement JSON output
     - Implement signal handling (catching interrupts)
+    - Better table output with flexible column width.
     
     
 Future:
@@ -88,17 +90,17 @@ def argument_parse() -> dict:
                               dest='check_details',
                               action='store_true',
                               required=False,
-                              help='shoes more details.')  
+                              help='shows more details.')  
 
     # Selector: hosts
     hosts = selectors.add_parser('hosts', help='Manages host containers')
     hosts_commands = hosts.add_subparsers(dest='host_commands')
     hosts_commands.required = True
  
-    hosts_start = hosts_commands.add_parser('start', help='Starts host containers.')
+    hosts_start = hosts_commands.add_parser('start', help='Starts host container.')
     hosts_status = hosts_commands.add_parser('status', help='Prints status of host containers.')
-    hosts_stop = hosts_commands.add_parser('stop', help='Stops host containers.')
-    hosts_list = hosts_commands.add_parser('list', help='Lists all host containers.')
+    hosts_stop = hosts_commands.add_parser('stop', help='Stops and removes host containers.')
+    hosts_logs = hosts_commands.add_parser('logs', help='Lists logs of a host container.')
     
     hosts_start.add_argument(metavar='GROUPNAME',
                              dest='hostgroup',
@@ -108,16 +110,35 @@ def argument_parse() -> dict:
                              nargs='+',
                              help='supportfiles (like supportconfig)')
  
-    for p in  hosts_status, hosts_stop, hosts_list:
+    hosts_status.add_argument('-d', '--details',
+                              dest='host_details',
+                              action='store_true',
+                              required=False,
+                              help='shows more details.')  
+        
+    for p in  hosts_status, hosts_stop:
         p.add_argument(metavar='GROUPNAME',
                               nargs='?',
                               dest='hostgroup',
                               help='name of the host group')
     
+    hosts_logs.add_argument(metavar='CONTAINERNAME',
+                             dest='containername',
+                             help='name of the host container')    
+    hosts_logs.add_argument('-l', '--lines',
+                              metavar='N',
+                              dest='last_lines',
+                              type=int,
+                              required=False,
+                              help='show only the last N lines')  
+        
+    
     # Selector: checks
     parser_checks = selectors.add_parser('checks',  help='Executes checks')
      
     args_parsed = parser.parse_args()
+    
+    #TODO: Checking lines (hosts logs) should be a positive integer.
     
     return args_parsed
 
@@ -188,33 +209,109 @@ def wanda_checks(wanda: WandaStack, details: bool = False) -> None:
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
     """Starts a host container with the given supportfiles as member of the given host group."""
 
+    hostname = hosts.start(hostgroup, supportfiles)
+    if hostname:
+        CLI.print_ok(F'Host container "{hostname}" for "{hostgroup} started!')
+        return True        
+    CLI.print_fail(F'Could not start host container for "{hostgroup}!')
+    return False
 
-    # Check if container is already running.
+
+def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bool:
+    """Prints the status of the host containers for all/requested host groups on screen
+    and returns operational state."""
     
-    hosts.start(hostgroup, supportfiles)
-
-
-
-def hosts_status(hosts: HostsStack, hostgroup: str) -> bool:
-    """Starts a host container with the given supportfiles as member of the given host group."""
-
-    #TODO: Better table display with flexible column width.
-    for host in sorted(hosts.container_status, key=lambda x: x['hostgroup']):
-        if hostgroup and host['hostgroup'] != hostgroup:
-            continue
-        CLI.print_status(f'''{host['name']:<30}  {host['hostgroup']:<10}    {host['supportfiles']:<20}''', f'''[{host['status']}]''', 
-                         status = 0 if host['status'] == 'running' else 2)
-    #TODO: RETURN BOOLEAN AND THINK ABOUT ITS MEANING!!!!!
+    indent: str = '\n\t'
+    CLI.print_info('Host Container')
+    operable_hostgroup: Dict[str, bool] = {}
+    for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
+        if host['hostgroup'] not in operable_hostgroup:
+            operable_hostgroup[host['hostgroup']] = True
+        if host['status'] != 'running':
+            operable_hostgroup[host['hostgroup']] = False    
+            
+        if details:            
+            CLI.print_status(f'''{host['name']:<65}''', f'''[{host['status']}]''', 
+                            status = 0 if host['status'] == 'running' else 2)
+            CLI.print_details(f'''    agent_id:      {host['agent_id']}''')
+            CLI.print_details(f'''    hostgroup:     {host['hostgroup']}''')
+            CLI.print_details(f'''    supportconfig: {host['supportconfig']}''')            
+            CLI.print_details(f'''    supportfiles:  {indent.join(host['supportfiles'].split())}''')
+            print()
+        else:
+            CLI.print_status(f'''{host['name']:<35}''', f'''[{host['status']}]''', 
+                            status = 0 if host['status'] == 'running' else 2)
+    
+    CLI.print_info('\nHost Groups')
+    for hostgroup, operational in operable_hostgroup.items():
+        CLI.print_status(f'{hostgroup:<15}', '[ operable ]' if operational else '[inoperable]', status = 0 if operational else 2)
+        
+    return False if False in operable_hostgroup.values() else True
+        
 
 def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
-    """Stops and removes host containers of a given hostgroup."""   #TODO: MAYBE ONLY STOPPING, SO WE CAN START THEM AGAIN?????
+    """Stops host containers of a given hostgroup."""
 
-    for host in sorted(hosts.container_status, key=lambda x: x['hostgroup']):
-        if hostgroup and host['hostgroup'] != hostgroup:
-            continue
-        host.container.stop()   #TODO: HOW DO WE STORE STARTED CONTAINERS?????
+    if hostgroup:
+        if hostgroup not in hosts.hostgroups:
+            CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+            return False
+        hostgroups = [hostgroup]
+    else:
+        hostgroups = hosts.hostgroups
+
+    success = True
+    for hostgroup in hostgroups:
+        stop_msg = f'Host group "{hostgroup}" completely stopped.' if hostgroup else 'All host groups completely stopped.'
+        try:
+            stopped = hosts.stop_hostgroup(hostgroup)
+        except HostsException as err:
+            CLI.print_fail(err)
+            success = False
+        else:
+            if stopped:
+                CLI.print_info(f'''Stopped containers: {', '.join(stopped)}''')
+            CLI.print_ok(stop_msg)
+    
+    return success
 
 
+def hosts_remove(hosts: HostsStack, hostgroup: str) -> bool:
+    """Removes host containers of a given hostgroup."""
+
+    if hostgroup:
+        if hostgroup not in hosts.hostgroups:
+            CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+            return False
+        hostgroups = [hostgroup]
+    else:
+        hostgroups = hosts.hostgroups
+
+    success = True
+    for hostgroup in hostgroups:
+        stop_msg = f'Host group "{hostgroup}" completely removed.' if hostgroup else 'All host groups completely removed.'
+        try:
+            removed = hosts.remove_hostgroup(hostgroup)
+        except HostsException as err:
+            CLI.print_fail(err)
+            success = False
+        else:
+            if removed:
+                CLI.print_info(f'''Removed containers: {', '.join(removed)}''')
+            CLI.print_ok(stop_msg)
+    
+    return success
+
+
+def hosts_logs(hosts: HostsStack, containername: str, last_lines: int) -> None:
+    """Prints logs of given container."""
+    
+    CLI.print_info(f'Logs for "{containername}":')
+    if last_lines:
+        print('\n'.join(hosts.logs(containername)[-last_lines:]))
+    else:
+        print('\n'.join(hosts.logs(containername)))
+        
 
 def main() -> None:
         
@@ -246,24 +343,31 @@ def main() -> None:
         
         elif arguments.selectors == 'hosts': 
             
+            if not wanda.status:
+                CLI.print_fail('Wanda is not operational!') 
+                sys.exit(4)
             hosts = HostsStack(config)
             
-            # tcsc hosts start GROUPNAME SUPPORTFILE [SUPPORTFILE ...]
+            # tcsc hosts start GROUPNAME SUPPORTFILE [SUPPORTFILE...]
             if arguments.host_commands == 'start':
                 sys.exit(0) if hosts_start(hosts, arguments.hostgroup, arguments.supportfiles) else sys.exit(5)
                 
             # tcsc hosts status [GROUPNAME]
             elif arguments.host_commands == 'status':
-                sys.exit(0) if hosts_status(hosts, arguments.hostgroup) else sys.exit(5)
+                sys.exit(0) if hosts_status(hosts, arguments.hostgroup, arguments.host_details) else sys.exit(5)
                 
             # tcsc hosts stop [GROUPNAME]
             elif arguments.host_commands == 'stop':  #TODO: DO WE REMOVE CONTAINER OR DO WE LEAVE THEM TO START AGAIN (EVERTHING IS IN LABLES)??????
-                    sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)
-                
-            # tcsc hosts list [GROUPNAME]
-            elif arguments.host_commands == 'list':
-                CLI.print_fail('Not yet implemented!')
-                sys.exit(10)
+                    if hosts_stop(hosts, arguments.hostgroup):
+                        print()
+                        sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
+                    else:
+                        sys.exit(5)
+                        
+            # tcsc hosts logs [-l LINES] CONTAINERNAME 
+            elif arguments.host_commands == 'logs':
+                hosts_logs(hosts, arguments.containername, arguments.last_lines)
+                sys.exit(0) 
         
         elif arguments.selectors == 'checks': 
             CLI.print_fail('Not yet implemented!')
@@ -278,6 +382,9 @@ def main() -> None:
     except WandaException as err:
         print(f'Wanda error: {err}', file=sys.stderr)
         sys.exit(3)
+    except HostsException as err:
+        print(f'Hosts error: {err}', file=sys.stderr)
+        sys.exit(5)
     
     # Bye.
     CLI.print_fail('An unknown error ocurred!')
