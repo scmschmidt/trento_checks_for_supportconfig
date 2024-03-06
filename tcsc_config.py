@@ -17,7 +17,8 @@ class Config():
         - self.id (str):  UUID used to mark the created containers. 
         - self.wanda_containers (List[str]):  List of all Wanda container names.  
         - self.wanda_label (str):  Label used to identify Wanda containers for tcsc.
-        - self.docker_timeout (int):  Timeout for docker (and Wanda) operations in seconds.
+        - self.docker_timeout (int):  Timeout in seconds for docker (and Wanda) operations.
+        - self.startup_timeout (int): Timeout in seconds for host containers to start and keep alive.
         - self.wanda_url (str):  URL to connect to the Wanda container.
         - self.hosts_image (str):  Name of the hosts container image .
         - self.hosts_label (str):  Label used to identify tcsc hosts container. 
@@ -49,6 +50,7 @@ class Config():
                                        'wanda_label': 'com.suse.tcsc.stack=wanda',
                                        'hosts_label': 'com.suse.tcsc.stack=hosts',
                                        'docker_timeout': 10,
+                                       'startup_timeout': 3,
                                        'wanda_url': 'http://localhost:4000',
                                        'hosts_image': 'sc_runner'
                                        }, indent=4
@@ -63,6 +65,7 @@ class Config():
                 self.docker_timeout = abs(int(config['docker_timeout']))
                 self.wanda_url = config['wanda_url']
                 self.hosts_image = config['hosts_image']
+                self.startup_timeout = config['startup_timeout']
         except Exception as err:
             raise ConfigException(f'Error accessing configuration: {err}')
 

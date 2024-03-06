@@ -5,34 +5,35 @@
 Contains classes to handle CLI handling.
 """
 
-
+import sys
 import termcolor
+from typing import TextIO
 
 
 class CLI():
     """Provides methods to print colored messages on the terminal."""
     
     @classmethod
-    def print_info(cls, text: str) -> None:
-        print(termcolor.colored(text, 'blue'))
+    def print_info(cls, text: str, file: TextIO = sys.stdout) -> None:
+        print(termcolor.colored(text, 'blue'), file=file)
 
     @classmethod
-    def print_details(cls, text: str) -> None:
-        print(termcolor.colored(text, 'grey'))
+    def print_details(cls, text: str, file: TextIO = sys.stdout) -> None:
+        print(termcolor.colored(text, 'grey'), file=file)
                 
     @classmethod
-    def print_fail(cls, text: str) -> None:
-        print(termcolor.colored(text, 'red'))
+    def print_fail(cls, text: str, file: TextIO = sys.stdout) -> None:
+        print(termcolor.colored(text, 'red'), file=file)
 
     @classmethod
-    def print_warn(cls, text: str) -> None:
-        print(termcolor.colored(text, 'yellow'))
+    def print_warn(cls, text: str, file: TextIO = sys.stdout) -> None:
+        print(termcolor.colored(text, 'yellow'), file=file)
 
     @classmethod
-    def print_ok(cls, text: str) -> None:
-        print(termcolor.colored(text, 'green'))
+    def print_ok(cls, text: str, file: TextIO = sys.stdout) -> None:
+        print(termcolor.colored(text, 'green'), file=file)
 
     @classmethod
-    def print_status(cls, text: str, status_text: str, status: int = 0) -> None:
-        print(text + termcolor.colored(status_text, {2: 'red', 1: 'yellow', 0: 'green'}.get(status, 2)))
+    def print_status(cls, text: str, status_text: str, status: int = 0, file: TextIO = sys.stdout) -> None:
+        print(text + termcolor.colored(status_text, {2: 'red', 1: 'yellow', 0: 'green'}.get(status, 2)), file=file)
         

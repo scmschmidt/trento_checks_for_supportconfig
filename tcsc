@@ -12,6 +12,7 @@ Exit Codes:
     3   Exception occurred in communicating with Wanda.
     4   A problem with Wanda ocurred.
     5   A problem with a host container ocurred.
+    6   Something is wrong with the check.
     9   An unknown error ocurred.
    10   Feature not yet implemented.
 
@@ -19,10 +20,13 @@ Exit Codes:
 ToDo:
 -----
     - Think about labels and stuff and what really needs to be in the config file.
+    - Does it make sense to not destroy host containers, so they can be reactivated later easily?
+    - Think about start protection for same support files for the same group.
     - Check if all created docker resources really get removed.
     - Rework help output.
     - Implement JSON output
     - Implement signal handling (catching interrupts)
+    - Check if we can have non-colored output best.
     - Better table output with flexible column width.
     
     
@@ -62,6 +66,8 @@ __status__ = 'Prototype'
 def argument_parse() -> dict:
     """Evaluates the command line arguments."""
 
+    #TODO: REFORMAT PARSER BLOCK AND ADD NECESSARY ATTRIBUTES, LIKE TYPE ETC: 
+
     parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
                                      #usage='\n'.join(usage),
                                      description='Manages containers to use Wanda checks on support files.',
@@ -83,17 +89,10 @@ def argument_parse() -> dict:
     
     wanda_start = wanda_commands.add_parser('start', help='Starts Wanda containers.')
     wanda_status = wanda_commands.add_parser('status', help='Prints status of Wanda.')
-    wanda_stop = wanda_commands.add_parser('stop', help='Stops Wanda containers.')
-    wanda_checks = wanda_commands.add_parser('checks', help='Lists available checks.')
-    
-    wanda_checks.add_argument('-d', '--details',
-                              dest='check_details',
-                              action='store_true',
-                              required=False,
-                              help='shows more details.')  
+    wanda_stop = wanda_commands.add_parser('stop', help='Stops Wanda containers.') 
 
     # Selector: hosts
-    hosts = selectors.add_parser('hosts', help='Manages host containers')
+    hosts = selectors.add_parser('hosts', help='Manages host containers.')
     hosts_commands = hosts.add_subparsers(dest='host_commands')
     hosts_commands.required = True
  
@@ -132,10 +131,45 @@ def argument_parse() -> dict:
                               required=False,
                               help='show only the last N lines')  
         
-    
     # Selector: checks
-    parser_checks = selectors.add_parser('checks',  help='Executes checks')
-     
+    checks = selectors.add_parser('checks',  help='Manages checks.')
+    checks_commands = checks.add_subparsers(dest='checks_commands')
+    
+    checks_list = checks_commands.add_parser('list', help='Lists available checks.')
+    
+    checks_list.add_argument('-d', '--details',
+                             dest='check_details',
+                             action='store_true',
+                             required=False,
+                             help='shows more details.') 
+    
+    checks_run = checks_commands.add_parser('run', help='Runs Trento checks.')
+    
+    checks_run.add_argument(metavar='GROUPNAME',
+                            dest='hostgroup',
+                            help='name of the host group')
+    checks_run.add_argument('-p', '--provider',
+                            metavar='PROVIDER',
+                            dest='provider',
+                            choices=['default','kvm','vmware','azure','aws', 'gcp'],
+                            type=str,
+                            required=False,
+                            help='provider to use for the check')
+    checks_run.add_argument('-g', '--group',
+                            metavar='GROUP',
+                            dest='check_groups',
+                            action='append',
+                            type=str,
+                            required=False,
+                            help='use only checks of that group')
+    checks_run.add_argument('-c', '--check',
+                            metavar='CHECK',
+                            action='append',
+                            type=str,
+                            required=False,
+                            dest='requested_checks',
+                            help='use only the check with this ID')
+      
     args_parsed = parser.parse_args()
     
     #TODO: Checking lines (hosts logs) should be a positive integer.
@@ -186,24 +220,6 @@ def wanda_status(wanda: WandaStack) -> bool:
     else:
         CLI.print_fail('\nWanda is not operational!')
         return False
-
-
-def wanda_checks(wanda: WandaStack, details: bool = False) -> None:
-    """Prints the checks on screen returned by Wanda."""
-
-    c = 0
-    if details:
-        for check in wanda.filter_checks(['id', 'description', 'group', 'metadata.provider']):
-            c += 1    
-            for attribute in 'id', 'description', 'group', 'metadata.provider':
-                print(f'{attribute:<18}: {check[attribute]}'.strip())
-            print()
-    else:        
-        for check in wanda.filter_checks(['id', 'description']):
-            c += 1
-            print(f'''{check['id']} - {check['description'].strip()}''')
-        print()
-    CLI.print_info(f'{c} checks available.')
 
 
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
@@ -311,8 +327,72 @@ def hosts_logs(hosts: HostsStack, containername: str, last_lines: int) -> None:
         print('\n'.join(hosts.logs(containername)[-last_lines:]))
     else:
         print('\n'.join(hosts.logs(containername)))
-        
+   
 
+def checks_list(wanda: WandaStack, details: bool = False) -> None:
+    """Prints the checks on screen returned by Wanda."""
+
+    requested_attributes = ['id', 
+                            'description', 
+                            'group', 
+                            'metadata.provider', 
+                            'metadata.cluster_type', 
+                            'facts[].gatherer',
+                            'expectations[].type',
+                           ] if details else ['id', 'description']
+    check_counter, supported, unsupported, unknown  = 0, 0, 0, 0
+    for check in wanda.checks(requested_attributes):
+        check_counter += 1
+        support = getattr(check, 'tcsc_support')
+        if support == 'yes':
+            supported += 1
+            print_state = CLI.print_ok
+        elif support == 'no': 
+            unsupported += 1
+            print_state = CLI.print_fail
+        else:
+            unknown += 1
+            print_state = CLI.print_warn
+        if details:
+            for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'gatherer']:
+                value = getattr(check, attribute)
+                if isinstance(value, list):
+                    value = ' '.join(set(value))
+                print_state(f'{attribute:<22}: {value}')
+            print_state(f'tcsc_support          : {support}\n')
+        else:
+            print_state(f'''{check.id} - {check.description}''')
+    print()
+    CLI.print_info(f'{check_counter} checks available ({supported=} {unsupported=} {unknown=}).')
+
+
+def checks_run(wanda: WandaStack, 
+               hostgroup: str, 
+               provider: str, 
+               check_groups: List[str],
+               requested_checks: List[str]) -> bool:
+    """Executed the requested checks."""
+    
+    print(hostgroup, provider, check_groups, requested_checks)
+    
+    #TODO: 
+    # - Check if the host group exists (- retrieve members)
+    # - Get list of checks (filtered by check_groups and requested_checks) WHAT WINS IF EXCLUSIVE?
+    #           - default sorting: group
+    # - Run check (if single on each host, if multi on all if more then one host exists)
+    # - Retrieve and display result.
+    
+    return True
+
+
+def wanda_must_run(wanda: WandaStack) -> None:
+    """Terminates with an error message, if Wanda is not operational."""
+    
+    if not wanda.status:
+        CLI.print_fail('Wanda is not operational!') 
+        sys.exit(4)
+                
+                
 def main() -> None:
         
     arguments = argument_parse()  
@@ -336,20 +416,18 @@ def main() -> None:
             elif arguments.wanda_commands == 'status':
                 sys.exit(0) if wanda_status(wanda) else sys.exit(4)
                 
-            # tcsc wanda checks [-d|--details]
-            elif arguments.wanda_commands == 'checks':
-                wanda_checks(wanda, arguments.check_details)
-                sys.exit(0)           
+            # # tcsc wanda checks [-d|--details]
+            # elif arguments.wanda_commands == 'checks':
+            #     wanda_checks(wanda, arguments.check_details)
+            #     sys.exit(0)           
         
         elif arguments.selectors == 'hosts': 
             
-            if not wanda.status:
-                CLI.print_fail('Wanda is not operational!') 
-                sys.exit(4)
             hosts = HostsStack(config)
             
             # tcsc hosts start GROUPNAME SUPPORTFILE [SUPPORTFILE...]
             if arguments.host_commands == 'start':
+                wanda_must_run(wanda)
                 sys.exit(0) if hosts_start(hosts, arguments.hostgroup, arguments.supportfiles) else sys.exit(5)
                 
             # tcsc hosts status [GROUPNAME]
@@ -357,7 +435,7 @@ def main() -> None:
                 sys.exit(0) if hosts_status(hosts, arguments.hostgroup, arguments.host_details) else sys.exit(5)
                 
             # tcsc hosts stop [GROUPNAME]
-            elif arguments.host_commands == 'stop':  #TODO: DO WE REMOVE CONTAINER OR DO WE LEAVE THEM TO START AGAIN (EVERTHING IS IN LABLES)??????
+            elif arguments.host_commands == 'stop':
                     if hosts_stop(hosts, arguments.hostgroup):
                         print()
                         sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
@@ -370,21 +448,37 @@ def main() -> None:
                 sys.exit(0) 
         
         elif arguments.selectors == 'checks': 
-            CLI.print_fail('Not yet implemented!')
-            sys.exit(10)
+            wanda_must_run(wanda)
+                            
+            # tcsc wanda checks [-d|--details]
+            if arguments.checks_commands == 'list':
+                checks_list(wanda, arguments.check_details)
+                sys.exit(0)  
+                
+            # tcsc checks run [-p|--provider PROVIDER] [-g|--group GROUP]... [-c|--checks CHECK]... GROUPNAME
+            if arguments.checks_commands == 'run':
+                sys.exit(0) if checks_run(wanda, 
+                                          arguments.hostgroup, 
+                                          arguments.provider, 
+                                          arguments.check_groups,
+                                          arguments.requested_checks
+                                         ) else sys.exit(6)
     
     except ConfigException as err:
-        print(err, file=sys.stderr)
+        CLI.print_fail(err, file=sys.stderr)
         sys.exit(1)
     except docker.errors.DockerException as err:
-        print(f'Docker error: {err}', file=sys.stderr)
+        CLI.print_fail(f'Docker error: {err}', file=sys.stderr)
         sys.exit(2)
     except WandaException as err:
-        print(f'Wanda error: {err}', file=sys.stderr)
+        CLI.print_fail(f'Wanda error: {err}', file=sys.stderr)
         sys.exit(3)
     except HostsException as err:
-        print(f'Hosts error: {err}', file=sys.stderr)
+        CLI.print_fail(f'Hosts error: {err}', file=sys.stderr)
         sys.exit(5)
+    except CheckException as err:
+        CLI.print_fail(f'Check error: {err}', file=sys.stderr)
+        sys.exit(6)    
     
     # Bye.
     CLI.print_fail('An unknown error ocurred!')

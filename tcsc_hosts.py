@@ -21,21 +21,22 @@ class HostsStack():
     
         - self._docker (docker.DockerClient):  Instance of DockerClient.
         - self.timeout (int):  Timeout for Docker and host operations.
+        - self.start_timeout (int):  Timeout for containers to start and stay alive.
         - self.id (str):  UUID of this tcsc installation.
         - self.image (str):  Image used for hosts container.
+        
     """
 
     def __init__(self, config: Config) -> None:
         self._docker: docker.DockerClient = docker.from_env()
         self.timeout = config.docker_timeout
+        self.start_timeout = config.startup_timeout
         self.id = config.id
         self.image = config.hosts_image
         self.host_label = config.hosts_label
 
     def start(self, hostgroup: str, supportfiles: List[str]) -> str:
         """Creates and starts a new host container for the requested group with the given supportfiles and returns its name."""
-    
-        #TODO: SHALL WE START AN EXISTING STACK IF NO SUPPORTFILES ARE GIVEN
 
         if len(supportfiles) != 1:
             raise HostsException('Currently only one supportconfig file is implemented!')
@@ -65,8 +66,21 @@ class HostsStack():
                      },
             detach = True)
 
+        start_time = time.time()    
+        while True:
+            host.reload()
+            if host.status == 'running':
+                break
+            if  (time.time() - start_time) > self.start_timeout: 
+                raise HostsException(f'Start timeout of {self.start_timeout}s reached. "{host.name}" did not became operational.')
+            time.sleep(.2)
 
-        #TODO: WAIT FOR HOST TO STAY RUNNING!!!!!
+        start_time = time.time()    
+        while (time.time() - start_time) <= self.start_timeout:
+            host.reload()
+            if host.status != 'running':
+                raise HostsException(f'"Start timeout of {self.start_timeout}s reached. {host.name}" stopped running.')
+            time.sleep(.2)
 
         return host.name
 

@@ -61,25 +61,14 @@ class WandaStack():
 
         return False
         
-    @property    
-    def checks(self) -> List[dict]:
-        """Returns list of all available checks.""" 
-        
-        return self._rabbiteer.list_catalog().get('items')       
+    def checks(self, attributes: List[str] = None) -> List[dict]:
+        """Returns list of Check instances for all available checks (content of 'items').
+        The Check instance will have only the requested attributes.""" 
     
-    def filter_checks(self, requested: List[str]) -> List[dict]:
-        """Returns list of all available checks, with the requested attributes only.
-        It is possible to use dot notation to access nested objects. The result will
-        always be a flat dictionary with deep references resolved.""" 
+        return [Check(c, attributes) for c in self._rabbiteer.list_catalog().get('items')]   
+    
+ 
        
-        def deep_get(dictionary: dict, keys: Any, default=None) -> Any:
-            return functools.reduce(lambda d, key: d.get(key, default) if isinstance(d, dict) else default, keys.split("."), dictionary)
-        
-        result: List[Dict[str, Any]] = []
-        for check in self.checks:
-            result.append({attribute: deep_get(check, attribute) for attribute in requested})
-        return result
-     
     def start(self) -> List[str]:
         """Initiate start of Wanda containers. Only containers, which are in the states
         'exited' or 'created' are going to be started. The method will *not* wait for 
@@ -131,3 +120,100 @@ class WandaStack():
 
 class WandaException(Exception):
     pass
+
+
+class Check():
+    """Represents a Trento check.
+    The representation reads takes the original dictionary created from JSON
+    and creates a reduced flat dictionary with only the parts required."""
+ 
+    _known_gatherers = ['cibadmin@v1',
+                        'corosync-cmapctl@v1',
+                        'corosync.conf@v1',
+                        'hosts@v1',
+                        'package_version@v1',
+                        'saphostctrl@v1',
+                        'sbd_config@v1',
+                        'sbd_dump@v1',
+                        'systemd@v1',
+                        'verify_password@v1'
+                       ]
+    _valid_gatherers = ['cibadmin@v1',
+                        'corosync.conf@v1', 
+                        'package_version@v1',
+                        'sbd_config@v1',
+                        'sbd_dump@v1',
+                       ]
+   
+    _attribute_table = {'id': 'id', 
+                        'description': 'description', 
+                        'group': 'group', 
+                        'metadata.provider': 'provider', 
+                        'metadata.cluster_type': 'cluster_type', 
+                        'facts[].gatherer': 'gatherer',
+                        'expectations[].type': 'check_type'
+                       }
+    
+    
+    @staticmethod
+    def _retrieve_attributes(dictionary: Dict, keys: List[str]):
+        """Retrieves key-value pairs in a nested dictionary. The result is always a flat dictionary.
+        Keys are written in dot-notation (e.g. 'metadata.cluster_type'). 
+        Intermediate lists must be indicated by '[]' at the end of the key containing 
+        the list (e.g. 'expectations[].type').
+        If keys or indices are not found, None is returned."""
+        
+        def walk(subtree: Dict[str, Any], components: List[str]) -> Any:
+            if components[0].endswith('[]'):
+                real_key = components[0][:-2]
+                elements = []
+                for elem in subtree[real_key]:
+                    elements.append(walk(elem, components[1:]))
+                return elements    
+            if len(components) > 1:
+                return walk(subtree[components[0]], components[1:])
+            return subtree[components[0]]
+
+        data = {}
+        for attribute in keys:
+            components = attribute.split('.')
+            try:
+                value = walk(dictionary, components)
+            except (KeyError, IndexError):
+                value = None
+            data[attribute] = value
+        
+        return data    
+    
+    def __init__(self, check: Dict, attributes: List[str] = None) -> None:
+                
+        if not attributes:
+            attributes = Check._attribute_table.keys()
+        if not set(attributes).issubset(Check._attribute_table.keys()):
+            raise CheckException(f'Unsupported attributes: {set(attributes) - Check._attribute_table.keys()}')
+        
+        for key, value in Check._retrieve_attributes(check, attributes).items():
+            if key == 'metadata.provider':
+                if isinstance(value, str):
+                    value = [value]
+            if key == 'expectations[].type':
+                if len(set(value)) != 1:
+                    raise CheckException(f'Unexpected expectation types: {value}')
+                try:
+                    value = {'expect': 'single', 'expect_same': 'multi'}[value[0]]
+                except KeyError:
+                    raise CheckException(f'Unexpected expectation types: {value[0]}')
+            if isinstance(value, str):
+                value = value.strip()
+            setattr(self, Check._attribute_table[key], value)   # value is always None, str or list
+
+            gatherers = set(Check._retrieve_attributes(check, ['facts[].gatherer'])['facts[].gatherer'])
+            if gatherers.issubset(Check._valid_gatherers):
+                self.tcsc_support = 'yes'
+            elif gatherers.issubset(Check._known_gatherers):
+                self.tcsc_support = 'no'
+            else:
+                self.tcsc_support = 'unknown'
+                
+class CheckException(Exception):
+    pass       
