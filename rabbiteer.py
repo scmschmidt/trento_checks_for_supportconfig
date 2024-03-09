@@ -130,7 +130,7 @@ class Rabbiteer():
         self._http_status_err() 
         return self.response.json()
 
-    def execute_checks(self, agent_ids, provider, check_ids, timeout=None):
+    def execute_checks(self, agent_ids, provider, check_ids, timeout=None, running_dots=True):
         """Execute checks for provider on agents and returns 
         the result as dictionary.
         Terminates if anything goes wrong or the result is not as expected. 
@@ -164,15 +164,13 @@ class Rabbiteer():
 
         # Start execution.
         self.make_request('/api/checks/executions/start', post_data=json.dumps(data))
-        
+
         # Check if the check does not exist.
         if self.response.status_code == 422:
-            try:
-                if self.response.json()['error']['detail'] == 'no_checks_selected':
-                    raise RabbiteerRepsonseError('None of the checks exist!')
-            except Exception as err:
-                raise RabbiteerRepsonseError(f'Error parsing response checking execution {execution_id}: {err}\nResponse was: {self.response.text}')
-        
+            detail = self.response.json().get('error', {}).get('detail')
+            if detail and detail == 'no_checks_selected':
+                raise RabbiteerRepsonseError('None of the checks exist!', None)
+            raise RabbiteerRepsonseError('Wanda response: 422 - Unprocessable content', None)
         else:
             self._http_status_err()  
 
@@ -184,39 +182,35 @@ class Rabbiteer():
 
             # Check if execution might not yet exist.
             if self.response.status_code == 404:
-                try:
-                    error_titles = [e['title'] for e in self.response.json()['errors'] if 'title' in e.keys()]
-                    if 'Not Found' in error_titles:
-                        logging.debug(f'Execution {execution_id} not yet available...\n\t{self.response.text}')
-                        if timeout and time.time() - start_time > timeout:
-                            raise RabbiteerTimeOut(f'Execution {execution_id} did not show up in time (within {timeout}s)!')
-                        time.sleep(.5)
-                        continue
-                except Exception as err:
-                    raise RabbiteerRepsonseError(f'Error parsing response checking execution {execution_id}: {err}\nResponse was: {self.response.text}')
+
+                error_titles = [e['title'] for e in self.response.json()['errors'] if 'title' in e.keys()]
+                if 'Not Found' in error_titles:
+                    logging.debug(f'Execution {execution_id} not yet available...\n\t{self.response.text}')
+                    if timeout and time.time() - start_time > timeout:
+                        raise RabbiteerTimeOut(f'Execution {execution_id} did not show up in time (within {timeout}s)!')
+                    time.sleep(.5)
+                    continue
 
             # Terminate if we encounter an unknown error response. 
             self._http_status_err() 
 
             # Check if execution has been completed yet.
-            try:
-                status = self.response.json()['status']
-                if status == 'running':
-                    print('.', end='', flush=True)
-                    
-                    logging.debug(f'Execution {execution_id} still running...\n\t{self.response.text}')
-                    if timeout and time.time() - start_time > timeout:
-                        raise RabbiteerTimeOut(f'Execution {execution_id} did not finish in time (within {timeout}s)!')
-                    time.sleep(.5)
-                    continue
-                elif status == 'completed':
-                    logging.debug(f'Execution {execution_id} has been completed.\n\t{self.response.text}')
-                    running = False
-                else:
-                    raise RabbiteerRepsonseError(f'Execution {execution_id} returned an unknown status: {status}\nResponse was:\n{self.response.text}')
-            except Exception as err:
-                raise RabbiteerRepsonseError(f'Error accessing response checking execution {execution_id}: {err}\nResponse was:\n{self.response.text}')
-        
+            status = self.response.json()['status']
+            if status == 'running':
+                if running_dots:
+                    print('.', end='', flush=True) 
+                
+                logging.debug(f'Execution {execution_id} still running...\n\t{self.response.text}')
+                if timeout and time.time() - start_time > timeout:
+                    raise RabbiteerTimeOut(f'Execution {execution_id} did not finish in time (within {timeout}s)!')
+                time.sleep(.5)
+                continue
+            elif status == 'completed':
+                logging.debug(f'Execution {execution_id} has been completed.\n\t{self.response.text}')
+                running = False
+            else:
+                raise RabbiteerRepsonseError(f'Execution {execution_id} returned an unknown status: {status}', self.response.text)
+      
         logging.debug(f'Response of {execution_id}: {self.response.text}')
         return self.response.json()
 
@@ -234,7 +228,13 @@ class RabiteerMetadataError(Exception):
 
     
 class RabbiteerRepsonseError(Exception):
-    pass    
+    
+    def __init__(self, message, response):
+        message_redone = [message]
+        if response:
+            for error in json.loads(response)['errors']:
+                message_redone.append(f'''{error['title']}: {error['detail']}: {error['source']}''')
+        super().__init__('\n'.join(message_redone))
 
 
 class RabbiteerTimeOut(Exception):

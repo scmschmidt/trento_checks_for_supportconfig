@@ -10,7 +10,7 @@ import docker
 import functools
 import time
 from rabbiteer import Rabbiteer
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from tcsc_config import *
 
 
@@ -66,8 +66,6 @@ class WandaStack():
         The Check instance will have only the requested attributes.""" 
     
         return [Check(c, attributes) for c in self._rabbiteer.list_catalog().get('items')]   
-    
- 
        
     def start(self) -> List[str]:
         """Initiate start of Wanda containers. Only containers, which are in the states
@@ -111,6 +109,28 @@ class WandaStack():
             time.sleep(1)   
         
         return stopped
+
+    def execute_check(self, provider: str, agent_ids: List[str], check_ids: List[str]) -> Tuple[str, dict]:
+        """Executes checks on the given hosts."""
+
+        try:
+            response = self._rabbiteer.execute_checks(agent_ids, provider, check_ids, timeout=self.timeout, running_dots=False)                 
+            check_result = response['check_results'][0] #TODO: Is the assumption of one result always correct?
+            host_data = []
+            for agents_check_result in check_result['agents_check_results']:
+                host_data.append((agents_check_result['agent_id'],
+                                 (agents_check_result['message'], agents_check_result['type']) 
+                                  if 'message' in agents_check_result else None
+                                 )
+                                ) 
+            result = check_result['result'], host_data
+        except Exception as err: # RETURN NOT RAISE!
+            result = 'error', err
+           
+        #import pprint    
+        #pprint.pprint(response)
+ 
+        return result
 
     def _update(self) -> None:
         """Updates the container objects."""

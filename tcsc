@@ -19,10 +19,16 @@ Exit Codes:
 
 ToDo:
 -----
+    - Extracting hostnames from supportconfig makes check results more readable.
+    - Implement restart of exited host containers.
     - Think about labels and stuff and what really needs to be in the config file.
-    - Does it make sense to not destroy host containers, so they can be reactivated later easily?
+    - Talk to Jochen how to integrate `tcsc` into his web project. Importing `tcsc` might be an easy way. 
+    - THink about filter for listing checks to get a better overview. 
     - Think about start protection for same support files for the same group.
     - Check if all created docker resources really get removed.
+    - Checks should be show, which host groups can use them (provided supportfiles)
+    - Autodetection of provider should be implemented.
+    - Parallelize check executions to be faster.
     - Rework help output.
     - Implement JSON output
     - Implement signal handling (catching interrupts)
@@ -41,10 +47,11 @@ Changelog:
 """
 
 import argparse
+import collections
 import os
 import docker
-import random
-import string
+#import random
+#import string
 import sys
 from collections import Counter
 from rabbiteer import Rabbiteer
@@ -152,23 +159,25 @@ def argument_parse() -> dict:
                             metavar='PROVIDER',
                             dest='provider',
                             choices=['default','kvm','vmware','azure','aws', 'gcp'],
+                            default='default',
                             type=str,
                             required=False,
                             help='provider to use for the check')
-    checks_run.add_argument('-g', '--group',
-                            metavar='GROUP',
-                            dest='check_groups',
-                            action='append',
-                            type=str,
-                            required=False,
-                            help='use only checks of that group')
-    checks_run.add_argument('-c', '--check',
-                            metavar='CHECK',
-                            action='append',
-                            type=str,
-                            required=False,
-                            dest='requested_checks',
-                            help='use only the check with this ID')
+    run_exclusive = checks_run.add_mutually_exclusive_group()
+    run_exclusive.add_argument('-g', '--group',
+                               metavar='GROUP',
+                               dest='check_groups',
+                               action='append',
+                               type=str,
+                               required=False,
+                               help='use only checks of that group')
+    run_exclusive.add_argument('-c', '--check',
+                               metavar='CHECK',
+                               action='append',
+                               type=str,
+                               required=False,
+                               dest='requested_checks',
+                               help='use only the check with this ID')
       
     args_parsed = parser.parse_args()
     
@@ -339,11 +348,14 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                             'metadata.cluster_type', 
                             'facts[].gatherer',
                             'expectations[].type',
-                           ] if details else ['id', 'description']
+                           ] if details else ['id', 'description', 'group']
     check_counter, supported, unsupported, unknown  = 0, 0, 0, 0
+    check_groups = set()
+    CLI.print_header('\nChecks')
     for check in wanda.checks(requested_attributes):
         check_counter += 1
         support = getattr(check, 'tcsc_support')
+        check_groups.add(getattr(check, 'group'))
         if support == 'yes':
             supported += 1
             print_state = CLI.print_ok
@@ -362,33 +374,92 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
             print_state(f'tcsc_support          : {support}\n')
         else:
             print_state(f'''{check.id} - {check.description}''')
+    CLI.print_header('\nCheck Groups')
+    print('\n'.join(check_groups))            
     print()
     CLI.print_info(f'{check_counter} checks available ({supported=} {unsupported=} {unknown=}).')
 
 
 def checks_run(wanda: WandaStack, 
+               hosts: HostsStack,
                hostgroup: str, 
                provider: str, 
                check_groups: List[str],
                requested_checks: List[str]) -> bool:
     """Executed the requested checks."""
     
-    print(hostgroup, provider, check_groups, requested_checks)
+    targets = []
+    for host in hosts.filter_containers({'hostgroup': hostgroup}):
+        if host['status'] != 'running':
+            CLI.print_warn(f'''Host "{host['name']}" has status "{host['status']}".''')
+            continue
+        targets.append(host)
     
-    #TODO: 
-    # - Check if the host group exists (- retrieve members)
-    # - Get list of checks (filtered by check_groups and requested_checks) WHAT WINS IF EXCLUSIVE?
-    #           - default sorting: group
-    # - Run check (if single on each host, if multi on all if more then one host exists)
-    # - Retrieve and display result.
+    host_count = len(targets)
+    if not targets:
+        CLI.print_fail(f'No hosts for host group "{hostgroup}" found.')
+        return False
+    CLI.print_info(f'''{host_count} hosts for "{hostgroup}": {', '.join(h['name'] for h in targets)}''')
+
+    checks2run = collections.defaultdict(list)
+    available, selected = set(), set()
+    for check in wanda.checks(['id', 'description', 'group', 'expectations[].type']):
+        if check.tcsc_support != 'yes':
+            continue
+        available.add(check.id)
+        if host_count == 1 and check.id == 'multi':
+            continue
+        if check_groups and check.group not in check_groups:
+            continue
+        if requested_checks and check.id not in requested_checks:
+            continue 
+        selected.add(check.id)
+        checks2run[check.group].append((check.id, check.description, check.check_type)) 
+    skipped = available - selected
+    CLI.print_info(f'''{len(skipped)} of {len(available)} checks skipped: {', '.join(skipped)}''')
+    CLI.print_info(f'''{len(selected)} of {len(available)} checks selected: {', '.join(selected)}''')    
+    if not available:
+        CLI.print_fail('No checks to run.')
+        return False
     
-    return True
+    for check_group in checks2run:
+        print()
+        CLI.print_header(check_group)
+        for check in checks2run[check_group]:
+            id, description, check_type = check
+            if check_type == 'single':
+                for host in targets:
+                    result = wanda.execute_check(provider, [host['agent_id']], [id])
+            elif check_type == 'multi':
+                result = wanda.execute_check(provider, [h['agent_id'] for h in targets], [id])
+            else:
+                CLI.print_fail(f'Skipping {id}. Unknown check type "{check_type}".')
+                continue
 
 
-def wanda_must_run(wanda: WandaStack) -> None:
-    """Terminates with an error message, if Wanda is not operational."""
+            status, data = result
+            if status == 'passing':
+                status_code = 0
+            elif status == 'warning':
+                status_code = 1
+            else:
+                status_code = 2
+            CLI.print_status2(f'[{status:^8}]', f'   {id} - {description}', status_code)
+            CLI.print_info(f'\t\t{data}')
+            
+            #TODO: WE NEED: AGENT - HOSTNAME, FALSE VALUES FROM RESULT, REMEDIATION OF CHECK
+            
+    return True #TODO: Add fails
+
+
+def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
+    """If requested, starts the Wanda stack and terminates with an error message,
+    if Wanda is not operational."""
     
     if not wanda.status:
+        if autostart:
+            if wanda_start(wanda):
+                return
         CLI.print_fail('Wanda is not operational!') 
         sys.exit(4)
                 
@@ -415,19 +486,14 @@ def main() -> None:
             # tcsc wanda status
             elif arguments.wanda_commands == 'status':
                 sys.exit(0) if wanda_status(wanda) else sys.exit(4)
-                
-            # # tcsc wanda checks [-d|--details]
-            # elif arguments.wanda_commands == 'checks':
-            #     wanda_checks(wanda, arguments.check_details)
-            #     sys.exit(0)           
-        
+
         elif arguments.selectors == 'hosts': 
             
             hosts = HostsStack(config)
             
             # tcsc hosts start GROUPNAME SUPPORTFILE [SUPPORTFILE...]
             if arguments.host_commands == 'start':
-                wanda_must_run(wanda)
+                wanda_must_run(wanda, config.wanda_autostart)
                 sys.exit(0) if hosts_start(hosts, arguments.hostgroup, arguments.supportfiles) else sys.exit(5)
                 
             # tcsc hosts status [GROUPNAME]
@@ -448,16 +514,17 @@ def main() -> None:
                 sys.exit(0) 
         
         elif arguments.selectors == 'checks': 
-            wanda_must_run(wanda)
+            wanda_must_run(wanda, config.wanda_autostart)
+            hosts = HostsStack(config)
                             
             # tcsc wanda checks [-d|--details]
             if arguments.checks_commands == 'list':
                 checks_list(wanda, arguments.check_details)
                 sys.exit(0)  
                 
-            # tcsc checks run [-p|--provider PROVIDER] [-g|--group GROUP]... [-c|--checks CHECK]... GROUPNAME
+            # tcsc checks run [-p|--provider PROVIDER] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
             if arguments.checks_commands == 'run':
-                sys.exit(0) if checks_run(wanda, 
+                sys.exit(0) if checks_run(wanda, hosts, 
                                           arguments.hostgroup, 
                                           arguments.provider, 
                                           arguments.check_groups,

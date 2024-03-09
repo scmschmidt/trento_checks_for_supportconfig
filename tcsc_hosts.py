@@ -47,6 +47,7 @@ class HostsStack():
             raise HostsException(f'File "{supportconfig}" does not exist!')
 
         dbus_uuid, agent_id = self._generate_id()
+        print(dbus_uuid, agent_id)
 
         host = self._docker.containers.run(
             image = self.image,
@@ -136,9 +137,9 @@ class HostsStack():
         containers: List[str, str] = []
         for container in self.containers:
             if filter.get('hostgroup') and container['hostgroup'] != filter.get('hostgroup'):
-                    continue
+                continue
             if filter.get('name') and container['name'] != filter.get('name'):
-                    continue
+                continue
             containers.append(container)
         return sorted(containers, key=lambda x: x[sortkey])
     
@@ -149,7 +150,7 @@ class HostsStack():
             dbus_uuid = subprocess.run(['dbus-uuidgen'],
                                         stdout=subprocess.PIPE, 
                                         stderr=subprocess.STDOUT
-                                        ).stdout
+                                        ).stdout.decode('utf-8').strip()
             agent_id = subprocess.run(['uuidgen', 
                                        '-N', dbus_uuid, 
                                        '-n', 'fb92284e-aa5e-47f6-a883-bf9469e7a0dc', 
@@ -157,11 +158,11 @@ class HostsStack():
                                        ],
                                        stdout=subprocess.PIPE, 
                                        stderr=subprocess.STDOUT
-                                    ).stdout
+                                    ).stdout.decode('utf-8').strip()
         except Exception as err:
             raise HostsException(f'Error generating IDs for D-Bus and Trento agent: {err}')
 
-        return dbus_uuid.decode("utf-8").strip(), agent_id.decode("utf-8").strip()
+        return dbus_uuid, agent_id
         
     @property
     def hostgroups(self) -> Set[str]:
