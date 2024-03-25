@@ -9,101 +9,38 @@ You need `docker` and `docker-compose` installed to run containers.
 
 ## Setup
 
-Clone this repo and enter the project directory: 
+1. Clone this repo and enter the project directory: 
 
-```
-git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
-cd trento_checks_for_supportconfig
-```
+   ```
+   git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
+   cd trento_checks_for_supportconfig
+   ```
 
+1. Run: `./install` 
 
-### Setup Wanda
+   It sets up and starts the Wanda containers as well as creating the image for the supportconfig hosts. 
 
-We do not need a full-fledged Trento, just the Wanda component. Setting it up, comes down to:
-
-```
-docker-compose -f docker-compose-wanda.yaml up -d
-```
-
-Now Wanda should be ready and listen on port 4000/tcp! 
-
-```
-> docker ps
-CONTAINER ID   IMAGE                                          COMMAND                  CREATED         STATUS         PORTS                                                                                                                                                 NAMES
-b8b7a67fbd8b   registry.suse.com/trento/trento-wanda:latest   "/bin/sh -c '/app/bi…"   8 seconds ago   Up 7 seconds   0.0.0.0:4000->4000/tcp, :::4000->4000/tcp                                                                                                             trento-wanda
-26a2aeb7d070   rabbitmq:3.10.5-management-alpine              "docker-entrypoint.s…"   8 seconds ago   Up 7 seconds   4369/tcp, 5671/tcp, 0.0.0.0:5672->5672/tcp, :::5672->5672/tcp, 15671/tcp, 15691-15692/tcp, 25672/tcp, 0.0.0.0:15672->15672/tcp, :::15672->15672/tcp   trento-rabbitmq
-6ac5565f181e   postgres:latest                                "docker-entrypoint.s…"   8 seconds ago   Up 7 seconds   0.0.0.0:5434->5432/tcp, :::5434->5432/tcp                                                                                                             trento-postgres
+> :bulb: You can influence the used Wanda version by setting the environment variable `WANDA_VERSION`.
+> The repo always uses the latest released version. To use a specific one, run: `WANDA_VERSION=... ./install`
 
 
-> sudo ss -nlp sport 4000
-Netid   State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port  Process                                    
-tcp     LISTEN   0        512              0.0.0.0:4000          0.0.0.0:*      users:(("docker-proxy",pid=16505,fd=4))   
-tcp     LISTEN   0        512                 [::]:4000             [::]:*      users:(("docker-proxy",pid=16513,fd=4))
+## Update
 
-> curl http://localhost:4000/api/readyz
-{"ready":true}
-```
+To update the installation:
 
-Also Wanda should display you the available Trento checks:
-
-```
-./list_checks 
-00081D - community - Corosync is running with max_messages set to the recommended value 
-...
-F50AF5 - community - Python3 version is supported 
-FB0E0D - community - Corosync is running with consensus timeout set to the recommended value 
-
-46 checks available.
-```
-
-> :bulb: To make the Wanda containers start automatically with `dockerd`, execute `docker update --restart always trento-wanda trento-rabbitmq trento-postgres`.
+  1. Enter the repo directory.
+  1. Stop Wanda and all support config containers: `..TBD..`
+  1. Update the repo: `git pull`
+  1. Delete the existing setup: `./unistall`
+  1. Install the updated version: `./install`
 
 
-#### Removing and Updating
+## Removal
 
-**#TODO: IF WE HAVE INTRODUCED A NAMING SCHEME AND LABELS, THAT CAN BE DONE EASILY BY A SCRIPT.**
-
-When updating Wanda, remove the containers and also delete the images and volumes before you repeat the setup step again.
-
-To remove the containers, call from the project directory:
-
-```
-docker-compose -f docker-compose-wanda.yaml down
-```
-
-To remove the images, call: 
-
-```
-docker image rm registry.suse.com/trento/trento-wanda:latest postgres:latest rabbitmq:3.10.5-management-alpine
-```
-
-To remove the volumes, call:
-```
-docker volume rm trento_checks_for_supportconfig_pg_data
-```
-
-### Build the supportconfig container image
-
-Run:
- ```
- docker build -t sc_runner .
- ```
- 
- If the build process was successful, a `docker images` should list the image:
-
-```
-REPOSITORY    TAG       IMAGE ID       CREATED         SIZE
-sc_runner     latest    01d133a6ca5f   3 hours ago     842MB
-...
-```
-That's it!
-
-#### Updating
-
-To force a rebuild, call: `docker build --no-cache -t sc_runner`
+To remove all containers, images, volumes and networks, call: `./uninstall` 
 
 
-## Inspect a supportconfig
+# Inspect a supportconfig
 
 The primary tool to work with is `tcsc`. It can
 
@@ -111,7 +48,12 @@ The primary tool to work with is `tcsc`. It can
   - manages the required supportconfig containers
   - executes the checks.
 
-#TODO: THE TOOL NEEDS TO BE PACKAGED, SO IT CAN BE INSTALLED EASILY.
+#TODO: THE TOOL NEEDS TO BE PACKAGED, SO IT CAN BE INSTALLED EASILY. CONTAINER?????
+
+
+
+
+
 
 ### Manage Wanda
 
@@ -566,85 +508,3 @@ The command `getent shadow USER` must work. Since the supportconfig does not con
 - Make the project more user-friendly.
 - ...
 
-
-## Labeling an Naming Concept
-
-`tcsc` does not track started, stopped or removed containers, but relies on the correct labeling of docker objects, like container.
-The following labels are used:
-
-- `com.suse.tcsc.stack`\
-  Each image, container, volume and network handled by this project has this label.
-  Wanda objects have the value `wanda` and host objects the value `hosts`
-
-- `com.suse.tcsc.hostgroup`\
-  This label exists only for host objects and has the hostgroup name given by the user as value.
-
-- `com.suse.tcsc.uuid`\
-  This label exists only for host objects and contains the UUID of the `tcsc` installation.
-
-- `com.suse.tcsc.supportfiles`\
-  This label exists only for host objects and contains a list of the associated support files.
-
-- `com.suse.tcsc.supportconfig`\
-  This label exists only for host objects and contains the filename of the associated supportconfig (suffixes removed).
-
-- `com.suse.tcsc.agent_id`\
-  This label exists only for host objects and contains the `trento-agent` id for that host.
-
-All container names start with the prefix `tcsc-`. For the three Wanda containers the names are:
-
-  - `tcsc-rabbitmq`
-  - `tcsc-postgres`
-  - `tcsc-wanda`
-
-For host container names the prefix is followed by the string `host`, the hostgroup name and a random string of 8 characters separated by a dash:
-`tcsc-host-<HOSTGROUP>-<UUID>`
-
-For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
-
-> Example:
->
-> Assumed the `tcsc` UUID is *691f589c-da35-11ee-994d-2df1b03e5ad0* and the user has two host groups *ACMEprod_1* and *ACMEprod_2* which two hosts each, the naming and labeling would be:
->
-> Wanda:
-> 
->  - tcsc-rabbitmq
->     - com.suse.tcsc.stack=wanda
->  - tcsc-postgres
->     - com.suse.tcsc.stack=wanda
->  - tcsc-wanda
->     - com.suse.tcsc.stack=wanda
->
-> Hosts:
->
->  - tcsc-host-ACMEprod_1-eo3fbp4w
->     - com.suse.tcsc.stack=hosts
->     - com.suse.tcsc.hostgroup=ACMEprod_1
->     - com.suse.tcsc.supportfiles=[scc_hdbprda1_231011_1528.txz]
->     - com.suse.tcsc.supportconfig=scc_hdbprda1_231011_1528
->     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
->     - com.suse.tcsc.agent_id=ddefc515-f5ce-587c-9953-cb1ab65bb278
->
->  - tcsc-host-ACMEprod_1-qvmscofr
->     - com.suse.tcsc.stack=hosts
->     - com.suse.tcsc.hostgroup=ACMEprod_1
->     - com.suse.tcsc.supportfiles=[scc_hdbprda2_231011_1533.txz]
->     - com.suse.tcsc.supportconfig=scc_hdbprda2_231011_1533
->     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
->     - com.suse.tcsc.agent_id=3b2bcdd3-f79b-5796-b0c8-aab9e9f39a2b
->
->  - tcsc-host-ACMEprod_2-bcakg5vz
->     - com.suse.tcsc.stack=hosts
->     - com.suse.tcsc.hostgroup=ACMEprod_2
->     - com.suse.tcsc.supportfiles=[scc_hdbprdb1_231011_1643.txz]
->     - com.suse.tcsc.supportconfig=scc_hdbprdb1_231011_1643
->     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
->     - com.suse.tcsc.agent_id=aa18c008-f806-5c5e-9d1a-a05e93c344b6
->
->  - tcsc-host-ACMEprod_2-eaf7dyjt
->     - com.suse.tcsc.supportfiles=[scc_hdbprdb2_231011_1658.txz]
->     - com.suse.tcsc.supportconfig=scc_hdbprdb2_231011_1658
->     - com.suse.tcsc.stack=hosts
->     - com.suse.tcsc.hostgroup=ACMEprod_2
->     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
->     - com.suse.tcsc.agent_id=dd1b61be-ad6c-559d-9f10-27a45f9fc4a5

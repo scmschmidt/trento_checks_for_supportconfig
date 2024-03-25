@@ -1,5 +1,7 @@
 FROM opensuse/leap:15.4
 
+LABEL com.suse.tcsc.stack="host"
+
 # Add Trento development repo
 RUN zypper ar -G https://download.opensuse.org/repositories/devel:/sap:/trento:/factory/15.4/ trento-devel
 

@@ -1,12 +1,9 @@
 # This is an **adpated** version of https://github.com/trento-project/wanda/blob/main/docker-compose.checks.yaml
 
-version: "3.7"
-
 services:
 
   wanda:
-    #image: ghcr.io/trento-project/trento-wanda:rolling
-    image: registry.suse.com/trento/trento-wanda:latest
+    image: registry.suse.com/trento/trento-wanda:${WANDA_VERSION:-latest}
     container_name: tcsc-wanda
     labels:
       - com.suse.tcsc.stack=wanda
@@ -23,8 +20,6 @@ services:
     ports:
       - 4000:4000
     entrypoint: /bin/sh -c "ln -s $(find /app/lib/wanda-* -name catalog) catalog ; /app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
-    # volumes:
-    #   - ./priv/catalog/:/app/catalog:rw
 
   rabbitmq:
     image: rabbitmq:3.10.5-management-alpine
