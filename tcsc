@@ -220,23 +220,25 @@ def wanda_status(wanda: WandaStack) -> bool:
     """Prints the status of Wanda stack on screen
     and returns operational state."""
 
+    output = {'header': 'Wanda', 'items': []}
     for name, status in wanda.container_status.items():
-        CLI.print_status(f'{name:<20}', f'[{status}]', status = 0 if status == 'running' else 2)
+        output['items'].append({'name': name, 
+                                'status': CLI.ok if status == 'running' else CLI.error,
+                                'status_text': status})
+    output['status'] =  CLI.ok if wanda.status else CLI.error
+    output['status_text'] = 'Wanda is operational.' if wanda.status else 'Wanda is not operational!'
+    
+    CLI.print_status(output)
 
-    if wanda.status:
-        CLI.print_ok('\nWanda is operational.') 
-        return True
-    else:
-        CLI.print_fail('\nWanda is not operational!')
-        return False
-
+    return True if wanda.status else False
+    
 
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
     """Starts a host container with the given supportfiles as member of the given host group."""
 
     hostname = hosts.start(hostgroup, supportfiles)
     if hostname:
-        CLI.print_ok(F'Host container "{hostname}" for "{hostgroup} started!')
+        CLI.print_ok(F'Host container "{hostname}" for "{hostgroup}" started!')
         return True        
     CLI.print_fail(F'Could not start host container for "{hostgroup}!')
     return False
@@ -246,32 +248,39 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
     """Prints the status of the host containers for all/requested host groups on screen
     and returns operational state."""
     
-    indent: str = '\n\t'
-    CLI.print_info('Host Container')
-    operable_hostgroup: Dict[str, bool] = {}
+    overall_state = True
+    hostgroups = {}
     for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
-        if host['hostgroup'] not in operable_hostgroup:
-            operable_hostgroup[host['hostgroup']] = True
+        host_hostgroup = host['hostgroup']
+        if  host_hostgroup not in hostgroups:
+            hostgroups[host_hostgroup] = []
+        hostgroups[host_hostgroup].append(host)
         if host['status'] != 'running':
-            operable_hostgroup[host['hostgroup']] = False    
-            
-        if details:            
-            CLI.print_status(f'''{host['name']:<65}''', f'''[{host['status']}]''', 
-                            status = 0 if host['status'] == 'running' else 2)
-            CLI.print_details(f'''    agent_id:      {host['agent_id']}''')
-            CLI.print_details(f'''    hostgroup:     {host['hostgroup']}''')
-            CLI.print_details(f'''    supportconfig: {host['supportconfig']}''')            
-            CLI.print_details(f'''    supportfiles:  {indent.join(host['supportfiles'].split())}''')
-            print()
-        else:
-            CLI.print_status(f'''{host['name']:<35}''', f'''[{host['status']}]''', 
-                            status = 0 if host['status'] == 'running' else 2)
-    
-    CLI.print_info('\nHost Groups')
-    for hostgroup, operational in operable_hostgroup.items():
-        CLI.print_status(f'{hostgroup:<15}', '[ operable ]' if operational else '[inoperable]', status = 0 if operational else 2)
+            overall_state = False
+
+    for group in hostgroups:
+        output = {'header': f'\n{group}', 'items': []}
+
+        for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
+           
+            host_status = {'name': host['name'], 
+                        'status': CLI.ok if host['status'] == 'running' else CLI.error,
+                        'status_text': host['status']
+                        }       
+            if details:    
+                host_status['details'] = {}
+                host_status['details']['agent_id'] = host['agent_id']
+                host_status['details']['hostgroup'] = host['hostgroup']
+                host_status['details']['supportconfig'] = host['supportconfig']
+                host_status['details']['supportfiles'] = '\n\t'.join(host['supportfiles'].split())
+                
+            output['items'].append(host_status)       
         
-    return False if False in operable_hostgroup.values() else True
+        output['status'] =  None
+        output['status_text'] = None
+        CLI.print_status(output)
+   
+    return overall_state
         
 
 def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
@@ -467,12 +476,13 @@ def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
 def main() -> None:
         
     arguments = argument_parse()  
-    
+
     try:
         config = Config('~/.config/tcsc/config')
         wanda = WandaStack(config)
 
-        # print(arguments)
+        CLI.no_color = not config.colored_output
+
         if arguments.selectors == 'wanda':
             
             # tcsc wanda start

@@ -31,7 +31,7 @@ To update the installation:
   1. Enter the repo directory.
   1. Stop Wanda and all support config containers: `..TBD..`
   1. Update the repo: `git pull`
-  1. Delete the existing setup: `./unistall`
+  1. Delete the existing setup: `./uninstall`
   1. Install the updated version: `./install`
 
 
@@ -51,36 +51,36 @@ The primary tool to work with is `tcsc`. It can
 #TODO: THE TOOL NEEDS TO BE PACKAGED, SO IT CAN BE INSTALLED EASILY. CONTAINER?????
 
 
-
-
-
-
 ### Manage Wanda
 
-To inspect a supportconfig, the Wanda stack must running. To verify the status, run:
+To inspect a supportconfig, the Wanda stack must be running. To verify the status, run:
 ```
 tcsc wanda status
 ```
 
-It reports the status of the Wanda stack and if Wanda could be reached and appears to be operational.
+It reports the status of the Wanda stack.
+
+> :bulb: Per default `tcsc` starts Wanda automatically if needed. 
+> This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`
 
 In case Wanda is not there, run:
 ```
 tcsc wanda start
 ``` 
 
-To list all the available checks, run:
-```
-tcsc wanda checks [-d|--details]
-```
-
-If you do not need Wanda anymore, you can stop the stack easily:
+If you do not need Wanda anymore, you can stop the stack with:
 ```
 tcsc wanda stop
 ``` 
 
-> :construction: It should be easily possible to manage individual Wanda stacks if required. 
-The stacks can be named or labeled with the individual tcsc id, like the supportconfig containers.
+
+
+
+
+
+
+
+
 
 
 ## Manage supportconfig Containers
@@ -508,3 +508,22 @@ The command `getent shadow USER` must work. Since the supportconfig does not con
 - Make the project more user-friendly.
 - ...
 
+# Configuration file.
+
+The configuration file in JSON is `~/.config/tcsc/config`.
+
+If the file is not present, it is created by `tcsc` automatically.
+
+
+| Parameter | Type   | Default | Meaning
+|---------- | ----   | ------- | -------
+| `id`      | string | -       | Unique ID to identify individual `tcsc` installations. The id is used to label (`com.suse.tcsc.uid`) supportconfig containers
+| `wanda_containers` | list | `["tcsc-rabbitmq", "tcsc-postgres", "tcsc-wanda"]` | List of the names of the Wanda containers.
+| `wanda_label` | string | `"com.suse.tcsc.stack=wanda"` | Label for all Wanda containers.
+| `hosts_label` | string | `"com.suse.tcsc.stack=hosts"` | Label for all host containers.
+| `docker_timeout` | int | `10` | Timeout in seconds for `docker` operations.
+| `startup_timeout` | int | `3` | Timeout in seconds until a host container start is considered failed.
+| `wanda_url` | string | `"http://localhost:4000"` | URL to the Wanda stack.
+| `hosts_image` | string | `"tscs_host"` | Image for the host containers.
+| `wanda_autostart` | bool | `true` | Enables/disables starting of Wanda on demand.
+| `colored_output`" | bool | `true` | Enables/disables coloring the output.

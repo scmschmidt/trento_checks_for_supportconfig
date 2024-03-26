@@ -47,7 +47,6 @@ class HostsStack():
             raise HostsException(f'File "{supportconfig}" does not exist!')
 
         dbus_uuid, agent_id = self._generate_id()
-        print(dbus_uuid, agent_id)
 
         host = self._docker.containers.run(
             image = self.image,
@@ -58,7 +57,7 @@ class HostsStack():
                           },
             volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig}:/{supportconfig.name}'],
             network = 'trento_checks_for_supportconfig_default',
-            labels = {'com.suse.tcsc.stack': 'hosts', #FIXME: USE self.host_label!!!!!!! DO WE NEED THAT LABEL FREELY DEFINEABLE????
+            labels = {'com.suse.tcsc.stack': 'host', #FIXME: USE self.host_label!!!!!!! DO WE NEED THAT LABEL FREELY DEFINEABLE????
                       'com.suse.tcsc.hostgroup': hostgroup,
                       'com.suse.tcsc.supportfiles': '\n'.join(supportfiles),
                       'com.suse.tcsc.supportconfig': supportconfig.stem,

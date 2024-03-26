@@ -23,6 +23,7 @@ class Config():
         - self.hosts_image (str):  Name of the hosts container image .
         - self.hosts_label (str):  Label used to identify tcsc hosts container. 
         - self.wanda_autostart (bool):  Determines if Wanda shall be started automatically when required.
+        - self.colored_output (bool):  Determines if the output should be colored or not.
         
     #TODO: DESCRIBE (DEFAULT) CONFIG CONTENT.
     """
@@ -53,8 +54,9 @@ class Config():
                                        'docker_timeout': 10,
                                        'startup_timeout': 3,
                                        'wanda_url': 'http://localhost:4000',
-                                       'hosts_image': 'sc_runner',
-                                       'wanda_autostart': True
+                                       'hosts_image': 'tscs_host',
+                                       'wanda_autostart': True,
+                                       'colored_output': True
                                        }, indent=4
                                        )
                             )
@@ -69,6 +71,7 @@ class Config():
                 self.hosts_image = config['hosts_image']
                 self.startup_timeout = config['startup_timeout']
                 self.wanda_autostart = config['wanda_autostart']
+                self.colored_output = config['colored_output']
         except Exception as err:
             raise ConfigException(f'Error accessing configuration: {err}')
 
