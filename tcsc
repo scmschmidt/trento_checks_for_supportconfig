@@ -270,27 +270,36 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
         if host['status'] != 'running':
             overall_state = False
 
+    json_obj = {}
     for group in hostgroups:
-        output = {'header': f'\n{group}', 'items': []}
+        
+        CLI.print_header(group)
 
+        json_obj[group] = []
+        output = []
         for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
            
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
                         'status_text': host['status']
-                        }       
+                        }
+            host_json = {'name': host['name'], 'status': host['status']}
             if details:    
                 host_status['details'] = {}
-                host_status['details']['agent_id'] = host['agent_id']
-                host_status['details']['hostgroup'] = host['hostgroup']
-                host_status['details']['supportconfig'] = host['supportconfig']
-                host_status['details']['supportfiles'] = '\n\t'.join(host['supportfiles'].split())
-                
-            output['items'].append(host_status)       
-        
-        output['status'] =  None
-        output['status_text'] = None
+                host_json['details'] = {}
+                for key in 'agent_id', 'hostgroup', 'supportconfig', 'supportfiles':
+                    value = host[key]
+                    host_json['details'][key] = value
+                    if isinstance(value, list):
+                        value = '\n\t'.join(value.split())
+                    host_status['details'][key] = value
+                       
+            output.append(host_status)       
+            json_obj[group].append(host_json)
+            
         CLI.print_status(output)
+        CLI.print()
+    CLI.print_json(json_obj)
    
     return overall_state
         

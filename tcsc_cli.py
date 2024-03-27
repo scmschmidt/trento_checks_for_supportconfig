@@ -22,6 +22,11 @@ class CLI():
     json = False
 
     @classmethod
+    def print(cls, text: str = '', file: TextIO = sys.stdout) -> None:
+        if not cls.json:
+            print(text, file=file)
+    
+    @classmethod
     def print_header(cls, text: str, file: TextIO = sys.stdout) -> None:
         if not cls.json:
             print(termcolor.colored(text, 'blue', attrs=['bold', 'underline'], no_color=cls.no_color), file=file)
@@ -82,8 +87,9 @@ class CLI():
                 print(f'{name:<{max_len_name}}    [{status_text:^{max_len_status}}]', file=file)
             
             if 'details' in item:
+                indent = ' ' * (max_len_status + 9) if status_first else '    '
                 for key, value in item['details'].items():
-                    text = f'\t{key}: {value}'
+                    text = f'{indent}{key}: {value}'
                     print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
         
         
