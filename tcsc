@@ -192,11 +192,13 @@ def wanda_start(wanda: WandaStack) -> bool:
     try:
         started = wanda.start()   
     except WandaException as err:
+        CLI.print_json(json.dumps({'success': False, 'error': err }))
         CLI.print_fail(err)
         return False
     else:
         if started:
             CLI.print_info(f'''Started containers: {', '.join(started)}''')
+        CLI.print_json({'success': True, 'started_containers': started})
         CLI.print_ok('Wanda completely started.')
     return True
  
@@ -207,11 +209,13 @@ def wanda_stop(wanda: WandaStack) -> bool:
     try:
         stopped = wanda.stop()
     except WandaException as err:
+        CLI.print_json(json.dumps({'success': False, 'error': err }))
         CLI.print_fail(err)
         return False
     else:
         if stopped:
             CLI.print_info(f'''Stopped containers: {', '.join(stopped)}''')
+        CLI.print_json({'success': True, 'stopped_containers': stopped})                        
         CLI.print_ok('Wanda completely stopped.')
     return True
 
@@ -220,16 +224,24 @@ def wanda_status(wanda: WandaStack) -> bool:
     """Prints the status of Wanda stack on screen
     and returns operational state."""
 
-    output = {'header': 'Wanda', 'items': []}
+    CLI.print_header('Wanda')
+    output = []
+    json_obj = {'containers': []}
     for name, status in wanda.container_status.items():
-        output['items'].append({'name': name, 
-                                'status': CLI.ok if status == 'running' else CLI.error,
-                                'status_text': status})
-    output['status'] =  CLI.ok if wanda.status else CLI.error
-    output['status_text'] = 'Wanda is operational.' if wanda.status else 'Wanda is not operational!'
-    
-    CLI.print_status(output)
+        output.append({'name': name, 
+                       'status': CLI.ok if status == 'running' else CLI.error,
+                       'status_text': status})
+        json_obj['containers'].append({'name': name, 'status': status})   
+    CLI.print_status(output)    
 
+    if wanda.status:
+        CLI.print_ok('\nWanda is operational.')
+        json_obj['operational'] = True
+    else:
+        CLI.print_fail('\nWanda is not operational!')
+        json_obj['operational'] = False
+    CLI.print_json(json_obj)
+    
     return True if wanda.status else False
     
 
@@ -475,6 +487,8 @@ def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
                 
 def main() -> None:
         
+    global json_output
+        
     arguments = argument_parse()  
 
     try:
@@ -482,6 +496,7 @@ def main() -> None:
         wanda = WandaStack(config)
 
         CLI.no_color = not config.colored_output
+        CLI.json = arguments.json_output
 
         if arguments.selectors == 'wanda':
             
