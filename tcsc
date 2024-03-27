@@ -224,7 +224,7 @@ def wanda_status(wanda: WandaStack) -> bool:
     """Prints the status of Wanda stack on screen
     and returns operational state."""
 
-    CLI.print_header('Wanda')
+    CLI.print_header('Wanda', margin_bottom=1)
     output = []
     json_obj = {'containers': []}
     for name, status in wanda.container_status.items():
@@ -273,7 +273,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
     json_obj = {}
     for group in hostgroups:
         
-        CLI.print_header(group)
+        CLI.print_header(group, margin_bottom=1)
 
         json_obj[group] = []
         output = []
@@ -380,32 +380,48 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                             'expectations[].type',
                            ] if details else ['id', 'description', 'group']
     check_counter, supported, unsupported, unknown  = 0, 0, 0, 0
-    check_groups = set()
-    CLI.print_header('\nChecks')
+       
+    check_groups = {}
     for check in wanda.checks(requested_attributes):
-        check_counter += 1
-        support = getattr(check, 'tcsc_support')
-        check_groups.add(getattr(check, 'group'))
-        if support == 'yes':
-            supported += 1
-            print_state = CLI.print_ok
-        elif support == 'no': 
-            unsupported += 1
-            print_state = CLI.print_fail
-        else:
-            unknown += 1
-            print_state = CLI.print_warn
-        if details:
-            for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'gatherer']:
-                value = getattr(check, attribute)
-                if isinstance(value, list):
-                    value = ' '.join(set(value))
-                print_state(f'{attribute:<22}: {value}')
-            print_state(f'tcsc_support          : {support}\n')
-        else:
-            print_state(f'''{check.id} - {check.description}''')
-    CLI.print_header('\nCheck Groups')
-    print('\n'.join(check_groups))            
+        if check.group not in check_groups:
+                check_groups[check.group] = []
+        check_groups[check.group].append(check)
+
+    for check_group in check_groups:
+    
+        CLI.print_header(check_group, margin_bottom=1)
+        output = []
+        for check in check_groups[check_group]:
+            check_counter += 1
+            support = getattr(check, 'tcsc_support')
+            if support == 'yes':
+                supported += 1
+                status = CLI.ok
+                status_text = 'supported'
+            elif support == 'no': 
+                unsupported += 1
+                status = CLI.error
+                status_text = 'not supported'
+            else:
+                unknown += 1
+                status = CLI.warn
+                status_text = 'unknown'
+                
+            check_output = {'name': f'{check.id} - {check.description}', 
+                            'status': status,
+                            'status_text': status_text 
+                           }
+            if details:
+                check_output['details'] = {}
+                for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'gatherer']:
+                    value = getattr(check, attribute)
+                    if isinstance(value, list):
+                        value = ' '.join(set(value))
+                    check_output['details'][attribute] = value
+            output.append(check_output) 
+        CLI.print_status(output)
+        CLI.print()
+                
     print()
     CLI.print_info(f'{check_counter} checks available ({supported=} {unsupported=} {unknown=}).')
 

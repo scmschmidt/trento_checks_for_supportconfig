@@ -27,9 +27,13 @@ class CLI():
             print(text, file=file)
     
     @classmethod
-    def print_header(cls, text: str, file: TextIO = sys.stdout) -> None:
+    def print_header(cls, text: str, margin_top: int = 0, margin_bottom: int = 0, file: TextIO = sys.stdout) -> None:
         if not cls.json:
+            for i in range(0, margin_top):
+                print(file=file)
             print(termcolor.colored(text, 'blue', attrs=['bold', 'underline'], no_color=cls.no_color), file=file)
+            for i in range(0, margin_bottom):
+                print(file=file)
     
     @classmethod
     def print_info(cls, text: str, file: TextIO = sys.stdout) -> None:
@@ -91,7 +95,7 @@ class CLI():
                 for key, value in item['details'].items():
                     text = f'{indent}{key}: {value}'
                     print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
-        
+                print(file=file) 
         
     @classmethod
     def print_json(cls, json_object: dict, file: TextIO = sys.stdout) -> None:
