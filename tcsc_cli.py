@@ -75,6 +75,8 @@ class CLI():
             return
 
         max_len_name, max_len_status = 0, 0
+        filler = ' '
+        
         for item in status_object:
             max_len_name = max(max_len_name, len(item['name']))
             max_len_status = max(max_len_status, len(item['status_text']))
@@ -86,14 +88,17 @@ class CLI():
                                             no_color=cls.no_color
                                            )
             if status_first:
-                print(f'[{status_text:^{max_len_status}}]    {name:<{max_len_name}}', file=file)
+                spacing = max(18 - max_len_status, 4)
+                detail_indent = ' ' * (spacing + max_len_status + 2)
+                print(f'[{status_text:^{max_len_status}}]{filler:<{spacing}}{name:<{max_len_name}}', file=file)
             else:
-                print(f'{name:<{max_len_name}}    [{status_text:^{max_len_status}}]', file=file)
+                spacing = max(100 - max_len_name, 4)
+                detail_indent =  ''
+                print(f'{name:<{max_len_name}}{filler:<{spacing}}[{status_text:^{max_len_status}}]', file=file)
             
             if 'details' in item:
-                indent = ' ' * (max_len_status + 9) if status_first else '    '
                 for key, value in item['details'].items():
-                    text = f'{indent}{key}: {value}'
+                    text = f'{detail_indent}{key}: {value}'
                     print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
                 print(file=file) 
         
