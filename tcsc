@@ -231,7 +231,7 @@ def wanda_status(wanda: WandaStack) -> bool:
         output.append({'name': name, 
                        'status': CLI.ok if status == 'running' else CLI.error,
                        'status_text': status})
-        json_obj['containers'].append({'name': name, 'status': status})   
+        json_obj['containers'].append({'name': name, 'status': status})
     CLI.print_status(output)    
 
     if wanda.status:
@@ -382,15 +382,18 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
     check_counter, supported, unsupported, unknown  = 0, 0, 0, 0
        
     check_groups = {}
+
     for check in wanda.checks(requested_attributes):
         if check.group not in check_groups:
                 check_groups[check.group] = []
         check_groups[check.group].append(check)
 
+    json_obj = {'checks': {}}
     for check_group in check_groups:
     
         CLI.print_header(check_group, margin_bottom=1)
         output = []
+        json_obj['checks'][check_group] = []
         for check in check_groups[check_group]:
             check_counter += 1
             support = getattr(check, 'tcsc_support')
@@ -411,6 +414,7 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                             'status': status,
                             'status_text': status_text 
                            }
+            check_json = {'name': f'{check.id} - {check.description}', 'status': status}
             if details:
                 check_output['details'] = {}
                 for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'gatherer']:
@@ -418,11 +422,20 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                     if isinstance(value, list):
                         value = ' '.join(set(value))
                     check_output['details'][attribute] = value
+                    check_json[attribute] = value
             output.append(check_output) 
+            json_obj['checks'][check_group].append(check_json)
+                   
         CLI.print_status(output)
         CLI.print()
                 
     print()
+    json_obj['stats'] = {'available:': check_counter, 
+                         'supported': supported, 
+                         'unsupported': unsupported,
+                         'unknown': unknown
+                        }
+    CLI.print_json(json_obj) 
     CLI.print_info(f'{check_counter} checks available ({supported=} {unsupported=} {unknown=}).')
 
 
