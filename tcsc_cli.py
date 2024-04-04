@@ -5,6 +5,7 @@
 Contains classes to handle CLI handling.
 """
 
+import shlex
 import sys
 import termcolor
 import json
@@ -106,3 +107,51 @@ class CLI():
     def print_json(cls, json_object: dict, file: TextIO = sys.stdout) -> None:
         if cls.json:
             print(json.dumps(json_object), file=file)
+            
+    @classmethod
+    def print_logline(cls, loglines: List[ſtr], file: TextIO = sys.stdout) -> None:
+        
+        level_color = {'emerg': 'red',
+                       'panic': 'red',
+                       'alert': 'light_red',
+                       'crit': 'light_red',
+                       'err': 'light_red',
+                       'error': 'light_red',
+                       'warn': 'yellow',                       
+                       'warning': 'yellow',
+                       'notice': 'green',
+                       'info': 'green',
+                       'debug': 'blue',
+                      }
+        level_attributes = {'emerg': ['bold'],
+                            'panic': ['bold'],
+                            'alert': ['bold'],
+                            'crit': ['bold'],
+                            'err': ['bold'],
+                            'error': ['bold'],
+                            'warn': [],                       
+                            'warning': [],
+                            'notice': [],
+                            'info': [],
+                            'debug': [],
+                      }
+        
+        if cls.json:
+            return
+        
+        loglines_processed = []
+        columns_width = [0, 0, 0]
+        for line in loglines:
+            entry = []
+            for index, component in enumerate(shlex.split(line)):
+                _, value = component.split('=')
+                columns_width[index] = max(len(value), columns_width[index])
+                entry.append(value)
+            loglines_processed.append(entry)
+
+        for line in loglines_processed:
+            print(termcolor.colored(f'{line[0]:<{columns_width[0]}}', 'grey', no_color=cls.no_color),
+                  termcolor.colored(f'{line[1]:<{columns_width[1]}}', level_color.get(line[1], 'white'), no_color=cls.no_color),
+                  termcolor.colored(line[2], level_color.get(line[1], 'white'), attrs=level_attributes.get(line[1], []), no_color=cls.no_color),
+                  file=file
+                 )

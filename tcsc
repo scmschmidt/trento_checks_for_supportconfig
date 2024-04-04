@@ -60,6 +60,7 @@ from tcsc_config import *
 from tcsc_cli import *
 from tcsc_wanda import *
 from tcsc_hosts import *
+from tcsc_supportfiles import *
 
 
 __version__ = '0.0'
@@ -103,17 +104,21 @@ def argument_parse() -> dict:
     hosts_commands = hosts.add_subparsers(dest='host_commands')
     hosts_commands.required = True
  
-    hosts_start = hosts_commands.add_parser('start', help='Starts host container.')
-    hosts_status = hosts_commands.add_parser('status', help='Prints status of host containers.')
-    hosts_stop = hosts_commands.add_parser('stop', help='Stops and removes host containers.')
+    hosts_start = hosts_commands.add_parser('start', help='Starts host group.')
+    hosts_stop = hosts_commands.add_parser('stop', help='Stops host group.')
+    hosts_remove = hosts_commands.add_parser('remove', help='Removes host group.')
+    hosts_status = hosts_commands.add_parser('status', help='Prints status of hosts.')
     hosts_logs = hosts_commands.add_parser('logs', help='Lists logs of a host container.')
     
-    hosts_start.add_argument(metavar='GROUPNAME',
-                             dest='hostgroup',
-                             help='name of the host group')
+    for p in  hosts_start, hosts_status, hosts_stop, hosts_remove:
+        p.add_argument(metavar='GROUPNAME',
+                              nargs='?',
+                              dest='hostgroup',
+                              help='name of the host group')
+    
     hosts_start.add_argument(metavar='SUPPORTFILE',
                              dest='supportfiles',
-                             nargs='+',
+                             nargs='*',
                              help='supportfiles (like supportconfig)')
  
     hosts_status.add_argument('-d', '--details',
@@ -122,12 +127,6 @@ def argument_parse() -> dict:
                               required=False,
                               help='shows more details.')  
         
-    for p in  hosts_status, hosts_stop:
-        p.add_argument(metavar='GROUPNAME',
-                              nargs='?',
-                              dest='hostgroup',
-                              help='name of the host group')
-    
     hosts_logs.add_argument(metavar='CONTAINERNAME',
                              dest='containername',
                              help='name of the host container')    
@@ -248,36 +247,48 @@ def wanda_status(wanda: WandaStack) -> bool:
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
     """Starts a host container with the given supportfiles as member of the given host group."""
 
-    hostname = hosts.start(hostgroup, supportfiles)
-    if hostname:
-        CLI.print_ok(F'Host container "{hostname}" for "{hostgroup}" started!')
-        return True        
-    CLI.print_fail(F'Could not start host container for "{hostgroup}!')
-    return False
+    #TODO: JSON OUTPUT
 
+    if hostgroup in hosts.hostgroups:
+        if supportfiles:
+            CLI.print_warn(f'Starting existing host group "{hostgroup}". Supportfiles are ignored!')
+        if hosts.start_hostgroup(hostgroup):
+            CLI.print_ok(f'Host group "{hostgroup}" started!')
+            return True        
+        else:
+            CLI.print_fail(f'Could not start host group "{hostgroup}!')
+            return False    
+    else:
+        sf = SupportFiles(supportfiles)
+        if sf.issues:
+            for issue in sf.issues:
+                CLI.print_fail(f'Error reading support files: {issue}')      
+            return False
+
+        for host in sf.result:
+            hostname = hosts.create(hostgroup, host, sf.result[host])
+            
+            if hostname:
+                CLI.print_ok(f'Host container "{hostname}" started!')
+            else:        
+                CLI.print_fail(f'Could not start host container for host "{host}"!')
+
+    return True
 
 def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bool:
     """Prints the status of the host containers for all/requested host groups on screen
     and returns operational state."""
-    
+        
     overall_state = True
-    hostgroups = {}
-    for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
-        host_hostgroup = host['hostgroup']
-        if  host_hostgroup not in hostgroups:
-            hostgroups[host_hostgroup] = []
-        hostgroups[host_hostgroup].append(host)
-        if host['status'] != 'running':
-            overall_state = False
 
     json_obj = {}
-    for group in hostgroups:
+    for group in hosts.hostgroups:
         
         CLI.print_header(group, margin_bottom=1)
 
         json_obj[group] = []
         output = []
-        for host in hosts.filter_containers(filter={'hostgroup': hostgroup}, sortkey='hostgroup'):
+        for host in hosts.filter_containers(filter={'hostgroup': group}, sortkey='hostgroup'):
            
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
@@ -307,6 +318,8 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
 def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
     """Stops host containers of a given hostgroup."""
 
+    #TODO: JSON OUTPUT
+    
     if hostgroup:
         if hostgroup not in hosts.hostgroups:
             CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
@@ -333,6 +346,8 @@ def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
 
 def hosts_remove(hosts: HostsStack, hostgroup: str) -> bool:
     """Removes host containers of a given hostgroup."""
+
+    #TODO: JSON OUTPUT
 
     if hostgroup:
         if hostgroup not in hosts.hostgroups:
@@ -361,12 +376,14 @@ def hosts_remove(hosts: HostsStack, hostgroup: str) -> bool:
 def hosts_logs(hosts: HostsStack, containername: str, last_lines: int) -> None:
     """Prints logs of given container."""
     
-    CLI.print_info(f'Logs for "{containername}":')
     if last_lines:
-        print('\n'.join(hosts.logs(containername)[-last_lines:]))
+        CLI.print_logline(hosts.logs(containername)[-last_lines:])
+        json_obj = hosts.logs(containername)[-last_lines:]
     else:
-        print('\n'.join(hosts.logs(containername)))
-   
+        CLI.print_logline(hosts.logs(containername))
+        json_obj = hosts.logs(containername)
+    CLI.print_json(json_obj)
+    
 
 def checks_list(wanda: WandaStack, details: bool = False) -> None:
     """Prints the checks on screen returned by Wanda."""
@@ -429,7 +446,7 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
         CLI.print_status(output)
         CLI.print()
                 
-    print()
+    CLI.print()
     json_obj['stats'] = {'available:': check_counter, 
                          'supported': supported, 
                          'unsupported': unsupported,
@@ -554,7 +571,7 @@ def main() -> None:
             
             hosts = HostsStack(config)
             
-            # tcsc hosts start GROUPNAME SUPPORTFILE [SUPPORTFILE...]
+            # tcsc hosts start GROUPNAME [SUPPORTFILE...]
             if arguments.host_commands == 'start':
                 wanda_must_run(wanda, config.wanda_autostart)
                 sys.exit(0) if hosts_start(hosts, arguments.hostgroup, arguments.supportfiles) else sys.exit(5)
@@ -565,12 +582,12 @@ def main() -> None:
                 
             # tcsc hosts stop [GROUPNAME]
             elif arguments.host_commands == 'stop':
-                    if hosts_stop(hosts, arguments.hostgroup):
-                        print()
-                        sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
-                    else:
-                        sys.exit(5)
-                        
+                    sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)
+            
+            # tcsc hosts remove [GROUPNAME]
+            elif arguments.host_commands == 'remove':
+                    sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
+
             # tcsc hosts logs [-l LINES] CONTAINERNAME 
             elif arguments.host_commands == 'logs':
                 hosts_logs(hosts, arguments.containername, arguments.last_lines)

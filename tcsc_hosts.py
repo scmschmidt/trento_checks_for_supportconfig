@@ -13,6 +13,9 @@ import string
 import time
 import subprocess
 from typing import List, Dict, Any, Tuple, Set
+
+import docker.models
+import docker.models.containers
 from tcsc_config import *
 
 
@@ -35,37 +38,9 @@ class HostsStack():
         self.image = config.hosts_image
         self.host_label = config.hosts_label
 
-    def start(self, hostgroup: str, supportfiles: List[str]) -> str:
-        """Creates and starts a new host container for the requested group with the given supportfiles and returns its name."""
-
-        if len(supportfiles) != 1:
-            raise HostsException('Currently only one supportconfig file is implemented!')
-        supportfiles = [os.path.realpath(os.path.expandvars(os.path.expanduser(p))) for p in supportfiles]
-        
-        supportconfig = pathlib.Path(supportfiles[0])
-        if not supportconfig.exists():
-            raise HostsException(f'File "{supportconfig}" does not exist!')
-
-        dbus_uuid, agent_id = self._generate_id()
-
-        host = self._docker.containers.run(
-            image = self.image,
-            name = f'''tcsc-host-{hostgroup}-{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}''',
-            command = '/sc/startup',
-            environment = {'SUPPORTCONFIG' : f'/{supportconfig.name}',
-                           'MACHINE_ID': dbus_uuid
-                          },
-            volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig}:/{supportconfig.name}'],
-            network = 'trento_checks_for_supportconfig_default',
-            labels = {'com.suse.tcsc.stack': 'host', #FIXME: USE self.host_label!!!!!!! DO WE NEED THAT LABEL FREELY DEFINEABLE????
-                      'com.suse.tcsc.hostgroup': hostgroup,
-                      'com.suse.tcsc.supportfiles': '\n'.join(supportfiles),
-                      'com.suse.tcsc.supportconfig': supportconfig.stem,
-                      'com.suse.tcsc.uuid': self.id,
-                      'com.suse.tcsc.agent_id': agent_id
-                     },
-            detach = True)
-
+    def _wait4start(self, host: docker.models.containers.Container):
+        """Waits until given container is running and stays running."""
+    
         start_time = time.time()    
         while True:
             host.reload()
@@ -82,7 +57,43 @@ class HostsStack():
                 raise HostsException(f'"Start timeout of {self.start_timeout}s reached. {host.name}" stopped running.')
             time.sleep(.2)
 
+    def create(self, hostgroup: str, name: str, host_description: Dict) -> str:
+        """Creates and starts a new host container for the requested group and returns its name."""
+
+        dbus_uuid, agent_id = self._generate_id()
+        
+        supportconfig_path = host_description['supportconfig']
+        supportconfig_name = os.path.basename(supportconfig_path)
+
+        host = self._docker.containers.run(
+            image = self.image,
+            name = f'tcsc-host-{hostgroup}-{name}',
+            command = '/sc/startup',
+            environment = {'SUPPORTCONFIG' : f'/{supportconfig_name}',
+                           'MACHINE_ID': dbus_uuid
+                          },
+            volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig_path}:/{supportconfig_name}'],
+            network = 'trento_checks_for_supportconfig_default',
+            labels = {'com.suse.tcsc.stack': 'host',
+                      'com.suse.tcsc.hostgroup': hostgroup,
+                      'com.suse.tcsc.supportfiles': supportconfig_path,
+                      'com.suse.tcsc.supportconfig': supportconfig_path,
+                      'com.suse.tcsc.uuid': self.id,
+                      'com.suse.tcsc.agent_id': agent_id
+                     },
+            detach = True)
+        self._wait4start(host)
+        
         return host.name
+
+    def start_hostgroup(self, hostgroup: str) -> bool:
+        """Starts all hosts of given host group and returns the success."""
+
+        for container in self.filter_containers(filter={'hostgroup': hostgroup}):
+            container['container'].start()
+            self._wait4start(container['container'])
+
+        return True
 
     def stop_hostgroup(self, hostgroup) -> List[str]:
         """Stops all running host containers of the given host group and returns the names of the stopped containers."""
