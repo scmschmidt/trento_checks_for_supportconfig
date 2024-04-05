@@ -520,7 +520,7 @@ If the file is not present, it is created by `tcsc` automatically.
 | `id`      | string | -       | Unique ID to identify individual `tcsc` installations. The id is used to label (`com.suse.tcsc.uid`) supportconfig containers
 | `wanda_containers` | list | `["tcsc-rabbitmq", "tcsc-postgres", "tcsc-wanda"]` | List of the names of the Wanda containers.
 | `wanda_label` | string | `"com.suse.tcsc.stack=wanda"` | Label for all Wanda containers.
-| `hosts_label` | string | `"com.suse.tcsc.stack=hosts"` | Label for all host containers.
+| `hosts_label` | string | `"com.suse.tcsc.stack=host"` | Label for all host containers.
 | `docker_timeout` | int | `10` | Timeout in seconds for `docker` operations.
 | `startup_timeout` | int | `3` | Timeout in seconds until a host container start is considered failed.
 | `wanda_url` | string | `"http://localhost:4000"` | URL to the Wanda stack.

@@ -17,7 +17,7 @@ The following labels are used:
 
 - `com.suse.tcsc.stack`\
   Each container and the host image handled by this project has this label.
-  Wanda objects have the value `wanda` and host objects the value `hosts`
+  Wanda objects have the value `wanda` and host objects the value `host`
 
 - `com.suse.tcsc.hostgroup`\
   This label exists only for host objects and has the hostgroup name given by the user as value.
@@ -61,7 +61,7 @@ For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
 > Hosts:
 >
 >  - tcsc-host-ACMEprod_1-eo3fbp4w
->     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.stack=host
 >     - com.suse.tcsc.hostgroup=ACMEprod_1
 >     - com.suse.tcsc.supportfiles=[scc_hdbprda1_231011_1528.txz]
 >     - com.suse.tcsc.supportconfig=scc_hdbprda1_231011_1528
@@ -69,7 +69,7 @@ For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
 >     - com.suse.tcsc.agent_id=ddefc515-f5ce-587c-9953-cb1ab65bb278
 >
 >  - tcsc-host-ACMEprod_1-qvmscofr
->     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.stack=host
 >     - com.suse.tcsc.hostgroup=ACMEprod_1
 >     - com.suse.tcsc.supportfiles=[scc_hdbprda2_231011_1533.txz]
 >     - com.suse.tcsc.supportconfig=scc_hdbprda2_231011_1533
@@ -77,7 +77,7 @@ For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
 >     - com.suse.tcsc.agent_id=3b2bcdd3-f79b-5796-b0c8-aab9e9f39a2b
 >
 >  - tcsc-host-ACMEprod_2-bcakg5vz
->     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.stack=host
 >     - com.suse.tcsc.hostgroup=ACMEprod_2
 >     - com.suse.tcsc.supportfiles=[scc_hdbprdb1_231011_1643.txz]
 >     - com.suse.tcsc.supportconfig=scc_hdbprdb1_231011_1643
@@ -87,7 +87,7 @@ For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
 >  - tcsc-host-ACMEprod_2-eaf7dyjt
 >     - com.suse.tcsc.supportfiles=[scc_hdbprdb2_231011_1658.txz]
 >     - com.suse.tcsc.supportconfig=scc_hdbprdb2_231011_1658
->     - com.suse.tcsc.stack=hosts
+>     - com.suse.tcsc.stack=host
 >     - com.suse.tcsc.hostgroup=ACMEprod_2
 >     - com.suse.tcsc.uuid=691f589c-da35-11ee-994d-2df1b03e5ad0
 >     - com.suse.tcsc.agent_id=dd1b61be-ad6c-559d-9f10-27a45f9fc4a5

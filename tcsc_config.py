@@ -50,7 +50,7 @@ class Config():
                                        'id': str(uuid.uuid1()),
                                        'wanda_containers': ['tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda'],
                                        'wanda_label': 'com.suse.tcsc.stack=wanda',
-                                       'hosts_label': 'com.suse.tcsc.stack=hosts',
+                                       'hosts_label': 'com.suse.tcsc.stack=host',
                                        'docker_timeout': 10,
                                        'startup_timeout': 3,
                                        'wanda_url': 'http://localhost:4000',

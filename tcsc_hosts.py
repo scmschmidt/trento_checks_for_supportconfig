@@ -67,15 +67,17 @@ class HostsStack():
 
         host = self._docker.containers.run(
             image = self.image,
-            name = f'tcsc-host-{hostgroup}-{name}',
+            name = f'tcsc-host-{hostgroup}-{name}-{self.id}',
             command = '/sc/startup',
             environment = {'SUPPORTCONFIG' : f'/{supportconfig_name}',
                            'MACHINE_ID': dbus_uuid
                           },
-            volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig_path}:/{supportconfig_name}'],
+            #volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig_path}:/{supportconfig_name}'],
+            volumes = [f'{supportconfig_path}:/{supportconfig_name}'],
             network = 'trento_checks_for_supportconfig_default',
             labels = {'com.suse.tcsc.stack': 'host',
                       'com.suse.tcsc.hostgroup': hostgroup,
+                      'com.suse.tcsc.hostname': name,
                       'com.suse.tcsc.supportfiles': supportconfig_path,
                       'com.suse.tcsc.supportconfig': supportconfig_path,
                       'com.suse.tcsc.uuid': self.id,
@@ -130,11 +132,12 @@ class HostsStack():
                  'supportfiles': container.labels.get('com.suse.tcsc.supportfiles') or '-',
                  'supportconfig': container.labels.get('com.suse.tcsc.supportconfig') or '-',
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',
+                 'hostname': container.labels.get('com.suse.tcsc.hostname') or '-',
                  'status': container.status or 'unknown',
                  'agent_id': container.labels.get('com.suse.tcsc.agent_id') or '-',
                  'container': container
                 } for container in
-                self._docker.containers.list(all=True, filters={'label': self.host_label})
+                self._docker.containers.list(all=True, filters={'label': [self.host_label, f'com.suse.tcsc.uuid={self.id}']}) 
                ]
 
     def filter_containers(self, filter: Dict[str, Any] = {}, sortkey: str = 'hostgroup') -> List[Dict[str, str]]:

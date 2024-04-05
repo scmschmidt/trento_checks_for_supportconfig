@@ -270,7 +270,7 @@ def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> b
         if sf.issues:
             for issue in sf.issues:
                 CLI.print_fail(f'Error reading support files: {issue}')
-            CLI.print_json({'success': False, 'errors': {sf.issues}})
+            CLI.print_json({'success': False, 'errors': sf.issues})
             return False
 
         json_obj = {'success': True, 'started': [], 'failed': []}
@@ -313,7 +313,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'agent_id', 'hostgroup', 'supportconfig', 'supportfiles':
+                for key in 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):

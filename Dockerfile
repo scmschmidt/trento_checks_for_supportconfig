@@ -15,4 +15,5 @@ RUN zypper --non-interactive in vim iproute2 netcat-openbsd iputils less
 ADD https://raw.githubusercontent.com/SUSE/supportconfig-utils/master/bin/split-supportconfig /split-supportconfig
 RUN chmod +x /split-supportconfig
 
-
+# Copy sc/ into image.
+COPY sc/ /sc
