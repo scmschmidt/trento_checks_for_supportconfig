@@ -110,8 +110,11 @@ def argument_parse() -> dict:
     hosts_status = hosts_commands.add_parser('status', help='Prints status of hosts.')
     hosts_logs = hosts_commands.add_parser('logs', help='Lists logs of a host container.')
     
-    for p in  hosts_start, hosts_status, hosts_stop, hosts_remove:
+    for p in  hosts_start, hosts_stop, hosts_remove:
         p.add_argument(metavar='GROUPNAME',
+                       dest='hostgroup',
+                       help='name of the host group')
+    hosts_status.add_argument(metavar='GROUPNAME',
                               nargs='?',
                               dest='hostgroup',
                               help='name of the host group')
@@ -191,7 +194,7 @@ def wanda_start(wanda: WandaStack) -> bool:
     try:
         started = wanda.start()   
     except WandaException as err:
-        CLI.print_json(json.dumps({'success': False, 'error': err }))
+        CLI.print_json({'success': False, 'error': err })
         CLI.print_fail(err)
         return False
     else:
@@ -208,7 +211,7 @@ def wanda_stop(wanda: WandaStack) -> bool:
     try:
         stopped = wanda.stop()
     except WandaException as err:
-        CLI.print_json(json.dumps({'success': False, 'error': err }))
+        CLI.print_json({'success': False, 'error': err })
         CLI.print_fail(err)
         return False
     else:
@@ -247,33 +250,45 @@ def wanda_status(wanda: WandaStack) -> bool:
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
     """Starts a host container with the given supportfiles as member of the given host group."""
 
-    #TODO: JSON OUTPUT
-
     if hostgroup in hosts.hostgroups:
         if supportfiles:
             CLI.print_warn(f'Starting existing host group "{hostgroup}". Supportfiles are ignored!')
         if hosts.start_hostgroup(hostgroup):
             CLI.print_ok(f'Host group "{hostgroup}" started!')
+            CLI.print_json({'success': True})
             return True        
         else:
             CLI.print_fail(f'Could not start host group "{hostgroup}!')
+            CLI.print_json({'success': False})
             return False    
     else:
+        if not supportfiles:
+            CLI.print_fail(f'No support files given!')
+            CLI.print_json({'success': False, 'error': 'No support files given!'})
+            return False
         sf = SupportFiles(supportfiles)
         if sf.issues:
             for issue in sf.issues:
-                CLI.print_fail(f'Error reading support files: {issue}')      
+                CLI.print_fail(f'Error reading support files: {issue}')
+            CLI.print_json({'success': False, 'errors': {sf.issues}})
             return False
 
+        json_obj = {'success': True, 'started': [], 'failed': []}
         for host in sf.result:
             hostname = hosts.create(hostgroup, host, sf.result[host])
             
             if hostname:
                 CLI.print_ok(f'Host container "{hostname}" started!')
+                json_obj['started'].append(hostname)
             else:        
                 CLI.print_fail(f'Could not start host container for host "{host}"!')
-
+                json_obj['failed'].append(hostname)
+        if json_obj['failed']:
+            json_obj['success'] = False
+        CLI.print_json(json_obj)
+        
     return True
+
 
 def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bool:
     """Prints the status of the host containers for all/requested host groups on screen
@@ -318,28 +333,26 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
 def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
     """Stops host containers of a given hostgroup."""
 
-    #TODO: JSON OUTPUT
-    
-    if hostgroup:
-        if hostgroup not in hosts.hostgroups:
-            CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
-            return False
-        hostgroups = [hostgroup]
-    else:
-        hostgroups = hosts.hostgroups
+    if hostgroup not in hosts.hostgroups:
+        CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+        CLI.print_json({'success': False, 'error': f'Host group "{hostgroup}" does not exist!.'})
+        return False
 
     success = True
-    for hostgroup in hostgroups:
-        stop_msg = f'Host group "{hostgroup}" completely stopped.' if hostgroup else 'All host groups completely stopped.'
-        try:
-            stopped = hosts.stop_hostgroup(hostgroup)
-        except HostsException as err:
-            CLI.print_fail(err)
-            success = False
-        else:
-            if stopped:
-                CLI.print_info(f'''Stopped containers: {', '.join(stopped)}''')
-            CLI.print_ok(stop_msg)
+    json_obj = {'success': True, 'stopped': [], 'failed': []}
+    try:
+        stopped = hosts.stop_hostgroup(hostgroup)
+    except HostsException as err:
+        CLI.print_fail(err)
+        json_obj['success'] = False
+        json_obj['failed'] = stopped
+        success = False
+    else:
+        if stopped:
+            CLI.print_info(f'''Stopped containers: {', '.join(stopped)}''')
+            json_obj['stopped'] = stopped
+        CLI.print_ok(f'Host group "{hostgroup}" completely stopped.')
+    CLI.print_json(json_obj)
     
     return success
 
@@ -347,29 +360,28 @@ def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
 def hosts_remove(hosts: HostsStack, hostgroup: str) -> bool:
     """Removes host containers of a given hostgroup."""
 
-    #TODO: JSON OUTPUT
-
-    if hostgroup:
-        if hostgroup not in hosts.hostgroups:
-            CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
-            return False
-        hostgroups = [hostgroup]
-    else:
-        hostgroups = hosts.hostgroups
-
+    if hostgroup not in hosts.hostgroups:
+        CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+        CLI.print_json({'success': False, 'error': f'Host group "{hostgroup}" does not exist!.'})
+        return False
+    hostgroups = [hostgroup]
+   
     success = True
-    for hostgroup in hostgroups:
-        stop_msg = f'Host group "{hostgroup}" completely removed.' if hostgroup else 'All host groups completely removed.'
-        try:
-            removed = hosts.remove_hostgroup(hostgroup)
-        except HostsException as err:
-            CLI.print_fail(err)
-            success = False
-        else:
-            if removed:
-                CLI.print_info(f'''Removed containers: {', '.join(removed)}''')
-            CLI.print_ok(stop_msg)
-    
+    json_obj = {'success': True, 'removed': [], 'failed': []}
+    try:
+        removed = hosts.remove_hostgroup(hostgroup)
+    except HostsException as err:
+        CLI.print_fail(err)
+        json_obj['success'] = False
+        json_obj['failed'] = removed
+        success = False
+    else:
+        if removed:
+            CLI.print_info(f'''Removed containers: {', '.join(removed)}''')
+            json_obj['removed'] = removed
+        CLI.print_ok(f'Host group "{hostgroup}" completely removed.')
+    CLI.print_json(json_obj)
+        
     return success
 
 
@@ -580,11 +592,11 @@ def main() -> None:
             elif arguments.host_commands == 'status':
                 sys.exit(0) if hosts_status(hosts, arguments.hostgroup, arguments.host_details) else sys.exit(5)
                 
-            # tcsc hosts stop [GROUPNAME]
+            # tcsc hosts stop GROUPNAME
             elif arguments.host_commands == 'stop':
                     sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)
             
-            # tcsc hosts remove [GROUPNAME]
+            # tcsc hosts remove GROUPNAME
             elif arguments.host_commands == 'remove':
                     sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
 
