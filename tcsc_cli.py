@@ -99,13 +99,16 @@ class CLI():
             
             if 'details' in item:
                 for key, value in item['details'].items():
+                    if '\n' in value:
+                        indent = f'''\n{detail_indent}{len(key)*' '}  '''
+                        value = value.replace('\n', indent)
                     text = f'{detail_indent}{key}: {value}'
                     print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
                 print(file=file) 
         
     @classmethod
-    def print_json(cls, json_object: dict, file: TextIO = sys.stdout) -> None:
-        if cls.json:
+    def print_json(cls, json_object: dict, force_output: bool = False, file: TextIO = sys.stdout) -> None:
+        if cls.json or force_output:
             print(json.dumps(json_object), file=file)
             
     @classmethod
@@ -139,16 +142,25 @@ class CLI():
         if cls.json:
             return
         
+        if not loglines:
+            return
+        
         loglines_processed = []
         columns_width = [0, 0, 0]
         for line in loglines:
             entry = []
-            for index, component in enumerate(shlex.split(line)):
-                _, value = component.split('=')
-                columns_width[index] = max(len(value), columns_width[index])
-                entry.append(value)
-            loglines_processed.append(entry)
-
+            try:
+                if not line:   # empty lines can happen
+                    raise()
+                for index, component in enumerate(shlex.split(line)):
+                    _, value = component.split('=')
+                    columns_width[index] = max(len(value), columns_width[index])
+                    entry.append(value)
+                
+            except:    # Some log entries (coming from commands running in the container) are not key-value pairs
+                entry = ['????-??-?? ??:??:??', 'output', line]
+            loglines_processed.append(entry)    
+            
         for line in loglines_processed:
             print(termcolor.colored(f'{line[0]:<{columns_width[0]}}', 'grey', no_color=cls.no_color),
                   termcolor.colored(f'{line[1]:<{columns_width[1]}}', level_color.get(line[1], 'white'), no_color=cls.no_color),

@@ -19,12 +19,9 @@ Exit Codes:
 
 ToDo:
 -----
-    - Extracting hostnames from supportconfig makes check results more readable.
-    - Implement restart of exited host containers.
     - Think about labels and stuff and what really needs to be in the config file.
     - Talk to Jochen how to integrate `tcsc` into his web project. Importing `tcsc` might be an easy way. 
-    - THink about filter for listing checks to get a better overview. 
-    - Think about start protection for same support files for the same group.
+    - Think about filter for listing checks to get a better overview. 
     - Check if all created docker resources really get removed.
     - Checks should be show, which host groups can use them (provided supportfiles)
     - Autodetection of provider should be implemented.
@@ -32,8 +29,6 @@ ToDo:
     - Rework help output.
     - Implement JSON output
     - Implement signal handling (catching interrupts)
-    - Check if we can have non-colored output best.
-    - Better table output with flexible column width.
     
     
 Future:
@@ -50,8 +45,6 @@ import argparse
 import collections
 import os
 import docker
-#import random
-#import string
 import sys
 from collections import Counter
 from rabbiteer import Rabbiteer
@@ -143,6 +136,7 @@ def argument_parse() -> dict:
     # Selector: checks
     checks = selectors.add_parser('checks',  help='Manages checks.')
     checks_commands = checks.add_subparsers(dest='checks_commands')
+    checks_commands.required = True
     
     checks_list = checks_commands.add_parser('list', help='Lists available checks.')
     
@@ -165,6 +159,11 @@ def argument_parse() -> dict:
                             type=str,
                             required=False,
                             help='provider to use for the check')
+    # checks_run.add_argument('-r', '--response',   #TODO: Do we need this? And when, what for?
+    #                         dest='raw_response',
+    #                         action='store_true',
+    #                         required=False,
+    #                         help='return the raw JSON response from Wanda as result')
     run_exclusive = checks_run.add_mutually_exclusive_group()
     run_exclusive.add_argument('-g', '--group',
                                metavar='GROUP',
@@ -241,7 +240,7 @@ def wanda_status(wanda: WandaStack) -> bool:
         json_obj['operational'] = True
     else:
         CLI.print_fail('\nWanda is not operational!')
-        json_obj['operational'] = False
+        json_obj['operational'] = False    
     CLI.print_json(json_obj)
     
     return True if wanda.status else False
@@ -334,7 +333,7 @@ def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
     """Stops host containers of a given hostgroup."""
 
     if hostgroup not in hosts.hostgroups:
-        CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+        CLI.print_fail(f'Host group "{hostgroup}" does not exist!')
         CLI.print_json({'success': False, 'error': f'Host group "{hostgroup}" does not exist!.'})
         return False
 
@@ -387,6 +386,11 @@ def hosts_remove(hosts: HostsStack, hostgroup: str) -> bool:
 
 def hosts_logs(hosts: HostsStack, containername: str, last_lines: int) -> None:
     """Prints logs of given container."""
+    
+    if containername not in [e['name'] for e in hosts.containers]:
+        CLI.print_fail(f'Container "%{containername}" does not exist!')
+        CLI.print_json({'success': False, 'error': f'Container "%{containername}" does not exist!'})
+        return False
     
     if last_lines:
         CLI.print_logline(hosts.logs(containername)[-last_lines:])
@@ -473,25 +477,38 @@ def checks_run(wanda: WandaStack,
                hostgroup: str, 
                provider: str, 
                check_groups: List[str],
-               requested_checks: List[str]) -> bool:
+               requested_checks: List[str],
+               raw_response: bool) -> bool:
     """Executed the requested checks."""
     
+    status_codes = {'passing': CLI.ok,
+                    'warning': CLI.warn,
+                    'error': CLI.error,
+                    'critical': CLI.error
+                    }
+    
+    # Build host target list.
     targets = []
+    agent2host = {}
     for host in hosts.filter_containers({'hostgroup': hostgroup}):
         if host['status'] != 'running':
-            CLI.print_warn(f'''Host "{host['name']}" has status "{host['status']}".''')
-            continue
+            CLI.print_fail(f'''Host "{host['name']}" is not running, but has status "{host['status']}".''')
+            return False
         targets.append(host)
+        agent2host[host['agent_id']] = host['name']
     
+    # Print overview about hosts to check.
     host_count = len(targets)
     if not targets:
         CLI.print_fail(f'No hosts for host group "{hostgroup}" found.')
         return False
     CLI.print_info(f'''{host_count} hosts for "{hostgroup}": {', '.join(h['name'] for h in targets)}''')
 
+    # Build effective checks list and print overview.
     checks2run = collections.defaultdict(list)
     available, selected = set(), set()
-    for check in wanda.checks(['id', 'description', 'group', 'expectations[].type']):
+    remediations = {}
+    for check in wanda.checks(['id', 'description', 'group', 'expectations[].type', 'remediation']):
         if check.tcsc_support != 'yes':
             continue
         available.add(check.id)
@@ -503,42 +520,61 @@ def checks_run(wanda: WandaStack,
             continue 
         selected.add(check.id)
         checks2run[check.group].append((check.id, check.description, check.check_type)) 
+        remediations[check.id] = check.remediation
     skipped = available - selected
     CLI.print_info(f'''{len(skipped)} of {len(available)} checks skipped: {', '.join(skipped)}''')
     CLI.print_info(f'''{len(selected)} of {len(available)} checks selected: {', '.join(selected)}''')    
     if not available:
         CLI.print_fail('No checks to run.')
         return False
-    
+       
+    # Walk through check groups and their checks and run them.
+    output = []
     for check_group in checks2run:
         print()
         CLI.print_header(check_group)
         for check in checks2run[check_group]:
             id, description, check_type = check
-            if check_type == 'single':
-                for host in targets:
-                    result = wanda.execute_check(provider, [host['agent_id']], [id])
-            elif check_type == 'multi':
-                result = wanda.execute_check(provider, [h['agent_id'] for h in targets], [id])
+            #result = []            
+            # if check_type == 'single':
+            #     for host in targets:
+            #         result.append(wanda.execute_check(provider, [host['agent_id']], id))
+            # elif check_type == 'multi':
+            #     result.append(wanda.execute_check(provider, [h['agent_id'] for h in targets], id))
+            # else:
+            #     CLI.print_fail(f'Skipping {id}. Unknown check type "{check_type}".')
+            #     continue
+            check_results, err = wanda.execute_check(provider, [h['agent_id'] for h in targets], id)
+
+            if err:
+                CLI.print_status([{'name': f'{id} - {description}',
+                                   'status': CLI.error,
+                                   'status_text': 'error',
+                                   'details': {'error': check_results}}])
+                return False
+
+            results = []
+            for check_result in json.loads(check_results):
+                
+                #TODO: compare id with check_result['check'] for the paranoid ;-)
+                
+                details = {'hostname': agent2host[check_result['agent_id']],
+                           'hostgroup': hostgroup,
+                           'agent id': check_result['agent_id']}
+                if 'messages' in check_result:
+                    details['messages'] = check_result['messages']
+                if status_codes[check_result['result']] != CLI.ok:
+                    details['remediation'] = remediations[id]
+                results.append({'name': f'{id} - {description}',
+                                'status': status_codes[check_result['result']],
+                                'status_text': check_result['result'],
+                                'details': details})
+
+            if raw_response:
+                #CLI.print_json(result['response'], force_output=True)   #TODO: tbd later
+                pass 
             else:
-                CLI.print_fail(f'Skipping {id}. Unknown check type "{check_type}".')
-                continue
-
-
-            status, data = result
-            if status == 'passing':
-                status_code = 0
-            elif status == 'warning':
-                status_code = 1
-            else:
-                status_code = 2
-            CLI.print_status2(f'[{status:^8}]', f'   {id} - {description}', status_code)
-            CLI.print_info(f'\t\t{data}')
-            
-            #TODO: WE NEED: AGENT - HOSTNAME, FALSE VALUES FROM RESULT, REMEDIATION OF CHECK
-            
-    return True #TODO: Add fails
-
+                CLI.print_status(results)
 
 def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
     """If requested, starts the Wanda stack and terminates with an error message,
@@ -614,13 +650,14 @@ def main() -> None:
                 checks_list(wanda, arguments.check_details)
                 sys.exit(0)  
                 
-            # tcsc checks run [-p|--provider PROVIDER] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
+            # tcsc checks run [-r|--response] [-p|--provider PROVIDER] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
             if arguments.checks_commands == 'run':
                 sys.exit(0) if checks_run(wanda, hosts, 
                                           arguments.hostgroup, 
                                           arguments.provider, 
                                           arguments.check_groups,
-                                          arguments.requested_checks
+                                          arguments.requested_checks,
+                                          False         #TODO: arguments.raw_response 
                                          ) else sys.exit(6)
     
     except ConfigException as err:
@@ -637,7 +674,11 @@ def main() -> None:
         sys.exit(5)
     except CheckException as err:
         CLI.print_fail(f'Check error: {err}', file=sys.stderr)
-        sys.exit(6)    
+        sys.exit(6) 
+    except BrokenPipeError:  # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(1)
     
     # Bye.
     CLI.print_fail('An unknown error ocurred!')

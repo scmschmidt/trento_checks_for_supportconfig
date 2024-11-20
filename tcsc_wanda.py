@@ -9,7 +9,7 @@ Contains classes to handle the Wanda container stack.
 import docker
 import functools
 import time
-from rabbiteer import Rabbiteer
+from rabbiteer import Rabbiteer, evaluate_check_results
 from typing import List, Dict, Any, Tuple
 from tcsc_config import *
 
@@ -17,7 +17,7 @@ from tcsc_config import *
 class WandaStack():
     """Represents a Wanda container stack.
     
-        - self._containers (Dict[str, Container]):  Dict with the Wand container instances referenced by name.
+        - self._containers (Dict[str, Container]):  Dict with the Wanda container instances referenced by name.
         - self._docker (docker.DockerClient):  Instance of DockerClient.
         - self._rabbiteer (Rabbiteer):  Rabbiteer instance to talk to Wanda.
         - self.timeout (int):  Timeout for Docker and Wanda operations.
@@ -64,7 +64,7 @@ class WandaStack():
     def checks(self, attributes: List[str] = None) -> List[dict]:
         """Returns list of Check instances for all available checks (content of 'items').
         The Check instance will have only the requested attributes.""" 
-    
+
         return [Check(c, attributes) for c in self._rabbiteer.list_catalog().get('items')]   
        
     def start(self) -> List[str]:
@@ -110,37 +110,29 @@ class WandaStack():
         
         return stopped
 
-    def execute_check(self, provider: str, agent_ids: List[str], check_ids: List[str]) -> Tuple[str, dict]:
-        """Executes checks on the given hosts."""
-
+    def execute_check(self, provider: str, agent_ids: List[str], check_id: str) -> Tuple[str, bool]:
+        """Executes check on the given hosts and returns uple with the result of `rabbiteer`
+        as JSON string and False. In case of an error a tuple with the error string and True."""
+        
         try:
-            response = self._rabbiteer.execute_checks(agent_ids, provider, check_ids, timeout=self.timeout, running_dots=False)                 
-            check_result = response['check_results'][0] #TODO: Is the assumption of one result always correct?
-            host_data = []
-            for agents_check_result in check_result['agents_check_results']:
-                host_data.append((agents_check_result['agent_id'],
-                                 (agents_check_result['message'], agents_check_result['type']) 
-                                  if 'message' in agents_check_result else None
-                                 )
-                                ) 
-            result = check_result['result'], host_data
-        except Exception as err: # RETURN NOT RAISE!
-            result = 'error', err
-           
-        #import pprint    
-        #pprint.pprint(response)
- 
-        return result
+            responses = self._rabbiteer.execute_checks(agent_ids, 
+                                                      {'provider': provider}, 
+                                                      [check_id], 
+                                                      timeout=self.timeout, 
+                                                      running_dots=False)
+            result = evaluate_check_results(responses, brief=False, json_output=True)  
+        except Exception as err:
+            return err, True
+
+        return result, False
 
     def _update(self) -> None:
         """Updates the container objects."""
         for container in self._containers.values():
             container.reload()
 
-
 class WandaException(Exception):
     pass
-
 
 class Check():
     """Represents a Trento check.
@@ -171,7 +163,8 @@ class Check():
                         'metadata.provider': 'provider', 
                         'metadata.cluster_type': 'cluster_type', 
                         'facts[].gatherer': 'gatherer',
-                        'expectations[].type': 'check_type'
+                        'expectations[].type': 'check_type',
+                        'remediation': 'remediation'
                        }
     
     
@@ -206,9 +199,10 @@ class Check():
         return data    
     
     def __init__(self, check: Dict, attributes: List[str] = None) -> None:
-                
+
         if not attributes:
             attributes = Check._attribute_table.keys()
+
         if not set(attributes).issubset(Check._attribute_table.keys()):
             raise CheckException(f'Unsupported attributes: {set(attributes) - Check._attribute_table.keys()}')
         
@@ -218,11 +212,11 @@ class Check():
                     value = [value]
             if key == 'expectations[].type':
                 if len(set(value)) != 1:
-                    raise CheckException(f'Unexpected expectation types: {value}')
+                    raise CheckException(f'''Unexpected expectation type for check {check['id']}: {value}''')
                 try:
-                    value = {'expect': 'single', 'expect_same': 'multi'}[value[0]]
+                    value = {'expect': 'single', 'expect_same': 'multi', 'expect_enum': 'single_enum'}[value[0]]   # TODO: single_enum IS NEW!!!!!
                 except KeyError:
-                    raise CheckException(f'Unexpected expectation types: {value[0]}')
+                    raise CheckException(f'''Unexpected expectation type for check {check['id']}: {value[0]}''')
             if isinstance(value, str):
                 value = value.strip()
             setattr(self, Check._attribute_table[key], value)   # value is always None, str or list

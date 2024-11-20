@@ -24,9 +24,22 @@ Changelog:
                               which must match the value in the check. Fetching the check catalog now and add the key to the request.
                             - Also implementing "healthz" and "readyz".
                             - Issue: For some reason starting an execution requires explicitly "v1" in the uri. Its a bug.
-30.10.2023      v0.7.1      - Fixed two typos and removed the "v1" from the URI to start executions. Trento Core Team has fixed the issue.                            
-03.03.2024      v0.8        - Introduced Rabbiteer exception classes, reworked Rabbiteer class to throw exceptions and moved
-                              all printing into a main() by catching the exceptions.
+30.10.2023      v0.7.1      - Fixed two typos and removed the "v1" from the URI to start executions. Trento Core Team has fixed the issue.
+10.04.2024      v0.8        - Removed -p in favor of -e which allows setting newly available environment parameters.
+12.04.2024      v0.9        - Some minor code cleaning.
+                            - Reworked Rabbiteer class (execute_check) to use exceptions and do not terminate directly. 
+                              This was necessary for integration into the project https://github.com/scmschmidt/trento_checks_for_supportconfig.
+                            - Running dots can now be disabled (--no-progress) and are printed to stderr to not disrupt output processing.  
+                            - Increased polling interval on Rabbiteer.execute_check() from 0.5 to 1s.
+                            - Support for -c CHECK for ListChecks.
+20.11.2024      v1.0        - Rework check execution to get unambiguous results (`critical`, `warning`, `passing`) for each check and not only
+                              a summarized overall worst result. This means, that for each check first the expectation type gets evaluated
+                              (`ListChecks`) and depending on the type, one or multiple execution calls get fired (`expect_same` is one call for
+                              all agents and `expect` and `expect_enum` are separate calls per agent for the check).
+                            - Add --json and --brief to ExecuteCheck. The option --json is required for the project
+                              https://github.com/scmschmidt/trento_checks_for_supportconfig.
+20.11.2024      v1.1        - Moved formatting of ExecuteCheck output to function evaluate_check_results(), so it can be called from tcsc
+                              (https://github.com/scmschmidt/trento_checks_for_supportconfig).
 """
 
 import argparse
@@ -39,24 +52,27 @@ import textwrap
 import time
 import json
 import uuid
+from typing import List, Dict, Any
 
 
-__version__ = '0.8'
+__version__ = '1.1'
 __author__ = 'soeren.schmidt@suse.com'
 
 
 class Rabbiteer():
     """Class to communicate with Wanda's API."""
 
-    def __init__(self, baseurl, access_key=None, credential=None):
+    def __init__(self, baseurl: str, access_key: str = None, credential: str = None) -> None:
         self.baseurl = baseurl
         self.access_key = access_key
         self.trento_credential = credential
 
-    def make_request(self, endpoint, post_data=None):
+    def make_request(self, endpoint: str, post_data: dict = None) -> None:
         """Makes a request to the endpoint and expects a JSON response.
         The response is available in self.response.
-        If post_data is given, a POST else a GET request is done.
+        If post_data is given, a POST otherwise a GET request is done.
+        
+        If the HTTP connection fails, an exception will be raised.
         
         If the Wanda API requires authentication, either the access key
         or credentials to the Trento web interface must be given to retrieve
@@ -72,13 +88,14 @@ class Rabbiteer():
                                      timeout=10)
             except Exception as err:
                 raise RabbiteerConnectionError(f'Connection error:{err}')
+
             if not response.ok:
                 raise RabbiteerTrentoError(f'Could not authenticate against Trento. Error:{response.status_code}\n{response.text}')
             else:
                 try:
                     self.access_key = response.json()['access_token']
                 except Exception as err:
-                    raise RabbiteerTrentoError(f'Could not retrieve access key from Trento: {err}')
+                    raise RabbiteerTrentoError(f'Could not retrieve access key from Trento: {err}')  
 
         # Build the headers
         headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
@@ -96,93 +113,129 @@ class Rabbiteer():
         except Exception as err:
             raise RabbiteerConnectionError(f'Error connecting to "{url}": {err}')
 
-    def _http_status_err(self):
+    def _http_status_err(self) -> None:
         """Raises RabbiteerConnectionError exception if the request returned with a error HTTP status code."""
-        
         if not self.response.ok:
             raise RabbiteerConnectionError(f'Failed with status code: {self.response.status_code}\n{self.response.text}')
 
-    def list_executions(self):
+    def list_executions(self) -> dict:
         """Returns executions from Wanda."""
 
         self.make_request('/api/checks/executions')
         self._http_status_err() 
         return self.response.json()
 
-    def list_catalog(self):
+    def list_catalog(self) -> dict:
         """Returns check catalog from Wanda."""
 
         self.make_request('/api/checks/catalog')
         self._http_status_err() 
         return self.response.json()
     
-    def health(self):
+    def health(self) -> dict:
         """Returns health of Wanda."""
 
         self.make_request('/api/healthz')
         self._http_status_err() 
         return self.response.json()
 
-    def readiness(self):
+    def readiness(self) -> dict:
         """Returns readiness of Wanda."""
 
         self.make_request('/api/readyz')
         self._http_status_err() 
         return self.response.json()
 
-    def execute_checks(self, agent_ids, provider, check_ids, timeout=None, running_dots=True):
-        """Execute checks for provider on agents and returns 
-        the result as dictionary.
-        Terminates if anything goes wrong or the result is not as expected. 
+    def execute_checks(self, 
+                       agent_ids: List[str], 
+                       environment: Dict[str, str], 
+                       check_ids: List[str], 
+                       timeout: int = None,
+                       running_dots: bool = True
+                      ) -> List[Any]:
+        """Execute checks on agents and returns the results as list.
+        Raises exceptions if anything goes wrong or the result is not as expected. 
+        Each check is treated separately and depending on the expectation type one 
+        (`expect_same`) or multiple execution calls (`expect` and `expect_enum`)
+        get fired.
         """
 
+        # Get check catalog.
+        catalog = self.list_catalog()['items']
+
         # We need to fetch keys from the check's metadata, which have to be part of the request.
-        metadata = {}
-        for check in self.list_catalog()['items']:
+        # and we extract the expectation type.
+        checks_metadata = {}
+        checks_expectationtype = {}
+        responses = []
+        for check in catalog:
             if check['id'] in check_ids:
-                current_metadata = {}
+                metadata = {}
                 try:
                     for mandatory_key in ['target_type']:
-                        current_metadata[mandatory_key] = check['metadata'][mandatory_key]
+                       metadata[mandatory_key] = check['metadata'][mandatory_key]
                 except:
                     raise RabiteerMetadataError(f'''Mandatory key "{mandatory_key}" is not part of metadata of check {check['id']}.\nThis is a bug in the check.''')
-                if metadata:
-                    if metadata != current_metadata:
-                        raise RabiteerMetadataError(f'''If multiple checks are executed, the metadata must be identical!\n"{current_metadata}" of check {check['id']} differs from the metadata of the previous checks "{metadata}".''')
-                else:
-                    metadata = current_metadata
-
-        execution_id = str(uuid.uuid4())
-        data = {'env': {'provider': provider},
-                'execution_id': execution_id,
+                checks_metadata[check['id']] = metadata
+                try:               
+                    checks_expectationtype[check['id']] = check['expectations'][0]['type']
+                except:
+                    raise RabiteerMetadataError(f'''Could not retrieve execution type of check {check['id']}.''')
+        
+        # Walk through each requested check.
+        for check_id in check_ids:
+            data = {'env': environment,
+                'execution_id': None,
                 'group_id': str(uuid.uuid4()),
                 'targets': []
                }
-        data.update(metadata)
-        for agent_id in agent_ids:
-            data['targets'].append({'agent_id': agent_id, 'checks': check_ids})
+            data.update(checks_metadata[check_id])
 
-        # Start execution.
+            # If we have a `expect_same` check, we execute a single call for
+            # all agents,...
+            if checks_expectationtype[check_id] == 'expect_same':
+                for agent_id in agent_ids:
+                    data['targets'].append({'agent_id': agent_id, 'checks': [check_id]})
+                data['execution_id'] = str(uuid.uuid4())                    
+                responses.append(self._call_execute(data, timeout=timeout, running_dots=running_dots))
+            # ... otherwise one call per agent.
+            else:
+                for agent_id in agent_ids:
+                    data['targets'] = [{'agent_id': agent_id, 'checks': [check_id]}]
+                    data['execution_id'] = str(uuid.uuid4())
+                    responses.append(self._call_execute(data, timeout=timeout, running_dots=running_dots))
+             
+        return responses
+
+    def _call_execute(self, data: Dict[str, Any],
+                            timeout: int = None,
+                            running_dots: bool = True) -> dict:
+        """Starts a single execution call and polls for the execution to be finished.
+        Raises exceptions in case of errors otherwise returns a response object
+        """
+
+         # Start execution.
         self.make_request('/api/checks/executions/start', post_data=json.dumps(data))
-
+        
         # Check if the check does not exist.
         if self.response.status_code == 422:
             detail = self.response.json().get('error', {}).get('detail')
             if detail and detail == 'no_checks_selected':
-                raise RabbiteerRepsonseError('None of the checks exist!', None)
-            raise RabbiteerRepsonseError('Wanda response: 422 - Unprocessable content', None)
+                raise RabbiteerRepsonseError(f'Check does not exist! Header: {data}', None)
+            raise RabbiteerRepsonseError(f'Wanda response: 422 - Unprocessable content. Header: {data}', None)
         else:
             self._http_status_err()  
 
+        execution_id = data['execution_id']
         endpoint = f'/api/checks/executions/{execution_id}'
         start_time = time.time()
         running = True
+        first_dot = False
         while running:
             self.make_request(endpoint)
 
             # Check if execution might not yet exist.
             if self.response.status_code == 404:
-
                 error_titles = [e['title'] for e in self.response.json()['errors'] if 'title' in e.keys()]
                 if 'Not Found' in error_titles:
                     logging.debug(f'Execution {execution_id} not yet available...\n\t{self.response.text}')
@@ -198,19 +251,22 @@ class Rabbiteer():
             status = self.response.json()['status']
             if status == 'running':
                 if running_dots:
-                    print('.', end='', flush=True) 
+                    print('.', end='', flush=True, file=sys.stderr)
+                    first_dot = True
                 
                 logging.debug(f'Execution {execution_id} still running...\n\t{self.response.text}')
                 if timeout and time.time() - start_time > timeout:
                     raise RabbiteerTimeOut(f'Execution {execution_id} did not finish in time (within {timeout}s)!')
-                time.sleep(.5)
+                time.sleep(1)
                 continue
             elif status == 'completed':
+                if running_dots and first_dot:
+                    print('', flush=True, file=sys.stderr) 
                 logging.debug(f'Execution {execution_id} has been completed.\n\t{self.response.text}')
                 running = False
             else:
                 raise RabbiteerRepsonseError(f'Execution {execution_id} returned an unknown status: {status}', self.response.text)
-      
+
         logging.debug(f'Response of {execution_id}: {self.response.text}')
         return self.response.json()
 
@@ -240,18 +296,19 @@ class RabbiteerRepsonseError(Exception):
 class RabbiteerTimeOut(Exception):
     pass
 
-    
+
 class ArgParser(argparse.ArgumentParser):
 
-    def format_help(self):
+    def format_help(self) -> str:
         """Prints full help message."""
 
         prog = os.path.basename(sys.argv[0])
         text = f'''
                 Usage:  {prog} -h|--help
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ListExecutions [SCOPE]
-                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ExecuteCheck -p|--provider PROVIDER -t|--target TARGET... -c|--check CHECK... [--timeout TIMEOUT]
-                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ListChecks
+                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ExecuteCheck -e ENV_PARAM...
+                        {len(prog) * ' '} -t|--target TARGET... -c|--check CHECK... [--timeout TIMEOUT] [--json] [--brief]
+                        {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL ListChecks [-c|--check CHECK...]
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL Health
                         {prog} [-d|--debug] [-r|--raw] [-a KEY|-A KEYFILE|-f CRED|-F CREDFILE] URL Ready
 
@@ -296,11 +353,24 @@ class ArgParser(argparse.ArgumentParser):
                         Executes checks for the platform on target hosts, waits for
                         the execution to be finished and prints the results.
                 
-                        -p, --provider PROVIDER...  provider string (e.g. azure)
+                        -e, --env ENV_PARAM...      sets environment parameter (https://www.trento-project.io/wanda/specification.html#evaluation-scope)
+                                                        provider        one of: azure, aws, gcp, kvm, nutanix, vmware, default;   Default: default
+                                                        cluster_type    one of: hana_scale_up, hana_scale_out, ascs_ers;   Default: -
+                                                        target_type     target type; one of: cluster, host;   Default: -
                         -c, --check CHECK...        Trento check id (e.g. 21FCA6)
                         -t, --target                agent uuid of target host (e.g. )
                         --timeout TIMEOUT           timeout in seconds waiting for an execution to appear or to complete 
+                        --no-progress               disables progress dots during check execution
+                        --json                      print results as JSON string
+                        --brief                     print only check id, agent id and result
 
+                    ListChecks:
+                    
+                        Lists all checks present in Wanda. 
+                        Use -c|--check CHECK to limit the output.
+                    
+                        -c|--check CHECK...         Trento check id (e.g. 21FCA6)
+                        
                 Exit codes:
 
                     0   Everything went fine. 
@@ -314,16 +384,16 @@ class ArgParser(argparse.ArgumentParser):
                     Check the health of Wanda:                  rabbiteer.py http://localhost:4000 Health
                     List all available checks:                  rabbiteer.py http://localhost:4000 ListChecks
                     List all available checks (JSON dump):      rabbiteer.py -r http://localhost:4000 ListChecks
-                    Execute a check for a (azure) host:         rabbiteer.py http://localhost:4000 ExecuteCheck -p azure -c 156F64 -t b651491b-904d-5448-9350-fe817c1f2c6e
+                    Execute a check for a (azure) host:         rabbiteer.py http://localhost:4000 ExecuteCheck -e provider=azure -c 156F64 -t b651491b-904d-5448-9350-fe817c1f2c6e
 
                 '''
         return textwrap.dedent(text)
 
 
-def signal_handler(sig, frame):
+def signal_handler(sig: int, frame: Any) -> None:
     sys.exit(0)
 
-def argument_parse():
+def argument_parse() -> argparse.Namespace:
     """Evaluates the command line arguments."""
 
     parser = ArgParser(prog=os.path.basename(sys.argv[0]), 
@@ -378,11 +448,14 @@ def argument_parse():
     
     # Command: ExecuteCheck
     parser_execute_check = subparsers.add_parser('ExecuteCheck')
-    parser_execute_check.add_argument('-p', '--provider',
-                                      dest='provider',
-                                      action='store',
-                                      required = True,
-                                      type=str)
+    parser_execute_check.add_argument('--no-progress',
+                                      dest='progress_dots',
+                                      action='store_false',
+                                      required=False)
+    parser_execute_check.add_argument('-e', '--env',
+                                      dest='environment',
+                                      action='append',
+                                      required = False)
     parser_execute_check.add_argument('-c', '--check',
                                       dest='checks',
                                       action='append',
@@ -399,16 +472,29 @@ def argument_parse():
                                       dest='timeout',
                                       action='store',
                                       required = False,
-                                      type=int)  
+                                      type=int)
+    parser_execute_check.add_argument('--json',
+                                      dest='json_output',
+                                      action='store_true',
+                                      required = False) 
+    parser_execute_check.add_argument('--brief',
+                                      dest='brief',
+                                      action='store_true',
+                                      required = False)   
 
     # Command: ListChecks
     parser_list_checks = subparsers.add_parser('ListChecks')
-  
+    parser_list_checks.add_argument('-c', '--check',
+                                    dest='checks',
+                                    action='append',
+                                    required = False,
+                                    nargs='+',
+                                    type=str) 
     # Command: Health
-    parser_list_checks = subparsers.add_parser('Health')
+    parser_health = subparsers.add_parser('Health')
     
     # Command: Ready
-    parser_list_checks = subparsers.add_parser('Ready')  
+    parser_ready = subparsers.add_parser('Ready')
 
     # Parse arguments.
     args_parsed = parser.parse_args()
@@ -424,9 +510,46 @@ def argument_parse():
         print(textwrap.dedent(message), file=sys.stderr)
         sys.exit(2)
 
+    # Check and rework environment parameters.
+    env = {}
+    if 'environment' in args_parsed and args_parsed.environment:
+        for parameter in args_parsed.environment:
+            try:
+                key, value = parameter.split('=', maxsplit=1)
+            except ValueError:
+                print(f'environment parameters must have the form "key=value", but got: {parameter}', file=sys.stderr)
+                sys.exit(2)
+            if key == 'provider':
+                if value not in ['azure', 'aws', 'gcp', 'kvm', 'nutanix', 'vmware', 'default']:
+                    print(f'invalid value for "provider": {value}', file=sys.stderr)
+                    sys.exit(2)
+            elif key == 'cluster_type':
+                if value not in ['hana_scale_up', 'hana_scale_out', 'ascs_ers']:
+                    print(f'invalid value for "cluster_type": {value}', file=sys.stderr)
+                    sys.exit(2)
+            elif key == 'target_type':
+                if value not in ['cluster', 'host']:
+                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+                    sys.exit(2)
+            elif key == 'ensa_version':
+                if value not in ['ensa1', 'ensa2', 'mixed_versions']:
+                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+                    sys.exit(2)
+            elif key == 'fs_type':
+                if value not in ['resource_managed', 'simple_mount', 'mixed_fs_types']:
+                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+                    sys.exit(2)
+            else:
+                print(f'invalid environment parameter: {key}', file=sys.stderr)
+                sys.exit(2)
+            env[key] = value
+    if 'provider' not in env:
+        env['provider'] = 'default'
+    args_parsed.environment = env
+        
     # Set debugging.
     if args_parsed.debug:
-        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s\n%(message)s')
+        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s\n%(message)s\n---')
         
     # Retrieving access key, if file was given.
     if args_parsed.access_keyfile:
@@ -460,11 +583,91 @@ def argument_parse():
 
     return args_parsed
 
-def unknown_response(response, error):
+def unknown_response(response: dict, error: Exception):
     """Prints response and error message and terminates with exit code 3."""
 
     print(f'Could not evaluate response:\n{response}\n\nError: {error}', file=sys.stderr)
     sys.exit(3)
+    
+def prune_object(obj: Any):
+    """Recursively walks through an object (list or dict) and deletes everything except
+    dictionary keys with are in the valid key list. This is used to prune the complex 
+    response object from a check execution to a few needed entries."""
+
+    valid_keys = ['result', 'message', 'failure_message', 'return_value', 'agent_id', 'checks', 'check_id']
+    
+    if isinstance(obj, dict):
+        for k, v in obj.copy().items():
+            if isinstance(v, dict) or isinstance(v, list):
+                prune_object(v)
+                if not v:
+                    del(obj[k])
+            else:
+                if k not in valid_keys:
+                    del(obj[k])
+    elif isinstance(obj, list):
+        for e in list(obj):
+            if isinstance(e, dict) or isinstance(e, list):
+                prune_object(e)
+                if not e:
+                    obj.remove(e)
+            else:
+                obj.remove(e)
+
+def evaluate_check_results(responses: List[Any], brief: bool, json_output: bool) -> str:
+    """Takes responses list from Rabbiteer.execute_checks() and formats them to a (JSAON ) string"""
+    
+    try:
+        # Walk trough all the responses of the execution requests.
+        results = []
+        for response in responses:
+            
+            # With one check per execution request, the `check_results`
+            # list has only one element.
+            check_result = response['check_results'][0]
+            
+            # Walk through the agent's results.    
+            for agents_check_result in check_result['agents_check_results']:
+                result = {'check': check_result['check_id'],
+                            'agent_id': agents_check_result['agent_id'],
+                            'result': check_result['result']
+                            }
+                if not brief:
+                    result['execution_id'] = response['execution_id']
+
+                    # Collect all (error) messages.
+                    messages = []
+                    if 'message' in agents_check_result:
+                        messages.append(agents_check_result['message'])                           
+                    for fact in agents_check_result['facts']:
+                        if 'message' in fact:
+                            messages.append(fact['message'])                                
+                    if 'expectation_evaluations' in agents_check_result:
+                        for evaluation in agents_check_result['expectation_evaluations']:
+                            if 'failure_message' in evaluation :
+                                messages.append(evaluation['failure_message'])
+                    if messages:
+                        result['messages'] = '; '.join(messages)
+                        
+                    # Add error type if present.
+                    if 'type' in agents_check_result:
+                        result['type'] = agents_check_result['type']
+                
+                results.append(result)                                
+                        
+        # print "human-readable" line or JSON string.
+        if json_output:
+            output_string = json.dumps(results)
+        else:
+            output_string = ''
+            for result in results:
+                for key, value in result.items():
+                    output_string += f'{key}="{value}"'
+                output_string += '\n'  
+        return  output_string
+
+    except Exception as err:
+        unknown_response(responses, err)
 
 
 def main():
@@ -473,29 +676,22 @@ def main():
 
     arguments = argument_parse()
     connection = Rabbiteer(arguments.url, arguments.access_key, arguments.credential)
-    
-    try: 
-    
+    try:
+        
         # Command: ExecuteCheck
         if arguments.command == 'ExecuteCheck':
 
             # Start check(s) execution.
-            response = connection.execute_checks(sum(arguments.agents, []), arguments.provider, sum(arguments.checks, []), timeout=arguments.timeout)
-
-            # Print full response or evaluation.
+            responses = connection.execute_checks(sum(arguments.agents, []), arguments.environment, sum(arguments.checks, []),
+                                                 timeout=arguments.timeout,
+                                                 running_dots=arguments.progress_dots
+                                                )
+            
+            # Print full responses or evaluation.
             if arguments.raw_output:
-                print(json.dumps(response))
-            else:
-                try:
-                    for check_result in response['check_results']:
-                        for agents_check_result in check_result['agents_check_results']:
-                            message = f'''check={check_result['check_id']} agent_id={agents_check_result['agent_id']} result={check_result['result']} execution_id={response['execution_id']}'''
-                            if 'message' in agents_check_result:
-                                message += f''' message="{agents_check_result['message']}" type={agents_check_result['type']}'''
-                            print(message)    
-
-                except Exception as err:
-                    unknown_response(response, err)
+                print(json.dumps(responses))    
+            else:   
+                print(evaluate_check_results(responses, brief=arguments.brief, json_output=arguments.json_output))            
                     
         # Command: ListExecutions
         elif arguments.command == 'ListExecutions':
@@ -525,19 +721,28 @@ def main():
         
             # Retrieve checks.
             response = connection.list_catalog()
-
-            # Print full response or evaluation.
-            if arguments.raw_output:
-                print(json.dumps(response))
-            else:
-                try:
+            
+            try:
+                # Filter checks.
+                if arguments.checks:
+                    requested_checks = sum(arguments.checks, [])
+                    new_response = {'items': []}
+                    for check in response['items']:
+                        if check['id'] in requested_checks:
+                            new_response['items'].append(check)  
+                    response = new_response
+                    
+                # Print full response or evaluation.
+                if arguments.raw_output:
+                    print(json.dumps(response))
+                else:
                     checks = response['items']
                     for check in checks:
                         print(f'''{check['id']} - {check['name']} ({check['group']})''')
-                except Exception as err:
-                    print(f'Could not evaluate response:\n{response}\n\nError: {err}', file=sys.stderr)
-                    sys.exit(3)
-                print(f'\n{len(checks)} check(s) found.')
+                    print(f'\n{len(checks)} check(s) found.')
+            except Exception as err:
+                print(f'Could not evaluate response:\n{response}\n\nError: {err}', file=sys.stderr)
+                sys.exit(3)
                 
         # Command: Health
         elif arguments.command == 'Health':
@@ -584,7 +789,7 @@ def main():
         sys.exit(3)  
     except RabbiteerTimeOut as err:
         print(err, file=sys.stderr)
-        sys.exit(4)  
+        sys.exit(4) 
 
     sys.exit(0)
 

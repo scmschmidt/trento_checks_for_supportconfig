@@ -42,7 +42,7 @@ To remove all containers, images, volumes and networks, call: `./uninstall`
 
 # Inspect a supportconfig
 
-The primary tool to work with is `tcsc`. It can
+The primary tool to work with, is `tcsc`. It can
 
   - manage the Wanda stack,
   - manages the required supportconfig containers
@@ -156,7 +156,7 @@ tcsc checks GROUPNAME [-p PROVIDER] [-g GROUP...] [CHECK...]
 - `GROUP` allows to select a subset of checks depending on their group.
   The group a check belongs to is defined in the check itself and can be listed with `tcsc wanda checks -d`
   
-  > :grey_exclamation: Currently an arbitrary grouAn arbitrary grouping of the checks to make it easier to run subsets of them. The available
+  > :grey_exclamation: Currently an arbitrary group of the checks to make it easier to run subsets of them. The available
   categories depend on the third column of `.valid_checks`. \
 
 - `CHECK` allows you to select a specific check.
