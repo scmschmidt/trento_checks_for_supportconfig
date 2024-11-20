@@ -1,7 +1,8 @@
 # To Do
 
-- Rethink JSON output
+- Walk through the TODOs in the code.
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+- Check documentation.
 - Containerize `tcsc`.
 - Implement new checks (requires new environments besides provider).
 - Add auto-skip of checks if the supportfiles do not provide the required data.

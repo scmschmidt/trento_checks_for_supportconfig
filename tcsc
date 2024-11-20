@@ -164,6 +164,11 @@ def argument_parse() -> dict:
     #                         action='store_true',
     #                         required=False,
     #                         help='return the raw JSON response from Wanda as result')
+    checks_run.add_argument('-f', '--failure-only',
+                            dest='failure_only',
+                            action='store_true',
+                            required=False,
+                            help='returns only results that have not passed')
     run_exclusive = checks_run.add_mutually_exclusive_group()
     run_exclusive.add_argument('-g', '--group',
                                metavar='GROUP',
@@ -478,6 +483,7 @@ def checks_run(wanda: WandaStack,
                provider: str, 
                check_groups: List[str],
                requested_checks: List[str],
+               failure_only: bool,
                raw_response: bool) -> bool:
     """Executed the requested checks."""
     
@@ -486,13 +492,16 @@ def checks_run(wanda: WandaStack,
                     'error': CLI.error,
                     'critical': CLI.error
                     }
+    json_obj = {}
     
     # Build host target list.
     targets = []
     agent2host = {}
     for host in hosts.filter_containers({'hostgroup': hostgroup}):
         if host['status'] != 'running':
-            CLI.print_fail(f'''Host "{host['name']}" is not running, but has status "{host['status']}".''')
+            err_text = f'''Host "{host['name']}" is not running, but has status "{host['status']}".'''
+            CLI.print_fail(err_text)
+            CLI.print_json({'success': False, 'error': err_text})
             return False
         targets.append(host)
         agent2host[host['agent_id']] = host['name']
@@ -500,8 +509,12 @@ def checks_run(wanda: WandaStack,
     # Print overview about hosts to check.
     host_count = len(targets)
     if not targets:
-        CLI.print_fail(f'No hosts for host group "{hostgroup}" found.')
+        err_text = f'No hosts for host group "{hostgroup}" found.'
+        CLI.print_fail(err_text)
+        CLI.print_json({'success': False, 'error': err_text})
         return False
+    json_obj['hostgroup'] = hostgroup
+    json_obj[hostgroup] = [h['name'] for h in targets]
     CLI.print_info(f'''{host_count} hosts for "{hostgroup}": {', '.join(h['name'] for h in targets)}''')
 
     # Build effective checks list and print overview.
@@ -522,10 +535,13 @@ def checks_run(wanda: WandaStack,
         checks2run[check.group].append((check.id, check.description, check.check_type)) 
         remediations[check.id] = check.remediation
     skipped = available - selected
+    json_obj['checks'] = {'available': list(available),'skipped': list(skipped), 'selected checks':list(selected)}
     CLI.print_info(f'''{len(skipped)} of {len(available)} checks skipped: {', '.join(skipped)}''')
     CLI.print_info(f'''{len(selected)} of {len(available)} checks selected: {', '.join(selected)}''')    
     if not available:
-        CLI.print_fail('No checks to run.')
+        err_text = 'No checks to run.'
+        CLI.print_fail(err_text)
+        CLI.print_json({'success': False, 'error': err_text})
         return False
        
     # Walk through check groups and their checks and run them.
@@ -533,6 +549,7 @@ def checks_run(wanda: WandaStack,
     for check_group in checks2run:
         print()
         CLI.print_header(check_group)
+        check_group_json = []
         for check in checks2run[check_group]:
             id, description, check_type = check
             #result = []            
@@ -547,34 +564,44 @@ def checks_run(wanda: WandaStack,
             check_results, err = wanda.execute_check(provider, [h['agent_id'] for h in targets], id)
 
             if err:
-                CLI.print_status([{'name': f'{id} - {description}',
-                                   'status': CLI.error,
-                                   'status_text': 'error',
-                                   'details': {'error': check_results}}])
-                return False
+                results = [{'name': f'{id} - {description}',
+                            'status': CLI.error,
+                            'status_text': 'error',
+                            'details': {'error': check_results}}]
+            else:    
+                results = []
+                for check_result in json.loads(check_results):
+                    
+                    # For the paranoid. This should never happen.
+                    if id != check_result['check']:
+                        results = [{'name': f'{id} - {description}',
+                                    'status': CLI.error,
+                                    'status_text': 'error',
+                                    'details': {'error': '''The check id from the call "{id}" and the result "{check_result['check']}" differ. You found a bug!'''}}]
+                    else:             
+                        details = {'hostname': agent2host[check_result['agent_id']],
+                                'hostgroup': hostgroup,
+                                'agent id': check_result['agent_id']}
+                        if 'messages' in check_result:
+                            details['messages'] = check_result['messages']
+                        if status_codes[check_result['result']] != CLI.ok:
+                            details['remediation'] = remediations[id]
 
-            results = []
-            for check_result in json.loads(check_results):
-                
-                #TODO: compare id with check_result['check'] for the paranoid ;-)
-                
-                details = {'hostname': agent2host[check_result['agent_id']],
-                           'hostgroup': hostgroup,
-                           'agent id': check_result['agent_id']}
-                if 'messages' in check_result:
-                    details['messages'] = check_result['messages']
-                if status_codes[check_result['result']] != CLI.ok:
-                    details['remediation'] = remediations[id]
-                results.append({'name': f'{id} - {description}',
-                                'status': status_codes[check_result['result']],
-                                'status_text': check_result['result'],
-                                'details': details})
+                        if failure_only and status_codes[check_result['result']] == CLI.ok:
+                            continue
+                    
+                    results.append({'name': f'{id} - {description}',
+                                    'status': status_codes[check_result['result']],
+                                    'status_text': check_result['result'],
+                                    'details': details})
 
-            if raw_response:
-                #CLI.print_json(result['response'], force_output=True)   #TODO: tbd later
-                pass 
-            else:
-                CLI.print_status(results)
+            CLI.print_status(results)
+            if results:
+                check_group_json.append(results)
+        if check_group_json:
+            json_obj[check_group] = check_group_json
+    CLI.print_json(json_obj)
+
 
 def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
     """If requested, starts the Wanda stack and terminates with an error message,
@@ -657,6 +684,7 @@ def main() -> None:
                                           arguments.provider, 
                                           arguments.check_groups,
                                           arguments.requested_checks,
+                                          arguments.failure_only,
                                           False         #TODO: arguments.raw_response 
                                          ) else sys.exit(6)
     
