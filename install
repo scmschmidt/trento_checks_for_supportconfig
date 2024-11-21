@@ -7,7 +7,7 @@ echo '----------------'
 # Setting up Wanda containers.
 docker-compose -f docker-compose-wanda.yaml up -d
 
-# Verfifying existence of the containers.
+# Verifying existence of the containers.
 if [ $(docker ps -q --filter label=com.suse.tcsc.stack=wanda | wc -l) -ne 3 ] ; then
     echo "The Wanda containers don't seem to be running!" >&2
     exit 1
@@ -20,7 +20,7 @@ if [ $(ss -Htnlp4 sport 4000 | wc -l) -eq 0 ] ; then
 fi
 echo "Port 4000/tcp is open."
 
-# Check that Wnada reports readiness.
+# Check that Wanda reports readiness.
 ready=0
 start=$(date +'%s')
 while [ ${ready} -eq 0 ] ; do 
@@ -41,7 +41,7 @@ echo 'Preparing image for supportconfig container'
 echo '-------------------------------------------'
 
 # Build the cd_runner image.
-docker build -t tscs_host . || exit 1
+docker build -t tscs_host -f Dockerfile.host . || exit 1
 
 # Bye.
 echo -e '\ntcsc set up successfully!' 

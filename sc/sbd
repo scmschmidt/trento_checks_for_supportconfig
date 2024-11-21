@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Currently we only support '-d * dump'.
+case "${@}" in 
+    -d\ *\ dump)
+        device=$(sed 's/^-d *// ; s/ *dump.*$//' <<< "${@}")
+        device="${device//\//\\\/}"   # escape / 
+        sed -n "/==Dumping header on disk ${device}/,/==Header on disk ${device} is dumped/p" /tmp/sbd_dumps
+        ;;
+    *)
+        echo "\"${@}\" not supported"
+        exit 1
+        ;;
+esac
+
+exit 0
+

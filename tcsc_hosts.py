@@ -69,7 +69,6 @@ class HostsStack():
             environment = {'SUPPORTCONFIG' : f'/{supportconfig_name}',
                            'MACHINE_ID': dbus_uuid
                           },
-            #volumes = [f'{os.getcwd()}/sc:/sc', f'{supportconfig_path}:/{supportconfig_name}'],
             volumes = [f'{supportconfig_path}:/{supportconfig_name}'],
             network = 'trento_checks_for_supportconfig_default',
             labels = {'com.suse.tcsc.stack': 'host',

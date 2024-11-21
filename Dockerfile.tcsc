@@ -1,0 +1,15 @@
+FROM python:3-slim
+
+LABEL com.suse.tcsc.stack="tcsc_cmd"
+
+# Copy the tcsc Python files into the image.
+COPY tcsc* /
+
+# Copy rabbiteer into the image.
+COPY rabbiteer.py /
+
+# Install requirements.
+RUN pip3 install docker termcolor
+
+# We need 
+CMD [ "/bin/bash", "-c", "./tcsc.py ${ARGS}" ]
