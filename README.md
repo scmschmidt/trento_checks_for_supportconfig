@@ -88,12 +88,12 @@ To start a host container, run:
 tcsc hosts start GROUPNAME FILE...
 ```
 
-- `GROUPNAME` is a free name to group hosts which belong together. This name is later used to execute checks on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
+- `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
 
 - `FILE` is the support file you wish to be incorporated. \
    **Currently only supportconfigs are supported.** In the future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
 
-
+> [!TIP] For a cluster start a host container for each supportconfig with the same group name.
 
 
 
