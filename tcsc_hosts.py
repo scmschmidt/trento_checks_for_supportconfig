@@ -126,6 +126,8 @@ class HostsStack():
         """Retrieves all current host containers from Docker and returns a data dictionary.""" 
         
         return [{'name': container.name or '-', 
+                 'container_id': container.id,
+                 'container_short_id': container.short_id,
                  'supportfiles': container.labels.get('com.suse.tcsc.supportfiles') or '-',
                  'supportconfig': container.labels.get('com.suse.tcsc.supportconfig') or '-',
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',

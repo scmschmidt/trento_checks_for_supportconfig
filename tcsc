@@ -21,13 +21,11 @@ Exit Codes:
 
 ToDo:
 -----
-    - Rework help output.
-    - Implement signal handling (catching interrupts)
-    - Think about labels and stuff and what really needs to be in the config file.
+    - Implement new environments besides provider.
     - Think about filter for listing checks to get a better overview. 
     - Check if all created docker resources really get removed.
     - Auto-skip of checks if the supportfiles do not provide the required data.
-    - Autodetection of provider should be implemented.
+    - Autodetection of provider (and other environments) should be implemented.
     - Parallelize check executions to be faster.
     - Implement container creation, update and destruction as well.
 
@@ -126,14 +124,14 @@ class ArgParser(argparse.ArgumentParser):
                         Lists and executes Trento checks.                        
 
                         list        lists all available checks
-                        run         execute checks
+                        run         execute supported checks
                         
-                        GROUPNAME               arbitrary name for the hostgroup
-                        -d, --details           prints more details about the check 
-                        -p,--provider PROVIDER  the provider (infrastructure)
-                        -f, --failure-only      print only checks which did not pass
-                        -g, --group GROUP       run only checks from that Trento check group
-                        -c, --check CHECK       run only this check
+                        GROUPNAME                arbitrary name for the hostgroup
+                        -d, --details            prints more details about the check 
+                        -p, --provider PROVIDER  the provider (infrastructure)
+                        -f, --failure-only       print only checks which did not pass
+                        -g, --group GROUP        run only checks from that Trento check group
+                        -c, --check CHECK        run only this check
 
                         Providers can be one of: default, kvm, vmware, azure, aws, gcp
                         
@@ -424,7 +422,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles':
+                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):
