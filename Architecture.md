@@ -7,7 +7,6 @@ This document describes the architecture of the project and goes into detail of 
 TODO: ADD DIAGRAM HERE (Including images, volumes and networks)
 
 
-
 ## Labeling an Naming Concept
 
 > :bulb: `tcsc` does not track started, stopped or removed containers, but relies on the correct labeling of docker objects, like container.

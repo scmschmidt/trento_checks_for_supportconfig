@@ -1,6 +1,8 @@
-# trento_checks_for_supportconfig
+# tcsc - Trento checks for supportconfig
 
 Makes Trento checks usable for support cases by using them on supportconfigs. Also `jq` is needed by the scripts to parse JSON.
+
+> :bulb: This is a rewrite of the proof-of-value which final version can be found here: https://github.com/scmschmidt/trento_checks_for_supportconfig/releases/tag/pov-final
 
 ## Prerequisites
 
@@ -29,10 +31,11 @@ You need `docker` and `docker-compose` installed to run containers.
 To update the installation:
 
   1. Enter the repo directory.
-  1. Stop Wanda and all support config containers: `..TBD..`
   1. Update the repo: `git pull`
   1. Delete the existing setup: `./uninstall`
   1. Install the updated version: `./install`
+
+> :warning: An uninstallation stops and removes the Wanda container as well as all supportconfig containers.
 
 
 ## Removal
@@ -42,26 +45,23 @@ To remove all containers, images, volumes and networks, call: `./uninstall`
 
 # Inspect a supportconfig
 
-The primary tool to work with, is `tcsc`. It can
+The tool to work with, is `tcsc`. It can
 
   - manage the Wanda stack,
-  - manages the required supportconfig containers
-  - executes the checks.
-
-#TODO: THE TOOL NEEDS TO BE PACKAGED, SO IT CAN BE INSTALLED EASILY. CONTAINER?????
+  - manage the required supportconfig containers
+  - list amd execute the checks.
 
 
-### Manage Wanda
+## Manage Wanda
 
 To inspect a supportconfig, the Wanda stack must be running. To verify the status, run:
 ```
 tcsc wanda status
 ```
 
-It reports the status of the Wanda stack.
-
 > :bulb: Per default `tcsc` starts Wanda automatically if needed. 
-> This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`
+> This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`. 
+> See [Configuration File](#configuration-file) for details.
 
 In case Wanda is not there, run:
 ```
@@ -73,41 +73,28 @@ If you do not need Wanda anymore, you can stop the stack with:
 tcsc wanda stop
 ``` 
 
+## Manage Hosts (supportconfig Containers)
 
-
-
-
-
-
-
-
-
-
-## Manage supportconfig Containers
-
-To run checks, for each supportconfig an individual container must be started. Such a container runs
-the `trento-agent` inside and connects to Wanda. For Wanda the container represents just a host which
-shall be checked. The content of the supportconfig as well as all the additional support files are placed inside 
-the container in a way, the `trento-agent` accepts it as system data.
+To run checks, for each supportconfig an individual (host) container must be started. Such a container runs the `trento-agent` inside and connects to Wanda. To Wanda the container is simply a host which shall be checked. Therefore the content of the supportconfig as well as all the additional support files are placed inside the container in a way, that the `trento-agent` accepts it as system data. \
+The idea is to "simulate" the customers setup using the support files and let Wanda check it.
 
 Currently there are two types of Trento checks. Single checks and multi checks. \
-Single checks run only on one individual host, contrary multi checks which need at least two systems
-(depending on the check of cause) and it most cases compare settings between them.
+Single checks run only on one individual host, contrary multi checks which need at least two systems (depending on the check of cause) and it most cases compare settings between them.
 
-As consequence you should always start one container for each host with the appropriate support files if
-you deal with a cluster. \
-The idea is to "simulate" the customers setup using the support files and let Wanda check it.
+As consequence you should always start one container for each host with the appropriate support files if you deal with a cluster. 
 
 To start a host container, run:
 ```
 tcsc hosts start GROUPNAME FILE...
 ```
 
-- `GROUPNAME` is a free name to group hosts which belong together. This name is later used to execute checks
-on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
+- `GROUPNAME` is a free name to group hosts which belong together. This name is later used to execute checks on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
 
-- `FILE` is the support file you wish to be incorporated. Currently only supportconfigs are supported. In the
-future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
+- `FILE` is the support file you wish to be incorporated. \
+   **Currently only supportconfigs are supported.** In the future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
+
+
+
 
 
 If you have finished your work, stop and destroy the containers with:
@@ -508,7 +495,7 @@ The command `getent shadow USER` must work. Since the supportconfig does not con
 - Make the project more user-friendly.
 - ...
 
-# Configuration file.
+# Configuration File.
 
 The configuration file in JSON is `~/.config/tcsc/config`.
 

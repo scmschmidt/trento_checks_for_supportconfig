@@ -46,6 +46,7 @@ import sys
 from collections import Counter
 from rabbiteer import Rabbiteer
 from typing import List, Dict, Tuple
+import signal
 import textwrap
 from tcsc_config import *
 from tcsc_cli import *
@@ -160,14 +161,12 @@ class ArgParser(argparse.ArgumentParser):
         return textwrap.dedent(text)
 
 
+def signal_handler(sig: int, frame: Any) -> None:
+    sys.exit(0)
+
+
 def argument_parse() -> dict:
     """Evaluates the command line arguments."""
-
-    #TODO: Remove when ready
-    # parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
-    #                                  description='Manages containers to use Wanda checks on support files.',
-    #                                  epilog='')
-    
     
     parser = ArgParser(prog=os.path.basename(sys.argv[0]), 
                        description='Manages containers to use Wanda checks on support files.',
@@ -591,8 +590,7 @@ def checks_run(wanda: WandaStack,
                provider: str, 
                check_groups: List[str],
                requested_checks: List[str],
-               failure_only: bool,
-               raw_response: bool) -> bool:
+               failure_only: bool) -> bool:
     """Executed the requested checks."""
     
     status_codes = {'passing': CLI.ok,
@@ -659,16 +657,8 @@ def checks_run(wanda: WandaStack,
         CLI.print_header(check_group)
         check_group_json = []
         for check in checks2run[check_group]:
+            
             id, description, check_type = check
-            #result = []            
-            # if check_type == 'single':
-            #     for host in targets:
-            #         result.append(wanda.execute_check(provider, [host['agent_id']], id))
-            # elif check_type == 'multi':
-            #     result.append(wanda.execute_check(provider, [h['agent_id'] for h in targets], id))
-            # else:
-            #     CLI.print_fail(f'Skipping {id}. Unknown check type "{check_type}".')
-            #     continue
             check_results, err = wanda.execute_check(provider, [h['agent_id'] for h in targets], id)
 
             if err:
@@ -726,6 +716,8 @@ def wanda_must_run(wanda: WandaStack, autostart: bool) -> None:
 def main() -> None:
         
     global json_output
+    
+    signal.signal(signal.SIGINT, signal_handler)
         
     arguments = argument_parse()  
 
@@ -793,7 +785,6 @@ def main() -> None:
                                           arguments.check_groups,
                                           arguments.requested_checks,
                                           arguments.failure_only,
-                                          False         #TODO: arguments.raw_response 
                                          ) else sys.exit(6)
     
     except ConfigException as err:

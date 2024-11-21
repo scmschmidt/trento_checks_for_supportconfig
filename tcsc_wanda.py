@@ -7,7 +7,6 @@ Contains classes to handle the Wanda container stack.
 
 
 import docker
-import functools
 import time
 from rabbiteer import Rabbiteer, evaluate_check_results
 from typing import List, Dict, Any, Tuple
@@ -214,7 +213,7 @@ class Check():
                 if len(set(value)) != 1:
                     raise CheckException(f'''Unexpected expectation type for check {check['id']}: {value}''')
                 try:
-                    value = {'expect': 'single', 'expect_same': 'multi', 'expect_enum': 'single_enum'}[value[0]]   # TODO: single_enum IS NEW!!!!!
+                    value = {'expect': 'single', 'expect_same': 'multi', 'expect_enum': 'single_enum'}[value[0]]
                 except KeyError:
                     raise CheckException(f'''Unexpected expectation type for check {check['id']}: {value[0]}''')
             if isinstance(value, str):

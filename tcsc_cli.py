@@ -40,12 +40,7 @@ class CLI():
     def print_info(cls, text: str, file: TextIO = sys.stdout) -> None:
         if not cls.json:
             print(termcolor.colored(text, 'blue', no_color=cls.no_color), file=file)
-
-    # @classmethod
-    # def print_details(cls, text: str, file: TextIO = sys.stdout) -> None:
-    #     if not cls.json:
-    #         print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
-                
+         
     @classmethod
     def print_fail(cls, text: str, file: TextIO = sys.stdout) -> None:
         if not cls.json:

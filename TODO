@@ -1,8 +1,11 @@
 # To Do
 
 - Walk through the TODOs in the code.
-- Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
 - Check documentation.
+
+- Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+
+
 - Containerize `tcsc`.
 - Implement new checks (requires new environments besides provider).
 

@@ -55,6 +55,5 @@ class SupportFiles():
                 self.issues.append(err)
 
 
-
 class SupportFileException(Exception):
     pass       

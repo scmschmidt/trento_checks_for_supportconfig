@@ -14,18 +14,46 @@ import uuid
 class Config():
     """Represents tcsc configuration.
     
-        - self.id (str):  UUID used to mark the created containers. 
-        - self.wanda_containers (List[str]):  List of all Wanda container names.  
-        - self.wanda_label (str):  Label used to identify Wanda containers for tcsc.
-        - self.docker_timeout (int):  Timeout in seconds for docker (and Wanda) operations.
-        - self.startup_timeout (int): Timeout in seconds for host containers to start and keep alive.
-        - self.wanda_url (str):  URL to connect to the Wanda container.
-        - self.hosts_image (str):  Name of the hosts container image .
-        - self.hosts_label (str):  Label used to identify tcsc hosts container. 
-        - self.wanda_autostart (bool):  Determines if Wanda shall be started automatically when required.
-        - self.colored_output (bool):  Determines if the output should be colored or not.
-        
-    #TODO: DESCRIBE (DEFAULT) CONFIG CONTENT.
+        - self.id (str):
+            UUID used to mark the created containers.
+            default: random uuid 
+            example: 73f31f16-eaba-11ee-994d-5b663d913758
+            
+        - self.wanda_containers (List[str]):
+            List of all Wanda container names.  
+            default: ['tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda']
+            
+        - self.wanda_label (str):
+            Label used to identify Wanda containers for tcsc.
+            default: com.suse.tcsc.stack=wanda
+          
+        - self.hosts_label (str):
+            Label used to identify tcsc hosts container.
+            default: com.suse.tcsc.stack=host
+            
+        - self.docker_timeout (int):
+            Timeout in seconds for docker (and Wanda) operations.
+            default: 10
+            
+        - self.startup_timeout (int):
+            Timeout in seconds for host containers to start and keep alive.
+            default: 3
+            
+        - self.wanda_url (str):
+            URL to connect to the Wanda container.
+            default: http://localhost:4000
+            
+        - self.hosts_image (str):
+            Name of the hosts container image.
+            default: tscs_host
+
+        - self.wanda_autostart (bool):
+            Determines if Wanda shall be started automatically when required.
+            default: true
+            
+        - self.colored_output (bool):
+            Determines if the output should be colored or not.
+            default: true
     """
 
     def __init__(self, configfile: str, create: bool = True) -> None:
