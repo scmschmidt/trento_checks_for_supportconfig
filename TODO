@@ -5,8 +5,6 @@
 - Check documentation.
 - Containerize `tcsc`.
 - Implement new checks (requires new environments besides provider).
-- Add auto-skip of checks if the supportfiles do not provide the required data.
-
 
 - The docker compose file needs to be extended to label all created resources (like volumes).
   This shall allow it easily to remove remnants by using the label.

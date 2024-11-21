@@ -99,9 +99,12 @@ class CLI():
             
             if 'details' in item:
                 for key, value in item['details'].items():
-                    if '\n' in value:
-                        indent = f'''\n{detail_indent}{len(key)*' '}  '''
-                        value = value.replace('\n', indent)
+                    try:
+                        if '\n' in value:
+                            indent = f'''\n{detail_indent}{len(key)*' '}  '''
+                            value = value.replace('\n', indent)
+                    except:    # value is not a string
+                        pass
                     text = f'{detail_indent}{key}: {value}'
                     print(termcolor.colored(text, 'grey', no_color=cls.no_color), file=file)
                 print(file=file) 

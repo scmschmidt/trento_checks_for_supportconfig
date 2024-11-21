@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-... TBD ...
+CLI to manage the Wanda containers, the host containers holding the supportconfig and
+running Trento checks.
 
 Exit Codes:
 -----------
@@ -10,35 +11,31 @@ Exit Codes:
     1   Exception occurred accessing or parsing the configuration file.
     2   Exception occurred in communicating with Docker.
     3   Exception occurred in communicating with Wanda.
-    4   A problem with Wanda ocurred.
-    5   A problem with a host container ocurred.
+    4   A problem with Wanda occurred.
+    5   A problem with a host container occurred.
     6   Something is wrong with the check.
-    9   An unknown error ocurred.
+    9   An unknown error occurred.
    10   Feature not yet implemented.
+   12   A problem with the command line arguments occurred.
 
 
 ToDo:
 -----
+    - Rework help output.
+    - Implement signal handling (catching interrupts)
     - Think about labels and stuff and what really needs to be in the config file.
-    - Talk to Jochen how to integrate `tcsc` into his web project. Importing `tcsc` might be an easy way. 
     - Think about filter for listing checks to get a better overview. 
     - Check if all created docker resources really get removed.
-    - Checks should be show, which host groups can use them (provided supportfiles)
+    - Auto-skip of checks if the supportfiles do not provide the required data.
     - Autodetection of provider should be implemented.
     - Parallelize check executions to be faster.
-    - Rework help output.
-    - Implement JSON output
-    - Implement signal handling (catching interrupts)
-    
-    
-Future:
--------
     - Implement container creation, update and destruction as well.
 
     
 Changelog:
 ----------
 01.03.2024      v0.0        - and so it begins...
+22.11.2024      v1.0        - core stuff has been implemented
 """
 
 import argparse
@@ -49,6 +46,7 @@ import sys
 from collections import Counter
 from rabbiteer import Rabbiteer
 from typing import List, Dict, Tuple
+import textwrap
 from tcsc_config import *
 from tcsc_cli import *
 from tcsc_wanda import *
@@ -56,7 +54,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '0.0'
+__version__ = '1.0'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -64,28 +62,135 @@ __license__ = "GPLv3"
 __status__ = 'Prototype'
 
 
+class ArgParser(argparse.ArgumentParser):
+
+    def format_help(self) -> str:
+        """Prints full help message."""
+
+        prog = os.path.basename(sys.argv[0])
+        text = f'''
+                Usage:  {prog} -h|--help
+                        {prog} [-j|--json] wanda start|status|stop
+                        {prog} [-j|--json] hosts start GROUPNAME [SUPPORTFILE ...]
+                        {prog} [-j|--json] hosts stop GROUPNAME
+                        {prog} [-j|--json] hosts status [-d|--details] [GROUPNAME] 
+                        {prog} [-j|--json] hosts remove GROUPNAME
+                        {prog} [-j|--json] hosts logs [-l|--lines N] CONTAINERNAME
+                        {prog} [-j|--json] checks list [-d]
+                        {prog} [-j|--json] checks run [-p|--provider PROVIDER] [-f|--failure-only] -g|--group GROUP... GROUPNAME
+                        {prog} [-j|--json] checks run [-p|--provider PROVIDER] [-f|--failure-only] -c|--check CHECK... GROUPNAME
+
+                v{__version__}
+            
+                Interacts with Wanda using its API (https://www.trento-project.io/wanda/).
+
+                Options:
+
+                    -h, --help      print this help text
+                    -j, --json      output in JSON
+
+                Arguments: 
+
+                    wanda           manages the Wanda containers
+                    hosts           manages the supportconfig host containers
+                    checks          manages Trento checks
+
+                Command Options and Arguments:
+
+                    wanda:
+
+                        Manages the Wanda containers, like wanda, rabbitmq and postgres.
+
+                        start       starts the Wanda containers
+                        status      prints the status of the Wanda containers
+                        stop        stops the Wanda containers
+                    
+                    hosts:
+                    
+                        Manages the containers which simulate the hosts based on the
+                        supportfiles.
+                    
+                        start       starts hostgroup containers
+                        status      prints the status of host group containers
+                        stop        stops hostgroup containers
+                    
+                        GROUPNAME       arbitrary name for the hostgroup
+                        SUPPORTFILE     a supportfile (e.g. supportconfig)
+                        CONTAINERNAME   name of the host container
+                        -d, --details   prints more details about the container
+                        -l, --lines N   limits log output to the last N lines
+                        
+                    checks:
+                    
+                        Lists and executes Trento checks.                        
+
+                        list        lists all available checks
+                        run         execute checks
+                        
+                        GROUPNAME               arbitrary name for the hostgroup
+                        -d, --details           prints more details about the check 
+                        -p,--provider PROVIDER  the provider (infrastructure)
+                        -f, --failure-only      print only checks which did not pass
+                        -g, --group GROUP       run only checks from that Trento check group
+                        -c, --check CHECK       run only this check
+
+                        Providers can be one of: default, kvm, vmware, azure, aws, gcp
+                        
+                Exit codes:
+
+                     0   Everything went fine.
+                     1   Exception occurred accessing or parsing the configuration file.
+                     2   Exception occurred in communicating with Docker.
+                     3   Exception occurred in communicating with Wanda.
+                     4   A problem with Wanda occurred.
+                     5   A problem with a host container occurred.
+                     6   Something is wrong with the check.
+                     9   An unknown error occurred.
+                    10   Feature not yet implemented.
+                    12   A problem with the command line arguments occurred.
+
+                Examples:
+
+                    Check the health of Wanda:                    {prog} wanda status
+                    Start two fresh hosts:                        {prog} hosts start ACME scc_vmhana01_231011_1528.txz scc_vmhana02_231011_1533.txz
+                    List all available checks (JSON dump):        {prog} -j checks list
+                    Execute all checks and for (aws) hosts:       {prog} checks run -p aws ACME
+
+                '''
+        return textwrap.dedent(text)
+
+
 def argument_parse() -> dict:
     """Evaluates the command line arguments."""
 
-    #TODO: REFORMAT PARSER BLOCK AND ADD NECESSARY ATTRIBUTES, LIKE TYPE ETC: 
+    #TODO: Remove when ready
+    # parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
+    #                                  description='Manages containers to use Wanda checks on support files.',
+    #                                  epilog='')
+    
+    
+    parser = ArgParser(prog=os.path.basename(sys.argv[0]), 
+                       description='Manages containers to use Wanda checks on support files.',
+                       add_help=False,
+                       epilog='')
 
-    parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]),
-                                     #usage='\n'.join(usage),
-                                     description='Manages containers to use Wanda checks on support files.',
-                                     epilog='')
-
+    parser.add_argument('-h', '--help', 
+                        dest='help',
+                        action='help',
+                        default=argparse.SUPPRESS)  
+    
     parser.add_argument('-j', '--json',
                         dest='json_output',
                         action='store_true',
                         required=False,
                         help='output is done in JSON')  
      
-    selectors = parser.add_subparsers(dest='selectors')
+    selectors = parser.add_subparsers(dest='selectors', metavar='wanda|hosts|checks')
     selectors.required = True
     
     # Selector: wanda
     wanda = selectors.add_parser('wanda', help='Manages Wanda container stack.')
-    wanda_commands = wanda.add_subparsers(dest='wanda_commands')
+    wanda_commands = wanda.add_subparsers(dest='wanda_commands', metavar='start|status|stop')
     wanda_commands.required = True
     
     wanda_start = wanda_commands.add_parser('start', help='Starts Wanda containers.')
@@ -94,7 +199,7 @@ def argument_parse() -> dict:
 
     # Selector: hosts
     hosts = selectors.add_parser('hosts', help='Manages host containers.')
-    hosts_commands = hosts.add_subparsers(dest='host_commands')
+    hosts_commands = hosts.add_subparsers(dest='host_commands', metavar='start|stop|remove|status|logs')
     hosts_commands.required = True
  
     hosts_start = hosts_commands.add_parser('start', help='Starts host group.')
@@ -135,7 +240,7 @@ def argument_parse() -> dict:
         
     # Selector: checks
     checks = selectors.add_parser('checks',  help='Manages checks.')
-    checks_commands = checks.add_subparsers(dest='checks_commands')
+    checks_commands = checks.add_subparsers(dest='checks_commands', metavar='list|run')
     checks_commands.required = True
     
     checks_list = checks_commands.add_parser('list', help='Lists available checks.')
@@ -154,16 +259,11 @@ def argument_parse() -> dict:
     checks_run.add_argument('-p', '--provider',
                             metavar='PROVIDER',
                             dest='provider',
-                            choices=['default','kvm','vmware','azure','aws', 'gcp'],
+                            choices=['default','kvm','vmware','azure','aws','gcp'],
                             default='default',
                             type=str,
                             required=False,
                             help='provider to use for the check')
-    # checks_run.add_argument('-r', '--response',   #TODO: Do we need this? And when, what for?
-    #                         dest='raw_response',
-    #                         action='store_true',
-    #                         required=False,
-    #                         help='return the raw JSON response from Wanda as result')
     checks_run.add_argument('-f', '--failure-only',
                             dest='failure_only',
                             action='store_true',
@@ -184,10 +284,18 @@ def argument_parse() -> dict:
                                required=False,
                                dest='requested_checks',
                                help='use only the check with this ID')
-      
-    args_parsed = parser.parse_args()
     
-    #TODO: Checking lines (hosts logs) should be a positive integer.
+    try:  
+        args_parsed = parser.parse_args()
+    except SystemExit:
+        sys.exit(12)
+    
+    try:
+        if args_parsed.last_lines < 0:
+            print('The amount of lines must be greater 0.', file=sys.stderr)
+            sys.exit(1)
+    except: # args_parsed.last_lines either not existed or was not set
+        pass 
     
     return args_parsed
 
