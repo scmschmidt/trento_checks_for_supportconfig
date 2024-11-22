@@ -76,6 +76,7 @@ cat > "${config_file}" <<-EOF
     "colored_output": true
 }
 EOF
+touch "${config_file}" || exit 1
 echo "${config_file} created"
 
 # Bye.
