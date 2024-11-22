@@ -179,7 +179,7 @@ def argument_parse() -> dict:
                         dest='config_file',
                         action='store',
                         required=False,
-                        default='~/.config/tcsc/config',
+                        default='${HOME}/.config/tcsc/config',
                         help='path to the config file')  
      
     selectors = parser.add_subparsers(dest='selectors', metavar='wanda|hosts|checks')
@@ -293,7 +293,7 @@ def argument_parse() -> dict:
             sys.exit(1)
     except: # args_parsed.last_lines either not existed or was not set
         pass 
-    
+
     return args_parsed
 
 
@@ -718,8 +718,6 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
 
     arguments = argument_parse()  
-    
-    print(os.getuid(), os.getgid(), print(os.getgroups()))
 
     try:
         config = Config(arguments.config_file)

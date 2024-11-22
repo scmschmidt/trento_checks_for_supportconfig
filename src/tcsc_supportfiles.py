@@ -28,7 +28,6 @@ class SupportFiles():
             # Also we have to prefix relative paths with the (imported) $PWD
             # to be correct first.
             if 'HOST_ROOT_FS' in os.environ:
-                print(file)
                 file = f'''{os.getenv('HOST_ROOT_FS')}{file}''' if file.startswith('/') else  f'''{os.getenv('HOST_ROOT_FS')}/{os.getenv('PWD')}/{file}'''   
             
             try:

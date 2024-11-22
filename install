@@ -50,6 +50,34 @@ echo '----------------------------------------------'
 # Build the tcsc_cmd image.
 docker build -t tscs_cmd -f Dockerfile.tcsc . || exit 1
 
+echo
+echo 'Creating tcsc config file'
+echo '-------------------------'
+
+# Create config
+config_dir="${HOME}/.config/tcsc"
+config_file="${config_dir}/config"
+mkdir -p "${config_dir}" || exit 1
+cat > "${config_file}" <<-EOF
+{
+    "id": "73f31f16-eaba-11ee-994d-5b663d913758",
+    "wanda_containers": [
+        "tcsc-rabbitmq",
+        "tcsc-postgres",
+        "tcsc-wanda"
+    ],
+    "wanda_label": "com.suse.tcsc.stack=wanda",
+    "hosts_label": "com.suse.tcsc.stack=host",
+    "docker_timeout": 10,
+    "startup_timeout": 3,
+    "wanda_url": "http://tcsc-wanda:4000",
+    "hosts_image": "tscs_host",
+    "wanda_autostart": true,
+    "colored_output": true
+}
+EOF
+echo "${config_file} created"
+
 # Bye.
 echo -e '\ntcsc set up successfully!' 
 exit 0

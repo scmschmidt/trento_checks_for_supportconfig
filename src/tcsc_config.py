@@ -67,28 +67,17 @@ class Config():
                                         if the config file is missing. Defaults to True.
         """
 
-        configfile = os.path.realpath(os.path.expandvars(os.path.expanduser(configfile)))
-        print(configfile)
+        configfile = os.path.expandvars(os.path.expanduser(configfile))
+        
+        # If HOST_ROOT_FS is set, we run inside a container and all paths
+        # need to be prefixed with the content of that variable: the mount
+        # point of the host's rootfs.
+        # Also we have to prefix relative paths with the (imported) $PWD
+        # to be correct first.
+        if 'HOST_ROOT_FS' in os.environ:
+            configfile = f'''{os.getenv('HOST_ROOT_FS')}{configfile}''' if configfile.startswith('/') else  f'''{os.getenv('HOST_ROOT_FS')}/{os.getenv('PWD')}/{configfile}'''   
+      
         try:
-            if not os.path.exists(configfile) and create:
-                dir, _ = os.path.split(configfile)
-                if dir:
-                    os.makedirs(dir, mode=0o700, exist_ok=True)
-                with open(configfile, 'w') as f:
-                    f.write(json.dumps({
-                                       'id': str(uuid.uuid1()),
-                                       'wanda_containers': ['tcsc-rabbitmq', 'tcsc-postgres', 'tcsc-wanda'],
-                                       'wanda_label': 'com.suse.tcsc.stack=wanda',
-                                       'hosts_label': 'com.suse.tcsc.stack=host',
-                                       'docker_timeout': 10,
-                                       'startup_timeout': 3,
-                                       'wanda_url': 'http://tcsc-wanda:4000',
-                                       'hosts_image': 'tscs_host',
-                                       'wanda_autostart': True,
-                                       'colored_output': True
-                                       }, indent=4
-                                       )
-                            )
             with open(configfile) as f:
                 config = json.load(f)
                 self.id = config['id']

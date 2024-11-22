@@ -3,11 +3,8 @@ FROM python:3-slim
 
 LABEL com.suse.tcsc.stack="tcsc_cmd"
 
-# Copy the tcsc Python files into the image.
+# Copy the tcsc Python files and rabbiteer into the image.
 COPY src/* /
-
-# Copy rabbiteer into the image.
-COPY rabbiteer.py /
 
 # Install requirements.
 RUN pip3 install docker termcolor
