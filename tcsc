@@ -3,13 +3,12 @@
 docker run --rm \
            --name tscs_cmd \
            -v /var/run/docker.sock:/var/run/docker.sock \
-           -v ~/.config/tcsc:/root/.config/tcsc \
+           -v ~/.config/tcsc:/.config/tcsc \
            -v /:/hostfs:ro \
+           --user $(id -u):$(id -g) \
+           --group-add $(getent group docker | cut -d ':' -f3) \
            --env PWD --env USER --env LOGNAME \
            --env HOST_ROOT_FS=/hostfs \
            --network=trento_checks_for_supportconfig_default \
            -it \
            tscs_cmd "$@"
-
-#    config:  "wanda_url": "http://tcsc-wanda:4000"
-# --> Add tscs_cmd and host conatainers to the "stack".

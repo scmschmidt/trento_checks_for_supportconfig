@@ -48,7 +48,7 @@ echo 'Preparing image for the tcsc command container'
 echo '----------------------------------------------'
 
 # Build the tcsc_cmd image.
-docker build -t tscs_cmd -f Dockerfile.tcsc || exit 1
+docker build -t tscs_cmd -f Dockerfile.tcsc . || exit 1
 
 # Bye.
 echo -e '\ntcsc set up successfully!' 

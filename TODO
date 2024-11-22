@@ -1,12 +1,14 @@
-# To Do
+# ToDo
 
 - Check if all created docker resources really get removed.
+- Add tscs_cmd and host conatainers to the "stack".
+
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+
 
 - Why are saptune checks unknown?
 - Where are the ascsers_cluster checks?
-
-
+- Provide images for the host and `tcsc` via GitHub.
 - Implement new checks (requires new environments besides provider).
 - Think about filter for listing checks to get a better overview. 
 - Auto-skip of checks if the supportfiles do not provide the required data.

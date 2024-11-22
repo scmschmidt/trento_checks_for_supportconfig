@@ -68,6 +68,7 @@ class Config():
         """
 
         configfile = os.path.realpath(os.path.expandvars(os.path.expanduser(configfile)))
+        print(configfile)
         try:
             if not os.path.exists(configfile) and create:
                 dir, _ = os.path.split(configfile)
@@ -81,7 +82,7 @@ class Config():
                                        'hosts_label': 'com.suse.tcsc.stack=host',
                                        'docker_timeout': 10,
                                        'startup_timeout': 3,
-                                       'wanda_url': 'http://localhost:4000',
+                                       'wanda_url': 'http://tcsc-wanda:4000',
                                        'hosts_image': 'tscs_host',
                                        'wanda_autostart': True,
                                        'colored_output': True

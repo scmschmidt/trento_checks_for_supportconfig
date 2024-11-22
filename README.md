@@ -6,12 +6,35 @@ Makes Trento checks usable for support cases by using them on supportconfigs. Al
 
 ## Prerequisites
 
-You need `docker` and `docker-compose` installed to run containers.
+You need `git` (optional) as well as `docker` and `docker-compose` installed to run containers.
+
+> :bulb: The `tcsc.py` is a Python script which is containerized by default. You can run it locally with a current Python version (3.11 has been tested), but you need to adapt `wanda_url` to "http://localhost:4000" in the configuration file (see [Configuration File](#configuration-file)) or prvide your own config with `-c`.
 
 
 ## Setup
 
-1. Clone this repo and enter the project directory: 
+> :exclamation: The following steps have been done on an OpenLeap 15.5, but should be similar on other distros.
+
+Do the following  steps as root:
+
+1. Install prerequisites.    : 
+      ```
+      zypper install git docker-compose-switch docker
+      ```
+      
+1. Enable and start `docker`:
+   ```
+   systemctl enable --now docker.service
+   ```
+
+1. Add your user to the `docker` group:
+   ```
+   usermod -aG docker YOUR_USER
+   ```
+
+Do the following steps as normale user:
+
+1. Clone this repo and enter the project directory (or get it otherwise): 
 
    ```
    git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
@@ -22,8 +45,12 @@ You need `docker` and `docker-compose` installed to run containers.
 
    It sets up and starts the Wanda containers as well as creating the image for the supportconfig hosts. 
 
-> :bulb: You can influence the used Wanda version by setting the environment variable `WANDA_VERSION`.
-> The repo always uses the latest released version. To use a specific one, run: `WANDA_VERSION=... ./install`
+   > :bulb: You can influence the used Wanda version by setting the environment variable `WANDA_VERSION`.
+   > The repo always uses the latest released version. To use a specific one, run: `WANDA_VERSION=... ./install`
+
+   > :exclamation: If the install fails when building the images, run it again. Sometimes after a second or third run the pull completes. 
+
+1. Place the script `tcsc` in `~/bin` or `/usr/local/bin` (last requires root).
 
 
 ## Update
@@ -35,12 +62,14 @@ To update the installation:
   1. Delete the existing setup: `./uninstall`
   1. Install the updated version: `./install`
 
-> :warning: An uninstallation stops and removes the Wanda container as well as all supportconfig containers.
+> :warning: An uninstallation stops and removes the `tcsc` container, the Wanda container as well as all supportconfig containers.
+
+> :exclamation: After a `git pull` do not forget to update the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it. 
 
 
 ## Removal
 
-To remove all containers, images, volumes and networks, call: `./uninstall` 
+To remove all containers, images, volumes and networks, call: `./uninstall` and delete the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it. 
 
 
 ## Inspect a supportconfig
@@ -423,7 +452,7 @@ https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers
 Need to ba analyzed.
 
 
-# Configuration File.
+# Configuration File
 
 The configuration file in JSON is located at `~/.config/tcsc/config`.
 If the file is not present, it gets created by `tcsc` automatically.
@@ -436,7 +465,7 @@ If the file is not present, it gets created by `tcsc` automatically.
 | `hosts_label` | string | `"com.suse.tcsc.stack=host"` | Label for all host containers.
 | `docker_timeout` | int | `10` | Timeout in seconds for `docker` operations.
 | `startup_timeout` | int | `3` | Timeout in seconds until a host container start is considered failed.
-| `wanda_url` | string | `"http://localhost:4000"` | URL to the Wanda stack.
+| `wanda_url` | string | `"http://tcsc-wanda:4000"` | URL to the Wanda stack (from inside the `tcsc` container).
 | `hosts_image` | string | `"tscs_host"` | Image for the host containers.
 | `wanda_autostart` | bool | `true` | Enables/disables starting of Wanda on demand.
 | `colored_output`" | bool | `true` | Enables/disables coloring the output.

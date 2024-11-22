@@ -718,6 +718,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
 
     arguments = argument_parse()  
+    
+    print(os.getuid(), os.getgid(), print(os.getgroups()))
 
     try:
         config = Config(arguments.config_file)
