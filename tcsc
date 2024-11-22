@@ -1,22 +1,15 @@
 #!/bin/bash
 
-arg_escaped=''
-for arg in "${@}"; do
-    #arg_escaped="${arg_escaped} \\\"${arg}\\\""
-    arg_escaped="${arg_escaped} \"${arg}\""
-done
-echo ${arg_escaped}
-
-#exit 0
 docker run --rm \
            --name tscs_cmd \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -v ~/.config/tcsc:/root/.config/tcsc \
+           -v /:/hostfs:ro \
+           --env PWD --env USER --env LOGNAME \
+           --env HOST_ROOT_FS=/hostfs \
            --network=trento_checks_for_supportconfig_default \
-           --env ARGS="${arg_escaped}" \
            -it \
-           tscs_cmd
+           tscs_cmd "$@"
 
 #    config:  "wanda_url": "http://tcsc-wanda:4000"
-
-#    supportconfig missing...
+# --> Add tscs_cmd and host conatainers to the "stack".

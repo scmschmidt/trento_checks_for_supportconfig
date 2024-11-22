@@ -43,6 +43,13 @@ echo '-------------------------------------------'
 # Build the cd_runner image.
 docker build -t tscs_host -f Dockerfile.host . || exit 1
 
+echo
+echo 'Preparing image for the tcsc command container'
+echo '----------------------------------------------'
+
+# Build the tcsc_cmd image.
+docker build -t tscs_cmd -f Dockerfile.tcsc || exit 1
+
 # Bye.
 echo -e '\ntcsc set up successfully!' 
 exit 0

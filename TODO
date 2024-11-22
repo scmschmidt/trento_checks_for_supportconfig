@@ -1,15 +1,20 @@
 # To Do
 
+- Check if all created docker resources really get removed.
+- Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+
 - Why are saptune checks unknown?
 - Where are the ascsers_cluster checks?
 
-- Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
-
-
-- Containerize `tcsc`.
-
 
 - Implement new checks (requires new environments besides provider).
-
+- Think about filter for listing checks to get a better overview. 
+- Auto-skip of checks if the supportfiles do not provide the required data.
+- Autodetection of provider (and other environments) should be implemented.
+- Parallelize check executions to be faster.
 - The docker compose file needs to be extended to label all created resources (like volumes).
   This shall allow it easily to remove remnants by using the label.
+
+
+
+

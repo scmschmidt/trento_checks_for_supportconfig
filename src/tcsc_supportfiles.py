@@ -20,7 +20,17 @@ class SupportFiles():
         self.issues = []
         
         provider = None
-        for file in [os.path.realpath(os.path.expandvars(os.path.expanduser(p))) for p in supportfiles]:
+        for file in supportfiles:            
+            
+            # If HOST_ROOT_FS is set, we run inside a container and all paths
+            # need to be prefixed with the content of that variable: the mount
+            # point of the host's rootfs.
+            # Also we have to prefix relative paths with the (imported) $PWD
+            # to be correct first.
+            if 'HOST_ROOT_FS' in os.environ:
+                print(file)
+                file = f'''{os.getenv('HOST_ROOT_FS')}{file}''' if file.startswith('/') else  f'''{os.getenv('HOST_ROOT_FS')}/{os.getenv('PWD')}/{file}'''   
+            
             try:
                 sc = tarfile.open(file)
                 basic_env = [f for f in sc.getnames() if f.endswith('/basic-environment.txt')]

@@ -18,22 +18,14 @@ Exit Codes:
    10   Feature not yet implemented.
    12   A problem with the command line arguments occurred.
 
-
-ToDo:
------
-    - Implement new environments besides provider.
-    - Think about filter for listing checks to get a better overview. 
-    - Check if all created docker resources really get removed.
-    - Auto-skip of checks if the supportfiles do not provide the required data.
-    - Autodetection of provider (and other environments) should be implemented.
-    - Parallelize check executions to be faster.
-    - Implement container creation, update and destruction as well.
-
     
 Changelog:
 ----------
 01.03.2024      v0.0        - and so it begins...
-22.11.2024      v1.0        - core stuff has been implemented
+21.11.2024      v1.0        - core stuff has been implemented
+22.11.2024      v1.1        - adding support for HOST_ROOT_FS environment variable to
+                              support containerization of `tcsc` command
+                            - added -c|--config to allow arbitrary config files
 """
 
 import argparse
@@ -53,7 +45,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.0'
+__version__ = '1.1'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -69,15 +61,15 @@ class ArgParser(argparse.ArgumentParser):
         prog = os.path.basename(sys.argv[0])
         text = f'''
                 Usage:  {prog} -h|--help
-                        {prog} [-j|--json] wanda start|status|stop
-                        {prog} [-j|--json] hosts start GROUPNAME [SUPPORTFILE ...]
-                        {prog} [-j|--json] hosts stop GROUPNAME
-                        {prog} [-j|--json] hosts status [-d|--details] [GROUPNAME] 
-                        {prog} [-j|--json] hosts remove GROUPNAME
-                        {prog} [-j|--json] hosts logs [-l|--lines N] CONTAINERNAME
-                        {prog} [-j|--json] checks list [-d]
-                        {prog} [-j|--json] checks run [-p|--provider PROVIDER] [-f|--failure-only] -g|--group GROUP... GROUPNAME
-                        {prog} [-j|--json] checks run [-p|--provider PROVIDER] [-f|--failure-only] -c|--check CHECK... GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] wanda start|status|stop
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts start GROUPNAME [SUPPORTFILE ...]
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts stop GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] [GROUPNAME] 
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts remove GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] checks list [-d]
+                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -g|--group GROUP... GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -c|--check CHECK... GROUPNAME
 
                 v{__version__}
             
@@ -85,8 +77,9 @@ class ArgParser(argparse.ArgumentParser):
 
                 Options:
 
-                    -h, --help      print this help text
-                    -j, --json      output in JSON
+                    -h, --help              print this help text
+                    -j, --json              output in JSON
+                    -c, --config CONFIG     alternative config file (default: ~/.config/tcsc/config) 
 
                 Arguments: 
 
@@ -180,7 +173,14 @@ def argument_parse() -> dict:
                         dest='json_output',
                         action='store_true',
                         required=False,
-                        help='output is done in JSON')  
+                        help='output is done in JSON')
+    
+    parser.add_argument('-c', '--config',
+                        dest='config_file',
+                        action='store',
+                        required=False,
+                        default='~/.config/tcsc/config',
+                        help='path to the config file')  
      
     selectors = parser.add_subparsers(dest='selectors', metavar='wanda|hosts|checks')
     selectors.required = True
@@ -716,14 +716,11 @@ def main() -> None:
     global json_output
     
     signal.signal(signal.SIGINT, signal_handler)
-        
-    print(sys.argv)
-    print(os.environ)    
-        
+
     arguments = argument_parse()  
 
     try:
-        config = Config('~/.config/tcsc/config')
+        config = Config(arguments.config_file)
         wanda = WandaStack(config)
 
         CLI.no_color = not config.colored_output

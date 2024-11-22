@@ -1,9 +1,10 @@
+#FROM python:3.14.0a2-slim-bookworm
 FROM python:3-slim
 
 LABEL com.suse.tcsc.stack="tcsc_cmd"
 
 # Copy the tcsc Python files into the image.
-COPY tcsc* /
+COPY src/* /
 
 # Copy rabbiteer into the image.
 COPY rabbiteer.py /
@@ -11,5 +12,9 @@ COPY rabbiteer.py /
 # Install requirements.
 RUN pip3 install docker termcolor
 
-# We need 
-CMD [ "/bin/bash", "-c", "./tcsc.py ${ARGS}" ]
+# Install dbus-uuidgen and uuidgen.
+RUN apt-get update 
+RUN apt-get -y install dbus-bin uuid-runtime
+
+ENTRYPOINT [ "./tcsc.py" ]
+#CMD [ "/bin/bash", "-c", "./tcsc.py ${ARGS}" ]

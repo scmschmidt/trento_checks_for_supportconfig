@@ -102,7 +102,7 @@ and
 tcsc hosts remove GROUPNAME
 ```
 
-> :bulb: A `stop` only stops the container, but leaves the images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The links to the support files are stored in the containers metadata and are loaded again. Therefore the associated support files must still exist. 
+> :bulb: A `stop` only stops the container, but leaves the images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The support files will not read again.
 
 > :wrench: Example for a HA cluster:
 > ```
@@ -123,7 +123,7 @@ Anytime you can get an overview about your running host containers with:
 tcsc hosts status [GROUPNAME]
 ```
 
-> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files.
+> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint).
 
 If a previously started container is not listed, see section [Troubleshooting](#Troubleshooting) below.
 
@@ -240,12 +240,24 @@ The primary configuration file for `run_checks` is `.valid_checks`. See the comm
 
 ## Troubleshooting
 
+> :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
+
 - If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers are running and are fine (`tcsc wanda status`) and verify the host containers logs (`tcsc hosts logs CONTAINERNAME`).
 
 - If a supportconfig container starts, but the checks do not work, check the host containers logs (`tcsc hosts logs CONTAINERNAME`).
 You can enter the running host with `docker exec -it CONTAINERID bash` and run `trento-agent facts gather --gatherer GATHERER` to see if the data collection works. The  get a list of available gatherers, run `trento-agent facts list`. Documentation can be found here: https://www.trento-project.io/wanda/gatherers.html
 
 - If all checks return the same error message or time out, but the supportconfig container is running, then most certainly something has changed in Wanda or the agent. Trento is an active project and changes happen often. Try to uninstall, update the repo and install again, which should also pull the latest image versions.
+
+- If `tcsc wanda status` returns:
+  ```
+  [running]           tcsc-wanda   
+  [running]           tcsc-rabbitmq
+  [running]           tcsc-postgres
+
+  Wanda is not operational!
+  ```
+  then most probably the communication to the container is broken. Check `wanda_url` in the configuration file.
 
 
 ## Which Gatherer Works
