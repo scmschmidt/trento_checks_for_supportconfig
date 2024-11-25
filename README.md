@@ -8,7 +8,10 @@ Makes Trento checks usable for support cases by using them on supportconfigs. Al
 
 You need `git` (optional) as well as `docker` and `docker-compose` installed to run containers.
 
-> :bulb: The `tcsc.py` is a Python script which is containerized by default. You can run it locally with a current Python version (3.11 has been tested), but you need to adapt `wanda_url` to "http://localhost:4000" in the configuration file (see [Configuration File](#configuration-file)) or prvide your own config with `-c`.
+> :bulb: The `tcsc` is containerized by default, but being a simple Python script, you can run it directly.
+> You need a current Python version (3.10 adn 3.11 have been tested) and have to install the `docker` and `termcolor` modules (`pip3 install docker termcolor`).
+> To make life easier create an alias `tcsc` to call your Python interpreter with the absolute path to `src/tcsc.py'` so you can run the command from everywhere.
+> You also need to adapt `wanda_url` to "http://localhost:4000" in the configuration file (see [Configuration File](#configuration-file)) or provide your own config with `-c`.
 
 
 ## Setup
@@ -78,7 +81,7 @@ The tool to work with, is `tcsc`. It can
 
   - manage the Wanda stack,
   - manage the required supportconfig containers
-  - list amd execute the checks.
+  - list and execute the checks.
 
 
 ### Manage Wanda
@@ -122,6 +125,8 @@ tcsc hosts start GROUPNAME FILE...
 - `FILE` is the support file you wish to be incorporated. \
    **Currently only supportconfigs are supported.** In the future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
 
+Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
+
 If you do not need the host container anymore stop and destroy them with:
 ```
 tcsc hosts stop GROUPNAME
@@ -131,7 +136,7 @@ and
 tcsc hosts remove GROUPNAME
 ```
 
-> :bulb: A `stop` only stops the container, but leaves the images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The support files will not read again.
+> :bulb: A `stop` only stops the container, but leaves the images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The support files are not read again.
 
 > :wrench: Example for a HA cluster:
 > ```
@@ -153,8 +158,6 @@ tcsc hosts status [GROUPNAME]
 ```
 
 > :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint).
-
-If a previously started container is not listed, see section [Troubleshooting](#Troubleshooting) below.
 
 
 ### Run the Checks
@@ -210,6 +213,12 @@ tcsc checks GROUPNAME -p PROVIDER -c CHECK
 
 > :wrench: To see only checks, which have not passed, add the option `-f`.
 
+> :wrench: If checks you see in `tcsc checks list` are skipped during a check, the reason can be:
+>   - The check is not supported by `tcsc` (yet).
+>   - It is a multi check, but the hostgroup only contains one host.
+>   - You have used `-c|--check` or `-g|--group` to limit the amount of checks.
+
+
 A check can have the following results:
 
 - `passing` \
@@ -239,37 +248,17 @@ Wanda is not very chatty in regards of error messages. If you are sure, that the
 Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue. 
 
 
-## The Image for the supportconfig Containers
-
-The image `sc_runner` for the supportconfig container is built from `Dockerfile`. It fetches an OpenLeap 15.4 image, adds the development repo for trento, install needed packages and added the `split-supportconfig` script from https://github.com/SUSE/supportconfig-utils.
-
-If a container gets started from that image by `./start_container` the subdirectory `sc/` as well as the given supportconfig archive is mounted into the container. \
-The directory `sc/` contains:
-
-- `agent-config.yaml` \
-  Configuration file for the `trento-agent`.
-- `cibadmin` \
-  Command replacement for `cibadmin`, which only supports the options `--query --local` and then simply prints the content of `/var/lib/pacemaker/cib/cib.xml`.
-- `sbd` \
-  Command replacement for `sbd`, which only supports dumping the header (`-d ... dump`). It prints the dumps created by `startup` form `ha.txt` of the supportconfig.
-- `startup` \
-  Startup script executed when the container is started. It:
-    - sets `/etc/machine-id`,
-    - extracts and splits the supportconfig into files (https://github.com/SUSE/supportconfig-utils/blob/master/bin/split-supportconfig),
-    - copies relevant extracted files into the rootfs,
-    - copies the command replacements from `sc/` into the roots,
-    - creates sbd header dumps from `ha.txt`,
-    - creates and installs empty RPM packages with the version info from `rpm.txt` for selected packages
-    - and finally starts the `trento-agent`.
-
-For each container an entry must be present in `.container_def`. The file contains comments explaining the details.
-
-The primary configuration file for `run_checks` is `.valid_checks`. See the comments for details. Important is, that a check must be listed there to be available for `run_check`.
-
 
 ## Troubleshooting
 
 > :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
+
+- If starting of a supportconfig container fails, the setup script preparing the container from the supportconfig failed.
+  A typical error message for that would be:
+  ```
+  Hosts error: "Start timeout of 3s reached. tcsc-host-..." stopped running.
+  ```
+  Verify the host containers logs (`tcsc hosts logs CONTAINERNAME`).
 
 - If a supportconfig container stops all by itself, the `trento-agent` died. If this happens directly after starting the container, the agent could not connect to Wanda. Check if all the Wanda containers are running and are fine (`tcsc wanda status`) and verify the host containers logs (`tcsc hosts logs CONTAINERNAME`).
 
@@ -287,6 +276,20 @@ You can enter the running host with `docker exec -it CONTAINERID bash` and run `
   Wanda is not operational!
   ```
   then most probably the communication to the container is broken. Check `wanda_url` in the configuration file.
+
+- If you inspect the host container logs, some error messages are to be expected:
+  ```
+  Error initializing dbus: dial unix /run/systemd/private: connect: no such file or directory
+  Error while running discovery 'cloud_discovery': exec: "dmidecode": executable file not found in $PATH
+  Error while running discovery 'ha_cluster_discovery': Post "http://localhost/api/v1/collect": dial tcp 127.0.0.1:80: connect: connection refused
+  Error while running discovery 'host_discovery': Post "http://localhost/api/v1/collect": dial tcp 127.0.0.1:80: connect: connection refused
+  Error while running discovery 'sap_system_discovery': Post "http://localhost/api/v1/collect": dial tcp 127.0.0.1:80: connect: connection refused
+  Error while running discovery 'saptune_discovery': Post "http://localhost/api/v1/collect": dial tcp 127.0.0.1:80: connect: connection refused
+  Error while running discovery 'subscription_discovery': exec: "SUSEConnect": executable file not found in $PATH
+  Error while sending the heartbeat to the server: Post "http://localhost/api/v1/hosts/22b5f542-91f1-5488-9664-20a8024a277e/heartbeat": dial tcp 127.0.0.1:80: connect: connection refused
+  ```
+  They come either from the limited container environment (the first two) or because nut a full Trento setup is present (discovery errors). \
+  All of those errors can be considered as normal and do not limit the ability to execute checks.
 
 
 ## Which Gatherer Works

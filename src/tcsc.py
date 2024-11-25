@@ -26,6 +26,10 @@ Changelog:
 22.11.2024      v1.1        - adding support for HOST_ROOT_FS environment variable to
                               support containerization of `tcsc` command
                             - added -c|--config to allow arbitrary config files
+25.11.2024      v1.1.1      - fixed a bug in creating new hosts when called locally and
+                              not containerized
+                            - fixed bug in starting a host container where the path handed
+                              over to the docker volume still had the HOST_ROOT_FS prefix
 """
 
 import argparse
@@ -45,7 +49,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.1'
+__version__ = '1.1.1'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -385,7 +389,6 @@ def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> b
         json_obj = {'success': True, 'started': [], 'failed': []}
         for host in sf.result:
             hostname = hosts.create(hostgroup, host, sf.result[host])
-            
             if hostname:
                 CLI.print_ok(f'Host container "{hostname}" started!')
                 json_obj['started'].append(hostname)
@@ -629,7 +632,7 @@ def checks_run(wanda: WandaStack,
         if check.tcsc_support != 'yes':
             continue
         available.add(check.id)
-        if host_count == 1 and check.id == 'multi':
+        if host_count == 1 and check.check_type.startswith('multi'):
             continue
         if check_groups and check.group not in check_groups:
             continue

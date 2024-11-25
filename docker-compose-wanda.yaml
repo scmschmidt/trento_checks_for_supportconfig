@@ -2,8 +2,11 @@
 
 services:
 
+#registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks:latest
+
   wanda:
     image: registry.suse.com/trento/trento-wanda:${WANDA_VERSION:-latest}
+    #image: registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda:latest
     container_name: tcsc-wanda
     labels:
       - com.suse.tcsc.stack=wanda

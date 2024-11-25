@@ -1,19 +1,24 @@
 # ToDo
 
-- Check if all created docker resources really get removed.
-- Add tscs_cmd and host containers to the "stack".
-- Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+- Very Soon:
+  - Try to get the latest Wanda containers running (changed registry and checks have been removed).
+  - Provide images for the host and `tcsc` via GitHub.
+  - Select simple and multi checks per option (for people who want to group non-related supportconfig in one host group).
+  - Checkout supportfiles for being candidates.
+  - Check if all created docker resources really get removed.
+  - Add tscs_cmd and host containers to the "stack".
+  - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
 
-- Why are saptune checks unknown?
-- Where are the ascsers_cluster checks?
-- Provide images for the host and `tcsc` via GitHub.
-- Implement new checks (requires new environments besides provider).
-- Think about filter for listing checks to get a better overview. 
-- Auto-skip of checks if the supportfiles do not provide the required data.
-- Autodetection of provider (and other environments) should be implemented.
-- Parallelize check executions to be faster.
-- The docker compose file needs to be extended to label all created resources (like volumes).
-  This shall allow it easily to remove remnants by using the label.
+- Later:
+  - Implement new checks (requires new environments besides provider).
+
+- Much Later:
+  - Auto-skip of checks if the supportfiles do not provide the required data.
+  - Auto-detection of provider (and other environments) should be implemented.
+  - Think about filter for listing checks to get a better overview. 
+  - The docker compose file needs to be extended to label all created resources (like volumes).
+    This shall allow it easily to remove remnants by using the label.
+  - Parallelize check executions to be faster.
 
 
 

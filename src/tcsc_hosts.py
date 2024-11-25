@@ -58,10 +58,18 @@ class HostsStack():
         """Creates and starts a new host container for the requested group and returns its name."""
 
         dbus_uuid, agent_id = self._generate_id()
-        
-        supportconfig_path = host_description['supportconfig']
-        supportconfig_name = os.path.basename(supportconfig_path)
 
+        supportconfig_path = os.path.abspath(host_description['supportconfig'])
+        supportconfig_name = os.path.basename(supportconfig_path)
+        
+        # If HOST_ROOT_FS is set, we run inside a container and usually all
+        # paths need to be prefixed with the content of that variable: the 
+        # mount point of the host's rootfs.
+        # This has to be removed from `supportconfig_path` because it is
+        # referenced from inside the container!
+        if 'HOST_ROOT_FS' in os.environ:
+            supportconfig_path = supportconfig_path.removeprefix(os.getenv('HOST_ROOT_FS'))
+        
         host = self._docker.containers.run(
             image = self.image,
             name = f'tcsc-host-{hostgroup}-{name}-{self.id}',

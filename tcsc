@@ -11,6 +11,3 @@ docker run --rm \
            --network=trento_checks_for_supportconfig_default \
            -it \
            tscs_cmd "$@"
-
-
-           #-v ~/.config/tcsc:/.config/tcsc \
