@@ -3,15 +3,18 @@
 - Very Soon:
   - Rethink `wanda status`. We have an exited container for the check volume now.
       - tcsc-trento-checks must be present (exited)
-      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda 
-  - Split install/uninstall in separate steps, which allows update of components
-    - Support switching between rolling and released version in Dockerfile.
-       --> README: Mentioned minimum Wanda version due to the changes caused by check separation!
-    - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
-  - Provide images for the host and `tcsc` via GitHub.
-  - Check if all created docker resources really get removed.
+      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda
+  - Add to README that the changes in this branch make the solution compatible only 
+    with the Wanda version that has check separation.
+  - Add check coverage section to the README (including version of support files).
   - Add tscs_cmd and host containers to the "stack".
   - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+  - Provide images for the host and `tcsc` via GitHub.
+  - Rework install/uninstall by splitting it in separate steps.
+    - Allows host and cmd image build as well as download from GHCR.
+    - Support switching between rolling and released version in Dockerfile.
+    - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
+  - Check if all created docker resources really get removed.
   - Checkout supportfiles for being candidates.
     - `disp+work` \
       `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 
