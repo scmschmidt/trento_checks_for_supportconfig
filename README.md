@@ -393,12 +393,14 @@ https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers
 **Chances: :rage:**
 
 Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
+> :exclamation: Some `sapcontrol` calls are part of `plugin-ha_sap.txt`. Maybe the content is sufficient.
 
 ### `sap_profiles`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
 **Chances: :rage:**
 
 Returns content of `/sapmnt/<SID>/profile` which is not part of the supportconfig.
+> :exclamation: `plugin-ha_sap.txt` contains some profiles. Worth to check if that is sufficient.
 
 ### `sapinstance_hostname_resolver`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapinstancehostnameresolver.go \
@@ -408,15 +410,16 @@ Th gatherer needs to be investigated further, but the required data is not part 
 
 ### `sapservices`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
-**Chances: :rage:**
+**Chances: :neutral_face:**
 
-Presents `/usr/sap/sapservices` which is not part of the supportconfig.
+The `/usr/sap/sapservices` is part of the supportconfig if ???? is installed (`plugin-ha_sap.txt`).
 
 ### `saptune`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
 **Chances: :neutral_face:**
 
-Calls `saptune` command with limited set of commands. It should be possible to provide a script which returns the information extracted from files of `plugin-saptune.txt`.
+Calls `saptune --format json` command with limited set of commands. Currently `plugin-saptune.txt` does not contain any JSON output and transform the human-readable output to JSON is hell.
+There are plans to add the JSON output of those commands to `plugin-saptune.txt` for `saptune` 3.2.
 
 ### `sbd_config`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
@@ -446,7 +449,7 @@ The gatherer connects to `dbus` to communicate with `systemd`. For checks to wor
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/verifypassword.go \
 **Chances: :rage:**
 
-The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer will not work.
+The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer does not work.
 
 ### `ascsers_cluster`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/ascsers_cluster.go \

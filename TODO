@@ -1,16 +1,34 @@
 # ToDo
 
 - Very Soon:
-  - Try to get the latest Wanda containers running (changed registry and checks have been removed).
+  - Rethink `wanda status`. We have an exited container for the check volume now.
+      - tcsc-trento-checks must be present (exited)
+      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda      
+  - Support switching between rolling and released version in Dockerfile.
+  - Support a local directory as check source (for check development)
+    --> README: Mentioned minimum Wanda version due to the changes caused by check separation!
+  - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
   - Provide images for the host and `tcsc` via GitHub.
-  - Select simple and multi checks per option (for people who want to group non-related supportconfig in one host group).
-  - Checkout supportfiles for being candidates.
   - Check if all created docker resources really get removed.
   - Add tscs_cmd and host containers to the "stack".
   - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
+  - Checkout supportfiles for being candidates.
+    - `disp+work` \
+      `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 
+       be used as substitute for `disp+work` output, but better add `su - SIDAM disp+work` to the plugin.
+    - `sap_profiles` \
+       Can `sap_profiles` gatherer be put to work? `plugin-ha_sap.txt` contains profiles.
+    - Check out `sapinstance_hostname_resolver`.
+      `plugin-ha_sap.txt` might contain data. 
+    - Checkout `ascsers_cluster` gatherer. 
 
 - Later:
+  - Select simple and multi checks per option (for people who want to group non-related supportconfig in one host group).
   - Implement new checks (requires new environments besides provider).
+  - Try to get into the supportconfig:
+      - some `saptune` output in JSON
+      - output of `corosync-cmapctl -b`
+      - content of files below `/etc/products.d/`
 
 - Much Later:
   - Auto-skip of checks if the supportfiles do not provide the required data.

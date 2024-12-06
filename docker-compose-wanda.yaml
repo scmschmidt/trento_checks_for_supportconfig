@@ -1,12 +1,19 @@
-# This is an **adpated** version of https://github.com/trento-project/wanda/blob/main/docker-compose.checks.yaml
+# This is an **adapted** version of https://github.com/trento-project/wanda/blob/main/docker-compose.checks.yaml
 
 services:
 
-#registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks:latest
-
+  trento-checks:
+    #image: registry.suse.com/trento/trento-checks:${WANDA_VERSION:-latest}
+    container_name: tcsc-trento-checks
+    image: registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks:latest
+    volumes:
+      - trento-checks:/usr/share/trento/checks
+      
   wanda:
-    image: registry.suse.com/trento/trento-wanda:${WANDA_VERSION:-latest}
-    #image: registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda:latest
+    # released version
+    #image: registry.suse.com/trento/trento-wanda:${WANDA_VERSION:-latest}
+    # rolling version
+    image: registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda:latest
     container_name: tcsc-wanda
     labels:
       - com.suse.tcsc.stack=wanda
@@ -15,14 +22,16 @@ services:
       SECRET_KEY_BASE: dummyS3cr3t
       AMQP_URL: amqp://wanda:wanda@rabbitmq
       CORS_ENABLED: "false"
-      CATALOG_PATH: /app/catalog
+      ACCESS_TOKEN_ENC_SECRET: ""
       JWT_AUTHENTICATION_ENABLED: "false"
     depends_on:
       - postgres
       - rabbitmq
     ports:
       - 4000:4000
-    entrypoint: /bin/sh -c "ln -s $(find /app/lib/wanda-* -name catalog) catalog ; /app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
+    volumes:
+      - trento-checks:/usr/share/trento/checks 
+    entrypoint: /bin/sh -c "/app/bin/wanda eval 'Wanda.Release.init()' && /app/bin/wanda start"
 
   rabbitmq:
     image: rabbitmq:3.10.5-management-alpine
@@ -52,3 +61,7 @@ services:
 
 volumes:
   pg_data:
+  trento-checks:
+
+
+

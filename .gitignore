@@ -10,3 +10,6 @@ examples/
 
 # Ignore Python cache.
 __pycache__
+
+# Ignore internal TODO
+TODO.internal
