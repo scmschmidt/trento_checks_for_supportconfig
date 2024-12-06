@@ -1,5 +1,7 @@
 # This is an **adapted** version of https://github.com/trento-project/wanda/blob/main/docker-compose.checks.yaml
 
+name: tcsc
+
 services:
 
   trento-checks:
@@ -25,6 +27,7 @@ services:
       ACCESS_TOKEN_ENC_SECRET: ""
       JWT_AUTHENTICATION_ENABLED: "false"
     depends_on:
+      - trento-checks
       - postgres
       - rabbitmq
     ports:

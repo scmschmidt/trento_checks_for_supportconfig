@@ -11,20 +11,15 @@ function check_doublette() {
     done <<< ${1}
 }
 
-# Collect images, volumes and networks of all tcsc containers.
+# Collect all tcsc containers.
 containers=$(docker ps -a --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack | sort -u)
-images=$(docker ps -a --no-trunc --format="{{.Image}}" --filter label=com.suse.tcsc.stack | sort -u)
-images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.Repository}}:{{.Tag}}" --filter label=com.suse.tcsc.stack)"
-images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.Repository}}:{{.Tag}}" --filter label=com.suse.trento.source)"
-volumes=$(docker ps -a --no-trunc --format="{{.Mounts}}" --filter label=com.suse.tcsc.stack | sort -u)
-networks=$(docker ps -a --no-trunc --format="{{.Networks}}" --filter label=com.suse.tcsc.stack | sort -u)
 
 echo
 echo 'Remove Wanda containers'
 echo '-----------------------'
 
 # Remove Wanda containers.
-docker-compose -f docker-compose-wanda.yaml down
+docker-compose -f docker-compose-wanda.yaml down -v
 
 echo
 echo 'Remove supportconfig containers'
@@ -35,17 +30,38 @@ while read host ; do
     docker rm -v "${host}"
 done < <(docker ps -a -q --filter label=com.suse.tcsc.stack=host)
 
-# Remove images, volumes and networks.
+echo
+echo 'Remove images'
+echo '-------------'
+
+# Remove images.
+images=$(docker ps -a --no-trunc --format="{{.Image}}" --filter label=com.suse.tcsc.stack | sort -u)
+images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack)"
+images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.ID}}" --filter label=com.suse.trento.source)"
 while read image ; do
     [ -z "${image}" ] && continue
     echo "Deleting image: ${image}"
     docker image rm "${image}" 
 done <<< "${images}" 
+
+echo
+echo 'Remove volumes'
+echo '--------------'
+
+# Remove volumes.
+volumes=$(docker ps -a --no-trunc --format="{{.Mounts}}" --filter label=com.suse.tcsc.stack | sort -u)
 while read volume ; do
     [ -z "${volume}" ] && continue
     echo "Deleting volume: ${volume}"
     docker volume rm "${volume}" 
 done <<< "${volumes}" 
+
+echo
+echo 'Remove networks'
+echo '---------------'
+
+# Remove networks.
+networks=$(docker ps -a --no-trunc --format="{{.Networks}}" --filter label=com.suse.tcsc.stack | sort -u)
 while read network ; do
     [ -z "${network}" ] && continue
     echo "Deleting network: ${network}"
@@ -60,7 +76,7 @@ echo '--------------'
 ok=1
 all_containers=$(docker ps -a --no-trunc --format="{{.ID}}")
 check_doublette "${containers}" "${all_containers}" Container
-all_images=$(docker image ls --no-trunc --format="{{.Repository}}:{{.Tag}}")
+all_images=$(docker image ls --no-trunc --format="{{.ID}}")
 check_doublette "${images}" "${all_images}" Image
 all_volumes=$(docker volume ls --format "{{.Name}}")
 check_doublette "${volumes}" "${all_volumes}" Volume

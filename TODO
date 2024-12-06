@@ -3,11 +3,11 @@
 - Very Soon:
   - Rethink `wanda status`. We have an exited container for the check volume now.
       - tcsc-trento-checks must be present (exited)
-      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda      
-  - Support switching between rolling and released version in Dockerfile.
-  - Support a local directory as check source (for check development)
-    --> README: Mentioned minimum Wanda version due to the changes caused by check separation!
-  - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
+      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda 
+  - Split install/uninstall in separate steps, which allows update of components
+    - Support switching between rolling and released version in Dockerfile.
+       --> README: Mentioned minimum Wanda version due to the changes caused by check separation!
+    - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
   - Provide images for the host and `tcsc` via GitHub.
   - Check if all created docker resources really get removed.
   - Add tscs_cmd and host containers to the "stack".
