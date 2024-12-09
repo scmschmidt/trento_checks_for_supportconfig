@@ -33,11 +33,19 @@ The following labels are used:
 - `com.suse.tcsc.agent_id`\
   This label exists only for host objects and contains the `trento-agent` id for that host.
 
+- `com.suse.tcsc.expected_state`\
+  This label defines the expected container state for an operational Wanda.
+
+- `com.suse.tcsc.expected_volumes`\
+  This optional label contains a comma-separated list of required volume names. The volume must
+  be prefixed with the project name `tcsc` separated by an underscore.
+
 All container names start with the prefix `tcsc-`. For the three Wanda containers the names are:
 
   - `tcsc-rabbitmq`
   - `tcsc-postgres`
   - `tcsc-wanda`
+  - `tcsc-trento-checks`
 
 For host container names the prefix is followed by the string `host`, the hostgroup name and a random string of 8 characters separated by a dash:
 `tcsc-host-<HOSTGROUP>-<UUID>`
@@ -55,6 +63,8 @@ For Wanda, the `docker-compose-wanda.yaml` sets the correct labels and names.
 >  - tcsc-postgres
 >     - com.suse.tcsc.stack=wanda
 >  - tcsc-wanda
+>     - com.suse.tcsc.stack=wanda
+>  - tcsc-trento-checks
 >     - com.suse.tcsc.stack=wanda
 >
 > Hosts:

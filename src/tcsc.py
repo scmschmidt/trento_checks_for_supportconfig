@@ -30,6 +30,8 @@ Changelog:
                               not containerized
                             - fixed bug in starting a host container where the path handed
                               over to the docker volume still had the HOST_ROOT_FS prefix
+09.12.2024      v1.2        - added trento-checks container to wanda status and check for
+                              the presence of mandatory volumes
 """
 
 import argparse
@@ -49,7 +51,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.1.1'
+__version__ = '1.2'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -344,12 +346,20 @@ def wanda_status(wanda: WandaStack) -> bool:
     json_obj = {'containers': []}
     for name, status in wanda.container_status.items():
         output.append({'name': name, 
-                       'status': CLI.ok if status == 'running' else CLI.error,
-                       'status_text': status})
+                       'status': CLI.ok if status[0] == status[1] else CLI.error,
+                       'status_text': status[0]})
         json_obj['containers'].append({'name': name, 'status': status})
     CLI.print_status(output)    
 
-    if wanda.status:
+    volumes_ok = True
+    json_obj['missing_volumes'] = []
+    for container, mounts in wanda.mandatory_volume_present.items():
+        if sorted(mounts[0]) != sorted(mounts[1]):
+            volumes_ok = False
+            CLI.print_fail(f'''{container} misses the mandatory volumes "{', '.join(mounts[0])}".''')
+            json_obj['missing_volumes'].append({'name': name, 'volumes': mounts[0]})
+
+    if wanda.status and volumes_ok:
         CLI.print_ok('\nWanda is operational.')
         json_obj['operational'] = True
     else:
@@ -357,7 +367,7 @@ def wanda_status(wanda: WandaStack) -> bool:
         json_obj['operational'] = False    
     CLI.print_json(json_obj)
     
-    return True if wanda.status else False
+    return True if wanda.status and volumes_ok else False
     
 
 def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
@@ -416,7 +426,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
         json_obj[group] = []
         output = []
         for host in hosts.filter_containers(filter={'hostgroup': group}, sortkey='hostgroup'):
-           
+
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
                         'status_text': host['status']

@@ -90,7 +90,7 @@ To inspect a supportconfig, the Wanda stack must be running. To verify the statu
 ```
 tcsc wanda status
 ```
-
+If you get the output `Wanda is operational` everything is fine.
 > :bulb: Per default `tcsc` starts Wanda automatically if needed. 
 > This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`. 
 > See [Configuration File](#configuration-file) for details.
@@ -252,6 +252,26 @@ Try to update everything: Wanda, this project and `rabbiteer.py`. If this does n
 ## Troubleshooting
 
 > :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
+
+- If `wanda status` terminates with `Wanda is not operational!` either some required container are not running or
+  mandatory volumes are not present. If the container status list does not look like:
+  ```
+  [running]           tcsc-wanda        
+  [running]           tcsc-rabbitmq     
+  [exited ]           tcsc-trento-checks
+  [running]           tcsc-postgres  
+  ```
+  try to stop and start Wanda or call `uninstall` and `install`. If the problem remains something must we wrong with the docker setup or the container images.
+
+  > :exclamation: The tcsc-trento-checks container only provides a volume and will never run. 
+
+ - If a `wanda status` reports 
+   ```
+   ... misses the mandatory volumes "tcsc-trento-checks" 
+   ```
+   most probably something is wrong with the tcsc-trento-checks container which provides the trento-checks
+   volume containing the checks. \
+   Try to stop and start Wanda or call `uninstall` and `install`. If the problem remains something must we wrong with the docker setup or the container images.
 
 - If starting of a supportconfig container fails, the setup script preparing the container from the supportconfig failed.
   A typical error message for that would be:
@@ -465,7 +485,7 @@ The configuration file in JSON is located at `~/.config/tcsc/config` anf is gene
 | Parameter | Type   | Default | Meaning
 |---------- | ----   | ------- | -------
 | `id`      | string | -       | Unique ID to identify individual `tcsc` installations. The id is used to label (`com.suse.tcsc.uid`) supportconfig containers
-| `wanda_containers` | list | `["tcsc-rabbitmq", "tcsc-postgres", "tcsc-wanda"]` | List of the names of the Wanda containers.
+| `wanda_containers` | list | `["tcsc-rabbitmq", "tcsc-postgres", "tcsc-wanda", "tcsc-trento-checks"]` | List of the names of the Wanda containers.
 | `wanda_label` | string | `"com.suse.tcsc.stack=wanda"` | Label for all Wanda containers.
 | `hosts_label` | string | `"com.suse.tcsc.stack=host"` | Label for all host containers.
 | `docker_timeout` | int | `10` | Timeout in seconds for `docker` operations.
@@ -474,14 +494,14 @@ The configuration file in JSON is located at `~/.config/tcsc/config` anf is gene
 | `hosts_image` | string | `"tscs_host"` | Image for the host containers.
 | `wanda_autostart` | bool | `true` | Enables/disables starting of Wanda on demand.
 | `colored_output`" | bool | `true` | Enables/disables coloring the output.
-
 ```
 {
     "id": "73f31f16-eaba-11ee-994d-5b663d913758",
     "wanda_containers": [
         "tcsc-rabbitmq",
         "tcsc-postgres",
-        "tcsc-wanda"
+        "tcsc-wanda",
+        "tcsc-trento-checks"
     ],
     "wanda_label": "com.suse.tcsc.stack=wanda",
     "hosts_label": "com.suse.tcsc.stack=host",

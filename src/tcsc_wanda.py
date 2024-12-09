@@ -24,6 +24,7 @@ class WandaStack():
 
     def __init__(self, config: Config) -> None:
         self._docker: docker.DockerClient = docker.from_env()
+        self._dockerAPI: docker.APIClient = docker.APIClient()
         self.timeout: int = config.docker_timeout
         self._containers: Dict[str, docker.Container] = {container.name: container for container in 
                                                          self._docker.containers.list(
@@ -35,18 +36,26 @@ class WandaStack():
         self._rabbiteer = Rabbiteer(config.wanda_url)
 
     @property
-    def container_status(self) -> Dict[str, str]:
-        """Returns a dictionary with all Wanda containers and there current status."""
+    def container_status(self) -> Dict[str, Tuple[str, str]]:
+        """Returns a dictionary with the name as key and a tuple with the current and expected
+        status as value all Wanda containers, there current and expected status."""
         
         self._update()
-        return {container.name: container.status for container in self._containers.values()}
+        status = {}
+        for container in self._containers.values():
+            try:
+                expected_status = container.labels['com.suse.tcsc.expected_state']
+            except:
+                raise WandaException(f'Could not get the label "com.suse.tcsc.expected_state" for {container.name}.')
+            status[container.name] = (container.status, expected_status)
+        return status
         
     @property
     def status(self) -> bool:
         """Returns a boolean with the Wanda status."""    
         
         for status in self.container_status.values():
-            if status != 'running':
+            if status[0] != status[1]:
                 return False
 
         try:
@@ -59,6 +68,32 @@ class WandaStack():
                 return True 
 
         return False
+    
+    @property
+    def mounts(self) -> Dict[str, List[str]]:
+        """Returns dictionary with the name as key and the list of mounts as value
+        for all Wanda containers."""
+        
+        self._update()
+        return {container.name: self._dockerAPI.inspect_container(container.id)['Mounts'] for container in self._containers.values()}
+        
+    @property
+    def mandatory_volume_present(self) -> Dict[str, Tuple[List[str], List[str]]]:
+        """Returns a dictionary with the name of the container and a Tuple containing
+        a list of the expected volumes and a list for the present volumes of all containers."""
+        
+        self._update()
+        status = {}
+        for container in self._containers.values():
+            volumes = [mount['Name'] for mount in self._dockerAPI.inspect_container(container.id)['Mounts'] if mount['Type'] == 'volume']
+            try:
+                expected_volumes = container.labels['com.suse.tcsc.expected_volumes'].split(',')
+            except:
+                expected_volumes = None
+            if not expected_volumes:
+                continue
+            status[container.name] = (expected_volumes, volumes)
+        return status
         
     def checks(self, attributes: List[str] = None) -> List[dict]:
         """Returns list of Check instances for all available checks (content of 'items').
@@ -90,17 +125,18 @@ class WandaStack():
         """Stops all Wanda containers. Only containers, which are in the state 'running'
         are going to be stopped.
         Returns the names of the stopped containers."""
-        
+
         stopped: List[str] = []
         self._update()
+        
         for container in [c for c in self._containers.values() if c.status in ['running']]:
             stopped.append(container.name)
             container.stop(timeout=self.timeout)
-            
+               
         start_time: time.Time = time.time()
         while True:
             self._update()
-            not_exited = [name for name, status in self.container_status.items() if status != 'exited']
+            not_exited = [name for name, status in self.container_status.items() if status[0] != 'exited']
             if not not_exited:
                 break
             if  (time.time() - start_time) > self.timeout: 

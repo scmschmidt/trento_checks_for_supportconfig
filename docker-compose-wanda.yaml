@@ -8,6 +8,10 @@ services:
     #image: registry.suse.com/trento/trento-checks:${WANDA_VERSION:-latest}
     container_name: tcsc-trento-checks
     image: registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks:latest
+    labels:
+      - com.suse.tcsc.stack=wanda
+      - com.suse.tcsc.expected_state=exited
+      - com.suse.tcsc.expected_volumes=tcsc_trento-checks
     volumes:
       - trento-checks:/usr/share/trento/checks
       
@@ -19,6 +23,8 @@ services:
     container_name: tcsc-wanda
     labels:
       - com.suse.tcsc.stack=wanda
+      - com.suse.tcsc.expected_state=running
+      - com.suse.tcsc.expected_volumes=tcsc_trento-checks
     environment:
       DATABASE_URL: ecto://postgres:postgres@postgres/postgres
       SECRET_KEY_BASE: dummyS3cr3t
@@ -41,6 +47,7 @@ services:
     container_name: tcsc-rabbitmq
     labels:
       - com.suse.tcsc.stack=wanda
+      - com.suse.tcsc.expected_state=running
     ports:
       - 5672:5672
       - 15672:15672
@@ -53,6 +60,7 @@ services:
     container_name: tcsc-postgres
     labels:
       - com.suse.tcsc.stack=wanda
+      - com.suse.tcsc.expected_state=running
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

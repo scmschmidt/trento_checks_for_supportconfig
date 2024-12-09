@@ -64,7 +64,8 @@ cat > "${config_file}" <<-EOF
     "wanda_containers": [
         "tcsc-rabbitmq",
         "tcsc-postgres",
-        "tcsc-wanda"
+        "tcsc-wanda",
+        "tcsc-trento-checks"
     ],
     "wanda_label": "com.suse.tcsc.stack=wanda",
     "hosts_label": "com.suse.tcsc.stack=host",

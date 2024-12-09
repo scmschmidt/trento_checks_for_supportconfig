@@ -1,9 +1,6 @@
 # ToDo
 
 - Very Soon:
-  - Rethink `wanda status`. We have an exited container for the check volume now.
-      - tcsc-trento-checks must be present (exited)
-      - a volume trento-checks must "connect" tcsc-trento-checks and tcsc-wanda
   - Add to README that the changes in this branch make the solution compatible only 
     with the Wanda version that has check separation.
   - Add check coverage section to the README (including version of support files).
