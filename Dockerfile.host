@@ -1,11 +1,9 @@
 FROM opensuse/leap:15.6
-#FROM opensuse/leap:15.4
 
 LABEL com.suse.tcsc.stack="host"
 
 # Add Trento development repo
 RUN zypper ar -G https://download.opensuse.org/repositories/devel:/sap:/trento:/factory/15.6/ trento-devel
-#RUN zypper ar -G https://download.opensuse.org/repositories/devel:/sap:/trento:/factory/15.4/ trento-devel
 
 # Install needed packages.
 RUN zypper --non-interactive in trento-agent ruby tar xz python3 sudo rpm-build rpmdevtools
@@ -19,3 +17,6 @@ RUN chmod +x /split-supportconfig
 
 # Copy sc/ into image.
 COPY sc/ /sc
+
+# Make scripts executable.
+RUN chmod +x /sc/startup /sc/process_supportfiles 

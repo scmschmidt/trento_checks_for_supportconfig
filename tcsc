@@ -8,6 +8,6 @@ docker run --rm \
            --group-add $(getent group docker | cut -d ':' -f3) \
            --env PWD --env USER --env LOGNAME --env HOME \
            --env HOST_ROOT_FS=/hostfs \
-           --network=trento_checks_for_supportconfig_default \
+           --network=tcsc_default \
            -it \
            tscs_cmd "$@"

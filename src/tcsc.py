@@ -32,6 +32,8 @@ Changelog:
                               over to the docker volume still had the HOST_ROOT_FS prefix
 09.12.2024      v1.2        - added trento-checks container to wanda status and check for
                               the presence of mandatory volumes
+                            - added hosts rescan to reload supportfiles into a running host
+                              container
 """
 
 import argparse
@@ -69,6 +71,7 @@ class ArgParser(argparse.ArgumentParser):
                 Usage:  {prog} -h|--help
                         {prog} [-j|--json] [-c|--config CONFIG] wanda start|status|stop
                         {prog} [-j|--json] [-c|--config CONFIG] hosts start GROUPNAME [SUPPORTFILE ...]
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts rescan GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts stop GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] [GROUPNAME] 
                         {prog} [-j|--json] [-c|--config CONFIG] hosts remove GROUPNAME
@@ -111,6 +114,7 @@ class ArgParser(argparse.ArgumentParser):
                         start       starts hostgroup containers
                         status      prints the status of host group containers
                         stop        stops hostgroup containers
+                        rescan      reloads supportfiles into the host containers
                     
                         GROUPNAME       arbitrary name for the hostgroup
                         SUPPORTFILE     a supportfile (e.g. supportconfig)
@@ -202,16 +206,17 @@ def argument_parse() -> dict:
 
     # Selector: hosts
     hosts = selectors.add_parser('hosts', help='Manages host containers.')
-    hosts_commands = hosts.add_subparsers(dest='host_commands', metavar='start|stop|remove|status|logs')
+    hosts_commands = hosts.add_subparsers(dest='host_commands', metavar='start|stop|rescan|remove|status|logs')
     hosts_commands.required = True
  
     hosts_start = hosts_commands.add_parser('start', help='Starts host group.')
     hosts_stop = hosts_commands.add_parser('stop', help='Stops host group.')
+    hosts_rescan = hosts_commands.add_parser('rescan', help='Reloads the supportfiles.')
     hosts_remove = hosts_commands.add_parser('remove', help='Removes host group.')
     hosts_status = hosts_commands.add_parser('status', help='Prints status of hosts.')
     hosts_logs = hosts_commands.add_parser('logs', help='Lists logs of a host container.')
     
-    for p in  hosts_start, hosts_stop, hosts_remove:
+    for p in  hosts_start, hosts_stop, hosts_rescan, hosts_remove:
         p.add_argument(metavar='GROUPNAME',
                        dest='hostgroup',
                        help='name of the host group')
@@ -426,7 +431,6 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
         json_obj[group] = []
         output = []
         for host in hosts.filter_containers(filter={'hostgroup': group}, sortkey='hostgroup'):
-
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
                         'status_text': host['status']
@@ -441,7 +445,12 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
                     if isinstance(value, list):
                         value = '\n\t'.join(value.split())
                     host_status['details'][key] = value
-                       
+                manifest = hosts.get_manifest(host['container'])[1]
+                host_json['details']['manifest'] = manifest
+                if isinstance(manifest, dict):
+                        manifest = '\n'.join([f'{k}: {v}' for k, v in manifest.items()])
+                host_status['details']['manifest'] = manifest
+                                       
             output.append(host_status)       
             json_obj[group].append(host_json)
             
@@ -476,6 +485,29 @@ def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
         CLI.print_ok(f'Host group "{hostgroup}" completely stopped.')
     CLI.print_json(json_obj)
     
+    return success
+
+
+def hosts_rescan(hosts: HostsStack, hostgroup: str) -> bool:
+    """Triggers a reload of the supportfiles of all host containers of a given hostgroup."""
+
+    if hostgroup not in hosts.hostgroups:
+        CLI.print_fail(f'Host group "{hostgroup}" does not exist!.')
+        CLI.print_json({'success': False, 'error': f'Host group "{hostgroup}" does not exist!.'})
+        return False
+    hostgroups = [hostgroup]
+
+    success = True
+    json_obj = {'success': True}
+    try:
+        hosts.rescan_hostgroup(hostgroup)
+    except HostsException as err:
+        CLI.print_fail(err)
+        json_obj['success'] = False
+        json_obj['error'] = str(err)
+        success = False
+    CLI.print_json(json_obj)
+        
     return success
 
 
@@ -769,7 +801,11 @@ def main() -> None:
             # tcsc hosts stop GROUPNAME
             elif arguments.host_commands == 'stop':
                     sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)
-            
+                    
+            # tcsc hosts rescan GROUPNAME
+            elif arguments.host_commands == 'rescan':
+                    sys.exit(0) if hosts_rescan(hosts, arguments.hostgroup) else sys.exit(5)
+                    
             # tcsc hosts remove GROUPNAME
             elif arguments.host_commands == 'remove':
                     sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)

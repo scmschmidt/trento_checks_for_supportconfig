@@ -40,7 +40,7 @@ echo
 echo 'Preparing image for supportconfig container'
 echo '-------------------------------------------'
 
-# Build the cd_runner image.
+# Build the tcsc_host image.
 docker build -t tscs_host -f Dockerfile.host . || exit 1
 
 echo

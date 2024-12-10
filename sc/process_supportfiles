@@ -1,0 +1,89 @@
+#!/bin/bash
+
+function make_temp_manifest() {
+    > /manifest.tmp
+}
+
+function add_temp_manifest() {
+    if [ $? -eq 0 ] ; then
+        state='ok'
+    else
+        state='failed'
+    fi
+    echo "${@}:${state}" >> /manifest.tmp 
+}
+
+function publish_manifest() {
+    mv /manifest.tmp /manifest
+}
+
+# Set machine id.
+echo "${MACHINE_ID}" > /etc/machine-id
+
+# Create temporary manifest.
+make_temp_manifest
+
+# Extract files from packed supportconfig.
+supportconfig="${SUPPORTCONFIG}"
+supportconfig_dir="${SUPPORTCONFIG%.*}"
+tar xf "${supportconfig}" || exit 1   # hard exit to let host creation fail 
+./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" || exit 1   # hard exit to let host creation fail 
+
+# Copy files from supportconfig into root fs.
+mkdir /etc/corosync/
+cp -b /rootfs/etc/corosync/corosync.conf /etc/corosync/ ; add_temp_manifest 'corosync.conf'
+cp -b /rootfs/etc/sysconfig/sbd /etc/sysconfig/ ; add_temp_manifest 'sysconfig_sbd'
+cp -b /rootfs/etc/os-release /etc/ ; add_temp_manifest 'os-release'
+cp -r /rootfs/var/lib/pacemaker /var/lib/ ; add_temp_manifest 'pacemaker_files'
+
+# Copy prepared scripts.
+cp /sc/cibadmin /sc/sbd /bin/
+
+# Create sbd dumps.
+sed -n '/==Dumping header on disk/,/==Header on disk/p' "${supportconfig_dir}/ha.txt" > /tmp/sbd_dumps ; add_temp_manifest 'sbd_dumps'
+
+if [ -e "${supportconfig_dir}/rpm.txt" ] ; then 
+
+    # Setup RPM build tree.
+    rpmdev-setuptree
+
+    # Build RPM packages.
+    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release ; do 
+        entry=$(grep -e "^${package}[[:space:]]"  "${supportconfig_dir}/rpm.txt" | tr -s ' ')
+        [[ -z "${entry}" ]] && continue
+
+        name="${entry%% *}"
+        version_release="${entry##* }"
+        version="${version_release%-*}"
+        release="${version_release#*-}"
+
+        cat << EOF > "/root/rpmbuild/SPECS/${name}.spec"
+Name:           ${name}
+Version:        ${version}
+Release:        ${release}
+Summary:        Dummy package for trento_checks_for_supportconfig proof-of-value.
+
+License:        GPL
+
+%description
+Dummy package for trento_checks_for_supportconfig proof-of-value.
+
+%files
+EOF
+
+        rpmbuild -bb "/root/rpmbuild/SPECS/${name}.spec"
+
+    done
+
+    # Install freshly build packages.
+    while read package ; do
+        echo "Install: ${package}"
+        rpm -i --force "${package}"
+    done < <(find /root/rpmbuild/RPMS/ -name '*.rpm')
+
+    true ; add_temp_manifest 'rpm_packages'
+
+fi
+
+# Publish manifest.
+publish_manifest

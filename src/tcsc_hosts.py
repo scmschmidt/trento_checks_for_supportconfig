@@ -24,7 +24,6 @@ class HostsStack():
         - self.start_timeout (int):  Timeout for containers to start and stay alive.
         - self.id (str):  UUID of this tcsc installation.
         - self.image (str):  Image used for hosts container.
-        
     """
 
     def __init__(self, config: Config) -> None:
@@ -78,7 +77,7 @@ class HostsStack():
                            'MACHINE_ID': dbus_uuid
                           },
             volumes = [f'{supportconfig_path}:/{supportconfig_name}'],
-            network = 'trento_checks_for_supportconfig_default',
+            network = 'tcsc_default',
             labels = {'com.suse.tcsc.stack': 'host',
                       'com.suse.tcsc.hostgroup': hostgroup,
                       'com.suse.tcsc.hostname': name,
@@ -119,6 +118,17 @@ class HostsStack():
             removed.append(container['name'])
             container['container'].remove(v=True, force=True)        
         return removed    
+
+    def rescan_hostgroup(self, hostgroup: str) -> None:
+        """Initiates a re-processing of the supportfiles on all host containers for
+        the given hostgroup. An exception is risen if something went wrong."""
+
+        for container in self.filter_containers(filter={'hostgroup': hostgroup}):
+            # Remove manifest  (exception on failure).
+            self._run_cmd(container['container'], ['rm', '-f', '/manifest'], exception_on_error=True)
+            # Trigger rescan  (exception on failure).
+            error, stdout, stderr = self._run_cmd(container['container'], ['sc/process_supportfiles'], exception_on_error=True)
+        # SHALL WE RETUR WITH A SUCCES LIST AND FAILURES OR TRIGGER EXCEPTION?
 
     def logs(self, containername: str) -> List[str]:
         """Retrieves log for given container name."""
@@ -161,6 +171,38 @@ class HostsStack():
                 continue
             containers.append(container)
         return sorted(containers, key=lambda x: x[sortkey])
+    
+    def get_manifest(self, container: docker.models.containers.Container) -> Tuple[int, str, str]:
+        """Retrieves the manifest of the given container object. A tuple is returned.
+        If everything went well the tuple is (t)""" 
+
+        error, stdout, stderr = self._run_cmd(container, ['cat', '/manifest'], exception_on_error=False)
+        if error != 0:
+            return True, stderr
+        manifest = {}
+        try:
+            for key, value in [line.split(':') for line in stdout.split()]:                
+                manifest[key] = {'ok': 'ok', 'failed': 'failed'}[value]
+        except:
+            return True, 'Could not parse manifest. Invalid format!'
+        return False, manifest, 
+    
+    def _run_cmd(self, 
+                 container: docker.models.containers.Container, 
+                 command: List[str], 
+                 exception_on_error=False
+                ) -> Tuple[int, str, str]:
+        """Executes a command on the given container and returns a tuple with the exit code,
+        stdout and stderr. The error behaviour can be switched between raising an exception 
+        or returning the exit code as well the error message (stderr)."""
+        
+        error, output = container.exec_run(command, demux=True)
+        stdout = str(output[0], 'utf-8') if output[0] else ''
+        stderr = str(output[1], 'utf-8') if output[1] else ''
+        if error != 0 and exception_on_error == True:
+            error_text = stderr if stderr else stdout
+            raise HostsException(f'''Executing "{' '.join(command)}" on {container.name} failed. Exit code: {error} error:{error_text}''')    
+        return error, stdout, stderr 
     
     def _generate_id(self) -> Tuple[str]:
         """Return a generated dbus uuid by calling `dbus-uuidgen` and the derived trento-agent id."""
