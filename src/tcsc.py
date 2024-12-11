@@ -498,9 +498,16 @@ def hosts_rescan(hosts: HostsStack, hostgroup: str) -> bool:
     hostgroups = [hostgroup]
 
     success = True
-    json_obj = {'success': True}
+    json_obj = {'success': True, 'failed': {}}
     try:
-        hosts.rescan_hostgroup(hostgroup)
+        results = hosts.rescan_hostgroup(hostgroup)
+        for name, result in results.items():
+            if not result[0]:
+                CLI.print_fail(f'Reloading supportfiles of "{name}" failed: {result[1]}')
+                success = False
+                json_obj['failed'][name] = result[1]
+        if success:
+            CLI.print_ok(f'Reloading supportfiles successful.')
     except HostsException as err:
         CLI.print_fail(err)
         json_obj['success'] = False

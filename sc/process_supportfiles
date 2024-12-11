@@ -14,7 +14,7 @@ function add_temp_manifest() {
 }
 
 function publish_manifest() {
-    mv /manifest.tmp /manifest
+    mv /manifest.tmp /manifest || exit 1   # hard exit to let host creation fail 
 }
 
 # Set machine id.

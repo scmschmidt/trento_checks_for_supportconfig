@@ -119,16 +119,24 @@ class HostsStack():
             container['container'].remove(v=True, force=True)        
         return removed    
 
-    def rescan_hostgroup(self, hostgroup: str) -> None:
+    def rescan_hostgroup(self, hostgroup: str) -> Dict[str, Tuple[bool, str]]:
         """Initiates a re-processing of the supportfiles on all host containers for
         the given hostgroup. An exception is risen if something went wrong."""
 
+        scanned_hosts = {}
         for container in self.filter_containers(filter={'hostgroup': hostgroup}):
-            # Remove manifest  (exception on failure).
-            self._run_cmd(container['container'], ['rm', '-f', '/manifest'], exception_on_error=True)
-            # Trigger rescan  (exception on failure).
-            error, stdout, stderr = self._run_cmd(container['container'], ['sc/process_supportfiles'], exception_on_error=True)
-        # SHALL WE RETUR WITH A SUCCES LIST AND FAILURES OR TRIGGER EXCEPTION?
+            if container['status'] != 'running':
+                state = (False, f'''Container status: {container['status']}''')
+            else:
+                for cmd in ['rm', '-f', '/manifest'], ['sc/process_supportfiles']:
+                    error, _, stderr = self._run_cmd(container['container'], cmd, exception_on_error=True)
+                    if error == 0:
+                        state = (True, '')
+                    else:
+                        state = (False, stderr)
+            scanned_hosts[container['name']] = state
+        return scanned_hosts
+
 
     def logs(self, containername: str) -> List[str]:
         """Retrieves log for given container name."""

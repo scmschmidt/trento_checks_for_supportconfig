@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e  # exits in called scripts must terminate this one
 
 # Process supportfiles
 sc/process_supportfiles
