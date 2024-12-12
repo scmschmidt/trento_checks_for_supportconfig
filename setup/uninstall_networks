@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo
+echo 'Remove tcsc networks'
+echo '--------------------'
+docker network rm -f tcsc_default

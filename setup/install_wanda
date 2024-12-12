@@ -1,0 +1,37 @@
+#!/bin/bash
+echo ${WANDA_REGISTRY:-registry.opensuse.org/devel/sap/trento/factory/containers/trento}/trento-wanda:${WANDA_VERSION:-latest}
+echo
+echo 'Setting up Wanda'
+echo '----------------'
+
+# Setting up Wanda containers.
+docker-compose -f docker-compose-wanda.yaml up -d || exit 1
+
+# Verifying existence of the containers.
+if [ $(docker ps -a -q --filter label=com.suse.tcsc.stack=wanda | wc -l) -ne 4 ] ; then
+    echo "Not all Wanda containers are present!" >&2
+    exit 1
+fi
+
+# Check for open port 4000/tcp.
+if [ $(ss -Htnlp4 sport 4000 | wc -l) -eq 0 ] ; then
+    echo "Port 4000/tcp seems to be not open. Are the Wanda containers running?" >&2
+    exit 1
+fi
+echo "Port 4000/tcp is open."
+
+# Check that Wanda reports readiness.
+ready=0
+start=$(date +'%s')
+while [ ${ready} -eq 0 ] ; do 
+    [ "$(curl http://localhost:4000/api/readyz 2> /dev/null)" == "{\"ready\":true}" ] && ready=1
+    sleep 0.5
+    now=$(date +'%s')
+    passed=$((now - start))
+    [ ${passed} -gt 20 ] && break
+done
+if [ ${ready} -eq 0 ] ; then 
+    echo "Wanda reports not to be ready!" >&2
+    exit 1
+fi
+echo "Wanda reports to be ready."

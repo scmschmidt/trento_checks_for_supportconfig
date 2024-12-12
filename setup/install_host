@@ -1,0 +1,6 @@
+echo
+echo 'Preparing image for host (supportconfig) container'
+echo '--------------------------------------------------'
+
+# Build the tcsc_host image.
+docker build -t tscs_host -f Dockerfile.host . || exit 1

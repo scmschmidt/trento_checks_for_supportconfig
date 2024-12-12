@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Untagged images need to be collected when the containers still there.
+images=$(docker ps -a --no-trunc --format="{{.Image}}" --filter label=com.suse.tcsc.stack=wanda | sort -u)
+
+echo
+echo 'Remove Wanda containers'
+echo '-----------------------'
+docker-compose -f docker-compose-wanda.yaml down -v
+containers=$(docker ps -a --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack=wanda | sort -u)
+while read container ; do
+    [ -z "${container}" ] && continue
+    echo "Deleting container: ${container}"
+    docker container rm -f "${container}" 
+done <<< "${containers}" 
+
+echo
+echo 'Remove remaining Wanda images'
+echo '-----------------------------'
+while read image ; do
+    [ -z "${image}" ] && continue
+    echo "Deleting image: ${image}"
+    docker image rm -f "${image}" 
+done <<< "${images}" 
+
+echo
+echo 'Remove remaining Wanda volumes'
+echo '------------------------------'
+volumes=$(docker volume ls --format="{{.Name}}" --filter label=com.suse.tcsc.stack=wanda | sort -u)
+while read volume ; do
+    [ -z "${volume}" ] && continue
+    echo "Deleting volume: ${volume}"
+    docker volume rm -f "${volume}" 
+done <<< "${volumes}" 
+

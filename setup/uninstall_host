@@ -1,0 +1,32 @@
+#!/bin/bash
+
+echo
+echo 'Remove host (supportconfig) containers'
+echo '--------------------------------------'
+containers=$(docker ps -a --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack=host | sort -u)
+while read container ; do
+    [ -z "${container}" ] && continue
+    echo "Deleting container: ${container}"
+    docker container rm -fv "${container}" 
+done <<< "${containers}" 
+
+echo
+echo 'Remove remaining host images'
+echo '----------------------------'
+images=$(docker images --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack=host | sort -u)
+while read image ; do
+    [ -z "${image}" ] && continue
+    echo "Deleting image: ${image}"
+    docker image rm -f "${image}" 
+done <<< "${images}" 
+
+echo
+echo 'Remove remaining host volumes'
+echo '-----------------------------'
+volumes=$(docker volume ls --format="{{.Name}}" --filter label=com.suse.tcsc.stack=host | sort -u)
+while read volume ; do
+    [ -z "${volume}" ] && continue
+    echo "Deleting volume: ${volume}"
+    docker volume rm -f "${volume}" 
+done <<< "${volumes}" 
+

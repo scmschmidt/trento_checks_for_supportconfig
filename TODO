@@ -1,20 +1,15 @@
 # ToDo
 
 - Very Soon:
-  - Use manifest to skip checks.
-  - Document manifest.
-  - Start Trento check development document.
-  - Add to README that the changes in this branch make the solution compatible only 
-    with the Wanda version that has check separation.
-  - Add check coverage section to the README (including version of support files).
-  - Add tscs_cmd and host containers to the "stack".
-  - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
-  - Provide images for the host and `tcsc` via GitHub.
-  - Rework install/uninstall by splitting it in separate steps.
-    - Allows host and cmd image build as well as download from GHCR.
-    - Support switching between rolling and released version in Dockerfile.
-    - Support local directory as volume instead of check container to allow `tcsc` to be used for check development.
+
+  - Rework install and uninstall:
+    - Write detailed  README section about installation and uninstallation.
+    - Create step for creating a directory-based check container (Trento check development)
+    - Create steps to build images for the host and `tcsc` command and publish on GHCR.
+    - Create steps to download host and cmd image from GHCR and integrate them into install/uninstall.
+    - Support switching between rolling and released version in Dockerfile.  
   - Check if all created docker resources really get removed.
+
   - Checkout supportfiles for being candidates.
     - `disp+work` \
       `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 
@@ -24,21 +19,28 @@
     - Check out `sapinstance_hostname_resolver`.
       `plugin-ha_sap.txt` might contain data. 
     - Checkout `ascsers_cluster` gatherer. 
+    - Try to get into the supportconfig:
+    - some `saptune` output in JSON
+    - output of `corosync-cmapctl -b`
+    - content of files below `/etc/products.d/`
+
+  - Implement new checks (requires new environments besides provider).  
+
+  - Auto-skip of checks if the supportfiles do not provide the required data (manifest).
+  - Document manifest.
+  - Add check coverage section to the README (including version of support files).
+
+  - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
 
 - Later:
+  - Provide check development supportconfigs for a cluster.
+  - Finish Trento check development document.
   - Select simple and multi checks per option (for people who want to group non-related supportconfig in one host group).
-  - Implement new checks (requires new environments besides provider).
-  - Try to get into the supportconfig:
-      - some `saptune` output in JSON
-      - output of `corosync-cmapctl -b`
-      - content of files below `/etc/products.d/`
+  
 
 - Much Later:
-  - Auto-skip of checks if the supportfiles do not provide the required data.
   - Auto-detection of other Trento environments as provider should be implemented and attached to host infos to be used in checks.
   - Think about filter for listing checks to get a better overview. 
-  - The docker compose file needs to be extended to label all created resources (like volumes).
-    This shall allow it easily to remove remnants by using the label.
   - Parallelize check executions to be faster.
 
 

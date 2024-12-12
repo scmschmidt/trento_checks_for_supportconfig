@@ -16,7 +16,7 @@ The following labels are used:
 
 - `com.suse.tcsc.stack`\
   Each container and the host image handled by this project has this label.
-  Wanda objects have the value `wanda` and host objects the value `host`
+  Wanda objects have the value `wanda`, host objects the value `host` and command objects the value `tcsc_cmd`
 
 - `com.suse.tcsc.hostgroup`\
   This label exists only for host objects and has the hostgroup name given by the user as value.

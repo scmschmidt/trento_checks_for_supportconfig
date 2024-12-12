@@ -1,93 +1,12 @@
 #!/bin/bash
+set -e  # exits in called scripts must terminate this one
 
-function check_doublette() {
-    local entry
-    while read entry; do
-        [ -z "${entry}" ] && continue
-        if grep -q "${entry}" <<< "${2}" ; then
-            ok=0
-            echo "${3} ${entry} still exists!"
-        fi
-    done <<< ${1}
-}
-
-# Collect all tcsc containers.
-containers=$(docker ps -a --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack | sort -u)
-
-echo
-echo 'Remove Wanda containers'
-echo '-----------------------'
-
-# Remove Wanda containers.
-docker-compose -f docker-compose-wanda.yaml down -v
-
-echo
-echo 'Remove supportconfig containers'
-echo '-------------------------------'
-
-# Remove host containers.
-while read host ; do
-    docker rm -v "${host}"
-done < <(docker ps -a -q --filter label=com.suse.tcsc.stack=host)
-
-echo
-echo 'Remove images'
-echo '-------------'
-
-# Remove images.
-images=$(docker ps -a --no-trunc --format="{{.Image}}" --filter label=com.suse.tcsc.stack | sort -u)
-images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.ID}}" --filter label=com.suse.tcsc.stack)"
-images="${images}"$'\n'"$(docker image ls --no-trunc --format="{{.ID}}" --filter label=com.suse.trento.source)"
-while read image ; do
-    [ -z "${image}" ] && continue
-    echo "Deleting image: ${image}"
-    docker image rm "${image}" 
-done <<< "${images}" 
-
-echo
-echo 'Remove volumes'
-echo '--------------'
-
-# Remove volumes.
-volumes=$(docker ps -a --no-trunc --format="{{.Mounts}}" --filter label=com.suse.tcsc.stack | sort -u)
-while read volume ; do
-    [ -z "${volume}" ] && continue
-    echo "Deleting volume: ${volume}"
-    docker volume rm "${volume}" 
-done <<< "${volumes}" 
-
-echo
-echo 'Remove networks'
-echo '---------------'
-
-# Remove networks.
-networks=$(docker ps -a --no-trunc --format="{{.Networks}}" --filter label=com.suse.tcsc.stack | sort -u)
-while read network ; do
-    [ -z "${network}" ] && continue
-    echo "Deleting network: ${network}"
-    docker network rm "${network}"
-done <<< "${networks}" 
-
-echo
-echo 'Verify removal'
-echo '--------------'
-
-# Check if objects really have been removed.
-ok=1
-all_containers=$(docker ps -a --no-trunc --format="{{.ID}}")
-check_doublette "${containers}" "${all_containers}" Container
-all_images=$(docker image ls --no-trunc --format="{{.ID}}")
-check_doublette "${images}" "${all_images}" Image
-all_volumes=$(docker volume ls --format "{{.Name}}")
-check_doublette "${volumes}" "${all_volumes}" Volume
-all_networks=$(docker network ls --format "{{.Name}}" | sort -u)
-check_doublette "${networks}" "${all_networks}" Network
+setup/uninstall_wanda
+setup/uninstall_host
+setup/uninstall_cmd
+setup/uninstall_networks
 
 # Bye.
-if [ ${ok} -eq 0 ] ; then 
-    echo -e '\ntcsc removed partially!' 
-    exit 1
-fi
 echo -e '\ntcsc removed successfully!' 
 exit 0
 

@@ -4,6 +4,12 @@ Makes Trento checks usable for support cases by using them on supportconfigs. Al
 
 > :bulb: This is a rewrite of the proof-of-value which final version can be found here: https://github.com/scmschmidt/trento_checks_for_supportconfig/releases/tag/pov-final
 
+> :bulb: This project targets primary support engineers working with supportconfigs, but can also be used to assist in
+  Trento check development. See [Trento Check Development](Trento%20Check%20Development.md) for details.
+
+> :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
+  This should be the default since Trento 2.4.
+
 ## Prerequisites
 
 You need `git` (optional) as well as `docker` and `docker-compose` installed to run containers.
@@ -48,10 +54,18 @@ Do the following steps as normale user:
 
    It sets up and starts the Wanda containers as well as creating the image for the supportconfig hosts. 
 
-   > :bulb: You can influence the used Wanda version by setting the environment variable `WANDA_VERSION`.
-   > The repo always uses the latest released version. To use a specific one, run: `WANDA_VERSION=... ./install`
+   > :bulb: To influence the Wanda version set the environment variable `WANDA_VERSION`.
+   > The default always uses the latest released version. For a specific one, run: `WANDA_VERSION=... ./install`
+   
+   > :bulb: To influence the container registry for Wanda set the environment variable `WANDA_REGISTRY`.
+   > The default always uses registry.opensuse.org/devel/sap/trento/factory/containers/trento containing the rolling release. To use a different, run: `WANDA_REGISTRY=... ./install`
+   > The registry for the released version is registry.suse.com/trento.
 
-   > :exclamation: If the install fails when building the images, run it again. Sometimes after a second or third run the pull completes. 
+   > :wrench: The `install` script calls subsequently three scripts in `setup/`: `install_wanda`, `install_host` and
+     `install_cmd`, which can be called individually.
+
+   > :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
+  This should be the default since Trento 2.4. 
 
 1. Place the script `tcsc` in `~/bin` or `/usr/local/bin` (last requires root).
 
@@ -122,7 +136,8 @@ tcsc hosts start GROUPNAME FILE...
 
 - `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
 
-- `FILE` is the support file you wish to be incorporated. \
+- `FILE` is the support file you wish to be incorporated. In case of a supportconfig it can be the file itself or a directory where the
+  archive has been extracted to.\
    **Currently only supportconfigs are supported.** In the future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
@@ -158,6 +173,15 @@ tcsc hosts status [GROUPNAME]
 ```
 
 > :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint).
+
+The supportfiles are only read once when the host container is created. A restart of an existing host container does not reread the files,
+but it can be triggered with:
+
+```
+tcsc hosts rescan GROUPNAME
+```
+
+The host container must be running at that time.
 
 
 ### Run the Checks
@@ -252,6 +276,19 @@ Try to update everything: Wanda, this project and `rabbiteer.py`. If this does n
 ## Troubleshooting
 
 > :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
+
+
+- If the install script - or more precise `setup/install_wanda` - terminates with:
+  ```
+  invalid reference format
+  ```
+  the provided `WANDA_URL` is wrong. The URL **must not** end with a `/`.
+
+- If the install script - or more precise `setup/install_wanda` - terminates with:
+  ```
+  Error response from daemon: manifest unknown
+  ```
+  check if the provided `WANDA_VERSION` is correct. It can take some time until a new version turns up in the release repository.
 
 - If `wanda status` terminates with `Wanda is not operational!` either some required container are not running or
   mandatory volumes are not present. If the container status list does not look like:

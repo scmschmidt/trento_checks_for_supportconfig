@@ -1,84 +1,9 @@
 #!/bin/bash
+set -e  # exits in called scripts must terminate this one
 
-echo
-echo 'Setting up Wanda'
-echo '----------------'
-
-# Setting up Wanda containers.
-docker-compose -f docker-compose-wanda.yaml up -d
-
-# Verifying existence of the containers.
-if [ $(docker ps -q --filter label=com.suse.tcsc.stack=wanda | wc -l) -ne 3 ] ; then
-    echo "The Wanda containers don't seem to be running!" >&2
-    exit 1
-fi
-
-# Check for open port 4000/tcp.
-if [ $(ss -Htnlp4 sport 4000 | wc -l) -eq 0 ] ; then
-    echo "Port 4000/tcp seems to be not open. Are the Wanda containers running?" >&2
-    exit 1
-fi
-echo "Port 4000/tcp is open."
-
-# Check that Wanda reports readiness.
-ready=0
-start=$(date +'%s')
-while [ ${ready} -eq 0 ] ; do 
-    [ "$(curl http://localhost:4000/api/readyz 2> /dev/null)" == "{\"ready\":true}" ] && ready=1
-    sleep 0.5
-    now=$(date +'%s')
-    passed=$((now - start))
-    [ ${passed} -gt 20 ] && break
-done
-if [ ${ready} -eq 0 ] ; then 
-    echo "Wanda reports not to be ready!" >&2
-    exit 1
-fi
-echo "Wanda reports to be ready."
-
-echo
-echo 'Preparing image for supportconfig container'
-echo '-------------------------------------------'
-
-# Build the tcsc_host image.
-docker build -t tscs_host -f Dockerfile.host . || exit 1
-
-echo
-echo 'Preparing image for the tcsc command container'
-echo '----------------------------------------------'
-
-# Build the tcsc_cmd image.
-docker build -t tscs_cmd -f Dockerfile.tcsc . || exit 1
-
-echo
-echo 'Creating tcsc config file'
-echo '-------------------------'
-
-# Create config
-config_dir="${HOME}/.config/tcsc"
-config_file="${config_dir}/config"
-mkdir -p "${config_dir}" || exit 1
-cat > "${config_file}" <<-EOF
-{
-    "id": "73f31f16-eaba-11ee-994d-5b663d913758",
-    "wanda_containers": [
-        "tcsc-rabbitmq",
-        "tcsc-postgres",
-        "tcsc-wanda",
-        "tcsc-trento-checks"
-    ],
-    "wanda_label": "com.suse.tcsc.stack=wanda",
-    "hosts_label": "com.suse.tcsc.stack=host",
-    "docker_timeout": 10,
-    "startup_timeout": 3,
-    "wanda_url": "http://tcsc-wanda:4000",
-    "hosts_image": "tscs_host",
-    "wanda_autostart": true,
-    "colored_output": true
-}
-EOF
-touch "${config_file}" || exit 1
-echo "${config_file} created"
+setup/install_wanda
+setup/install_host
+setup/install_cmd
 
 # Bye.
 echo -e '\ntcsc set up successfully!' 
