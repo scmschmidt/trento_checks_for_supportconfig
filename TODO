@@ -1,13 +1,9 @@
 # ToDo
 
 - Very Soon:
-  - Rework supportconfig split and protocol the created files (manifest) to show in
-    `hosts status` and allow usage in the check run. Benefit would be to skip checks,
-    that won't work because the supportconfig did not include the required files instead
-    letting them fail.
-  - Implement support for supportconfig directories and rescan the supportfiles, so it the
-    project can be used for Trento check development. 
+  - Use manifest to skip checks.
   - Document manifest.
+  - Start Trento check development document.
   - Add to README that the changes in this branch make the solution compatible only 
     with the Wanda version that has check separation.
   - Add check coverage section to the README (including version of support files).
@@ -39,7 +35,7 @@
 
 - Much Later:
   - Auto-skip of checks if the supportfiles do not provide the required data.
-  - Auto-detection of provider (and other environments) should be implemented.
+  - Auto-detection of other Trento environments as provider should be implemented and attached to host infos to be used in checks.
   - Think about filter for listing checks to get a better overview. 
   - The docker compose file needs to be extended to label all created resources (like volumes).
     This shall allow it easily to remove remnants by using the label.

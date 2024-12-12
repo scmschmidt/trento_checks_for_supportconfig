@@ -17,19 +17,29 @@ function publish_manifest() {
     mv /manifest.tmp /manifest || exit 1   # hard exit to let host creation fail 
 }
 
+
+# --- MAIN ---
+
 # Set machine id.
 echo "${MACHINE_ID}" > /etc/machine-id
 
 # Create temporary manifest.
 make_temp_manifest
 
-# Extract files from packed supportconfig.
-supportconfig="${SUPPORTCONFIG}"
-supportconfig_dir="${SUPPORTCONFIG%.*}"
-tar xf "${supportconfig}" || exit 1   # hard exit to let host creation fail 
+# Extract files from supportconfig.
+if [ -f "${SUPPORTCONFIG}" ] ; then
+    supportconfig="${SUPPORTCONFIG}"
+    supportconfig_dir="${SUPPORTCONFIG%.*}"
+    tar xf "${supportconfig}" || exit 1   # hard exit to let host creation fail
+elif [ -d "${SUPPORTCONFIG}" ] ; then
+    supportconfig_dir="${SUPPORTCONFIG}"
+else
+    echo "${SUPPORTCONFIG} is neither file nor directory." >&2
+    exit 1
+fi
 ./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" || exit 1   # hard exit to let host creation fail 
 
-# Copy files from supportconfig into root fs.
+# Copy files from supportconfig into rootfs.
 mkdir /etc/corosync/
 cp -b /rootfs/etc/corosync/corosync.conf /etc/corosync/ ; add_temp_manifest 'corosync.conf'
 cp -b /rootfs/etc/sysconfig/sbd /etc/sysconfig/ ; add_temp_manifest 'sysconfig_sbd'

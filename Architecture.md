@@ -30,6 +30,9 @@ The following labels are used:
 - `com.suse.tcsc.supportconfig`\
   This label exists only for host objects and contains the filename of the associated supportconfig (suffixes removed).
 
+- `com.suse.tcsc.env.provider`\
+  Wanda provider extracted from the support files.
+
 - `com.suse.tcsc.agent_id`\
   This label exists only for host objects and contains the `trento-agent` id for that host.
 

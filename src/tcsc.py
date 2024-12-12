@@ -30,10 +30,13 @@ Changelog:
                               not containerized
                             - fixed bug in starting a host container where the path handed
                               over to the docker volume still had the HOST_ROOT_FS prefix
-09.12.2024      v1.2        - added trento-checks container to wanda status and check for
+12.12.2024      v1.2        - added trento-checks container to wanda status and check for
                               the presence of mandatory volumes
                             - added hosts rescan to reload supportfiles into a running host
                               container
+                            - support supportconfig directories too
+                            - fixed bug: hosts status ignored given host group
+                            - string decoding not utf-8 per default but sys.getdefaultencoding()
 """
 
 import argparse
@@ -426,10 +429,14 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
     json_obj = {}
     for group in hosts.hostgroups:
         
+        if hostgroup and group != hostgroup:
+            continue
+                
         CLI.print_header(group, margin_bottom=1)
 
         json_obj[group] = []
         output = []
+
         for host in hosts.filter_containers(filter={'hostgroup': group}, sortkey='hostgroup'):
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
@@ -439,7 +446,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles':
+                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):

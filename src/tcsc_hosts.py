@@ -7,6 +7,7 @@ Contains classes to handle the hosts container stack.
 
 
 import docker
+import sys
 import time
 import subprocess
 from typing import List, Dict, Any, Tuple, Set
@@ -83,6 +84,7 @@ class HostsStack():
                       'com.suse.tcsc.hostname': name,
                       'com.suse.tcsc.supportfiles': supportconfig_path,
                       'com.suse.tcsc.supportconfig': supportconfig_path,
+                      'com.suse.tcsc.env.provider': host_description['provider'],
                       'com.suse.tcsc.uuid': self.id,
                       'com.suse.tcsc.agent_id': agent_id
                      },
@@ -155,6 +157,7 @@ class HostsStack():
                  'container_short_id': container.short_id,
                  'supportfiles': container.labels.get('com.suse.tcsc.supportfiles') or '-',
                  'supportconfig': container.labels.get('com.suse.tcsc.supportconfig') or '-',
+                 'provider': container.labels.get('com.suse.tcsc.env.provider') or 'default',
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',
                  'hostname': container.labels.get('com.suse.tcsc.hostname') or '-',
                  'status': container.status or 'unknown',
@@ -187,7 +190,7 @@ class HostsStack():
         error, stdout, stderr = self._run_cmd(container, ['cat', '/manifest'], exception_on_error=False)
         if error != 0:
             return True, stderr
-        manifest = {}
+        manifest = {}        
         try:
             for key, value in [line.split(':') for line in stdout.split()]:                
                 manifest[key] = {'ok': 'ok', 'failed': 'failed'}[value]
@@ -204,9 +207,12 @@ class HostsStack():
         stdout and stderr. The error behaviour can be switched between raising an exception 
         or returning the exit code as well the error message (stderr)."""
         
-        error, output = container.exec_run(command, demux=True)
-        stdout = str(output[0], 'utf-8') if output[0] else ''
-        stderr = str(output[1], 'utf-8') if output[1] else ''
+        try:
+            error, output = container.exec_run(command, demux=True)
+        except Exception as err:
+            return 255, '', str(err)
+        stdout = str(output[0], sys.getdefaultencoding()) if output[0] else ''
+        stderr = str(output[1], sys.getdefaultencoding()) if output[1] else ''
         if error != 0 and exception_on_error == True:
             error_text = stderr if stderr else stdout
             raise HostsException(f'''Executing "{' '.join(command)}" on {container.name} failed. Exit code: {error} error:{error_text}''')    
