@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ ! -e "${1}" ] ; then
+    echo "Token file ${1} does not exist!" >&2
+    exit 1
+fi
+
+docker login --username scmschmidt --password-stdin ghcr.io < "${1}"
+docker build -t ghcr.io/scmschmidt/tcsc_host -f Dockerfile.host .
+docker push ghcr.io/scmschmidt/tcsc_host:latest

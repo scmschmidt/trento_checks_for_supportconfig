@@ -1,9 +1,16 @@
 #!/bin/bash
 set -e  # exits in called scripts must terminate this one
 
+
 setup/install_wanda
-setup/install_host
-setup/install_cmd
+
+if [ -n "${BUILD_LOCAL}" ] ; then
+    setup/install_host_local
+    setup/install_cmd_local
+else
+    setup/install_host
+    setup/install_cmd
+fi
 
 # Bye.
 echo -e '\ntcsc set up successfully!' 

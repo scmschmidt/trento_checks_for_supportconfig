@@ -8,7 +8,17 @@ The project can assist Trento check development by:
 
 ## Install, Update and Uninstall
 
-TBD
+Call the install script with the environment variable `CHECK_DIR` pointing to your check file directory:
+```
+CHECK_DIR=/tmp/checks ./install
+```
+
+> :bulb: If you already have a `tcsc` installation, simply call `CHECK_DIR=/tmp/checks setup/install_wanda` to 
+> re-create the Wanda container.
+
+Uninstall works exactly as described in the [README](README.md#removal). 
+
+An update works exactly as described in the [README](README.md#update), but don't forget to set `CHECK_DIR`.
 
 ## Managing Wanda
 

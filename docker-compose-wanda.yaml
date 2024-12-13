@@ -35,7 +35,7 @@ services:
     ports:
       - 4000:4000
     volumes:
-      - trento-checks:/usr/share/trento/checks 
+      - ${CHECK_DIR:-trento-checks}:/usr/share/trento/checks
     entrypoint: /bin/sh -c "/app/bin/wanda eval 'Wanda.Release.init()' && /app/bin/wanda start"
 
   rabbitmq:

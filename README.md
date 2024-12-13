@@ -54,35 +54,46 @@ Do the following steps as normale user:
 
    It sets up and starts the Wanda containers as well as creating the image for the supportconfig hosts. 
 
-   > :bulb: To influence the Wanda version set the environment variable `WANDA_VERSION`.
+   > :bulb: To use a specific Wanda version set the environment variable `WANDA_VERSION`.
    > The default always uses the latest released version. For a specific one, run: `WANDA_VERSION=... ./install`
    
-   > :bulb: To influence the container registry for Wanda set the environment variable `WANDA_REGISTRY`.
+   > :bulb: To use a specific container registry for Wanda set the environment variable `WANDA_REGISTRY`.
    > The default always uses registry.opensuse.org/devel/sap/trento/factory/containers/trento containing the rolling release. To use a different, run: `WANDA_REGISTRY=... ./install`
    > The registry for the released version is registry.suse.com/trento.
 
-   > :wrench: The `install` script calls subsequently three scripts in `setup/`: `install_wanda`, `install_host` and
-     `install_cmd`, which can be called individually.
+   > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script will put the new one as `~/.config/tscs/config.new`.
+   > Verify if changes need to be adapted.
 
    > :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
-  This should be the default since Trento 2.4. 
+   > This should be the default since Trento 2.4. 
 
 1. Place the script `tcsc` in `~/bin` or `/usr/local/bin` (last requires root).
 
 
 ## Update
 
-To update the installation:
+To update the entire installation:
 
   1. Enter the repo directory.
   1. Update the repo: `git pull`
   1. Delete the existing setup: `./uninstall`
   1. Install the updated version: `./install`
 
-> :warning: An uninstallation stops and removes the `tcsc` container, the Wanda container as well as all supportconfig containers.
+To update only a part of the stack, update the repo first with `git pull` and use the scripts
+in `setup/`:
+
+  - To update only Wanda call: `setup/uninstall_wanda && setup/install_wanda`\
+    Do not forget the set the environment variables for the version and registry if needed.
+
+  - To update the host container call `setup/uninstall_host && setup/install_host`
+
+  - To update the command container call `setup/uninstall_cmd && setup/install_cmd`
+
+> :warning: An uninstallation removes the containers, images and volumes.
 
 > :exclamation: After a `git pull` do not forget to update the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it. 
 
+> :wrench: The host and command containers can be build locally. To do so use the scripts `setup/install_host_local` and `setup/install_cmd_local`. Remove the ones pulled from the GitHub registry first by calling `setup/uninstall_host` and `setup/uninstall_cmd`.
 
 ## Removal
 
@@ -277,6 +288,8 @@ Try to update everything: Wanda, this project and `rabbiteer.py`. If this does n
 
 > :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
 
+- If you experience errors after updating.  compare the personal configuration file `~/.config/tscs/config` with the new one 
+  `~/.config/tscs/config.new` written by the install script. Maybe changes need to be adapted.
 
 - If the install script - or more precise `setup/install_wanda` - terminates with:
   ```

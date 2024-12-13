@@ -1,6 +1,5 @@
 echo
-echo 'Preparing image for host (supportconfig) container'
-echo '--------------------------------------------------'
+echo 'Pull image for host (supportconfig) container'
+echo '---------------------------------------------'
 
-# Build the tcsc_host image.
-docker build -t tscs_host -f Dockerfile.host . || exit 1
+docker image pull ghcr.io/scmschmidt/tcsc_host:latest || exit 1

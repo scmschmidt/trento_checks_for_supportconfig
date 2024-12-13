@@ -1,15 +1,7 @@
 # ToDo
 
 - Very Soon:
-
-  - Rework install and uninstall:
-    - Write detailed  README section about installation and uninstallation.
-    - Create step for creating a directory-based check container (Trento check development)
-    - Create steps to build images for the host and `tcsc` command and publish on GHCR.
-    - Create steps to download host and cmd image from GHCR and integrate them into install/uninstall.
-    - Support switching between rolling and released version in Dockerfile.  
-  - Check if all created docker resources really get removed.
-
+    
   - Checkout supportfiles for being candidates.
     - `disp+work` \
       `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 
@@ -20,9 +12,9 @@
       `plugin-ha_sap.txt` might contain data. 
     - Checkout `ascsers_cluster` gatherer. 
     - Try to get into the supportconfig:
-    - some `saptune` output in JSON
-    - output of `corosync-cmapctl -b`
-    - content of files below `/etc/products.d/`
+      - some `saptune` output in JSON
+      - output of `corosync-cmapctl -b`
+      - content of files below `/etc/products.d/`
 
   - Implement new checks (requires new environments besides provider).  
 

@@ -1,11 +1,10 @@
 #!/bin/bash
 
 echo
-echo 'Pull image for the tcsc command container'
-echo '-----------------------------------------'
+echo 'Preparing image for the tcsc command container'
+echo '----------------------------------------------'
 
-docker image pull ghcr.io/scmschmidt/tcsc_cmd:latest || exit 1
-
+docker build -t tscs_cmd -f Dockerfile.cmd . || exit 1
 
 echo
 echo 'Creating tcsc config file'

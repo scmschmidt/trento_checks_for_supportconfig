@@ -1,7 +1,11 @@
 #!/bin/bash
 
+# Use first image found.
+cmd_image=$(docker images --no-trunc  --format="{{.ID}}" --filter label=com.suse.tcsc.stack=cmd | head -n 1)
+
+# Run container.
 docker run --rm \
-           --name tscs_cmd \
+           --name tcsc_cmd \
            -v /var/run/docker.sock:/var/run/docker.sock \
            -v /:/hostfs:ro \
            --user $(id -u):$(id -g) \
@@ -10,4 +14,5 @@ docker run --rm \
            --env HOST_ROOT_FS=/hostfs \
            --network=tcsc_default \
            -it \
-           tscs_cmd "$@"
+           "${cmd_image}" "$@"
+           #tscs_cmd "$@"

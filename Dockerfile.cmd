@@ -1,7 +1,7 @@
 #FROM python:3.14.0a2-slim-bookworm
 FROM python:3-slim
 
-LABEL com.suse.tcsc.stack="tcsc_cmd"
+LABEL com.suse.tcsc.stack="cmd"
 
 # Copy the tcsc Python files and rabbiteer into the image.
 COPY src/* /
