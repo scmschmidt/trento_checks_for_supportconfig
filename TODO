@@ -1,7 +1,7 @@
 # ToDo
 
 - Very Soon:
-    
+  - @ support for each host cmd?
   - Checkout supportfiles for being candidates.
     - `disp+work` \
       `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 

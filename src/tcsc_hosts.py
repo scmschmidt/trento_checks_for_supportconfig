@@ -54,7 +54,7 @@ class HostsStack():
                 raise HostsException(f'"Start timeout of {self.start_timeout}s reached. {host.name}" stopped running.')
             time.sleep(.2)
 
-    def create(self, hostgroup: str, name: str, host_description: Dict) -> str:
+    def create(self, hostgroup: str, name: str, host_description: Dict, environment: Dict[str, str]) -> str:
         """Creates and starts a new host container for the requested group and returns its name."""
 
         dbus_uuid, agent_id = self._generate_id()
@@ -84,7 +84,12 @@ class HostsStack():
                       'com.suse.tcsc.hostname': name,
                       'com.suse.tcsc.supportfiles': supportconfig_path,
                       'com.suse.tcsc.supportconfig': supportconfig_path,
-                      'com.suse.tcsc.env.provider': host_description['provider'],
+                      'com.suse.tcsc.env.provider': environment['provider'] if 'provider' in environment else host_description['provider'],
+                      'com.suse.tcsc.env.target_type': environment['target_type'] if 'target_type' in environment else host_description['target_type'],
+                      'com.suse.tcsc.env.cluster_type': environment['cluster_type'] if 'cluster_type' in environment else host_description['cluster_type'],
+                      'com.suse.tcsc.env.architecture_type': environment['architecture_type'] if 'architecture_type' in environment else host_description['architecture_type'],
+                      'com.suse.tcsc.env.ensa_version': environment['ensa_version'] if 'ensa_version' in environment else host_description['ensa_version'],
+                      'com.suse.tcsc.env.filesystem_type': environment['filesystem_type'] if 'filesystem_type' in environment else host_description['filesystem_type'],                      
                       'com.suse.tcsc.uuid': self.id,
                       'com.suse.tcsc.agent_id': agent_id
                      },
@@ -97,6 +102,8 @@ class HostsStack():
         """Starts all hosts of given host group and returns the success."""
 
         for container in self.filter_containers(filter={'hostgroup': hostgroup}):
+            if container['container'].status == 'running':
+                return True
             container['container'].start()
             self._wait4start(container['container'])
 
@@ -139,7 +146,6 @@ class HostsStack():
             scanned_hosts[container['name']] = state
         return scanned_hosts
 
-
     def logs(self, containername: str) -> List[str]:
         """Retrieves log for given container name."""
         
@@ -158,6 +164,11 @@ class HostsStack():
                  'supportfiles': container.labels.get('com.suse.tcsc.supportfiles') or '-',
                  'supportconfig': container.labels.get('com.suse.tcsc.supportconfig') or '-',
                  'provider': container.labels.get('com.suse.tcsc.env.provider') or 'default',
+                 'target_type': container.labels.get('com.suse.tcsc.env.target_type') or '-',
+                 'cluster_type': container.labels.get('com.suse.tcsc.env.cluster_type') or '-',
+                 'architecture_type': container.labels.get('com.suse.tcsc.env.architecture_type') or '-',
+                 'ensa_version': container.labels.get('com.suse.tcsc.env.ensa_version') or '-',
+                 'filesystem_type': container.labels.get('com.suse.tcsc.env.filesystem_type') or '-',
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',
                  'hostname': container.labels.get('com.suse.tcsc.hostname') or '-',
                  'status': container.status or 'unknown',

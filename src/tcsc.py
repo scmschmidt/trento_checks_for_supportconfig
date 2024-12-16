@@ -37,6 +37,11 @@ Changelog:
                             - support supportconfig directories too
                             - fixed bug: hosts status ignored given host group
                             - string decoding not utf-8 per default but sys.getdefaultencoding()
+16.12.2024      v1.3        - all Trento check environment entries are now set as label for host
+                              containers with no auto detection from supportconfig except provider
+                            - hosts status details contain environment entries
+                            - starting and creating hosts are two commands now
+                            - host environment entries can be overridden on creation
 """
 
 import argparse
@@ -56,7 +61,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.2'
+__version__ = '1.3'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -73,10 +78,11 @@ class ArgParser(argparse.ArgumentParser):
         text = f'''
                 Usage:  {prog} -h|--help
                         {prog} [-j|--json] [-c|--config CONFIG] wanda start|status|stop
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts start GROUPNAME [SUPPORTFILE ...]
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE ...
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts start GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts rescan GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts stop GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] [GROUPNAME] 
+                        {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] GROUPNAME]
                         {prog} [-j|--json] [-c|--config CONFIG] hosts remove GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
                         {prog} [-j|--json] [-c|--config CONFIG] checks list [-d]
@@ -114,16 +120,22 @@ class ArgParser(argparse.ArgumentParser):
                         Manages the containers which simulate the hosts based on the
                         supportfiles.
                     
+                        create      creates a hostgroup and starts container
                         start       starts hostgroup containers
                         status      prints the status of host group containers
+                        setenv      sets environment entries required by checks
                         stop        stops hostgroup containers
                         rescan      reloads supportfiles into the host containers
                     
-                        GROUPNAME       arbitrary name for the hostgroup
-                        SUPPORTFILE     a supportfile (e.g. supportconfig)
-                        CONTAINERNAME   name of the host container
-                        -d, --details   prints more details about the container
-                        -l, --lines N   limits log output to the last N lines
+                        GROUPNAME           arbitrary name for the hostgroup
+                        SUPPORTFILE         a supportfile (e.g. supportconfig)
+                        CONTAINERNAME       name of the host container
+                        -e, --env KEY=VALUE environment entry key-value pair
+                                            available keys: provider, target_type, cluster_type,
+                                            architecture_type, ensa_version, mixed_versions,
+                                            filesystem_type
+                        -d, --details       prints more details about the container
+                        -l, --lines N       limits log output to the last N lines
                         
                     checks:
                     
@@ -212,6 +224,7 @@ def argument_parse() -> dict:
     hosts_commands = hosts.add_subparsers(dest='host_commands', metavar='start|stop|rescan|remove|status|logs')
     hosts_commands.required = True
  
+    hosts_create = hosts_commands.add_parser('create', help='Creates host group.')
     hosts_start = hosts_commands.add_parser('start', help='Starts host group.')
     hosts_stop = hosts_commands.add_parser('stop', help='Stops host group.')
     hosts_rescan = hosts_commands.add_parser('rescan', help='Reloads the supportfiles.')
@@ -219,26 +232,33 @@ def argument_parse() -> dict:
     hosts_status = hosts_commands.add_parser('status', help='Prints status of hosts.')
     hosts_logs = hosts_commands.add_parser('logs', help='Lists logs of a host container.')
     
-    for p in  hosts_start, hosts_stop, hosts_rescan, hosts_remove:
+    for p in  hosts_create, hosts_start, hosts_stop, hosts_rescan, hosts_remove:
         p.add_argument(metavar='GROUPNAME',
                        dest='hostgroup',
                        help='name of the host group')
+        
     hosts_status.add_argument(metavar='GROUPNAME',
                               nargs='?',
                               dest='hostgroup',
                               help='name of the host group')
     
-    hosts_start.add_argument(metavar='SUPPORTFILE',
-                             dest='supportfiles',
-                             nargs='*',
-                             help='supportfiles (like supportconfig)')
+    hosts_create.add_argument(metavar='SUPPORTFILE',
+                              dest='supportfiles',
+                              nargs='+',
+                              help='supportfiles (like supportconfig)')
+    
+    hosts_create.add_argument('-e', '--env',
+                              action='append',
+                              dest='envpairs',
+                              default=[],
+                              help='environment entry key-value pair')
  
     hosts_status.add_argument('-d', '--details',
                               dest='host_details',
                               action='store_true',
                               required=False,
                               help='shows more details.')  
-        
+
     hosts_logs.add_argument(metavar='CONTAINERNAME',
                              dest='containername',
                              help='name of the host container')    
@@ -300,6 +320,30 @@ def argument_parse() -> dict:
         args_parsed = parser.parse_args()
     except SystemExit:
         sys.exit(12)
+        
+    # Validate environment key value pairs.
+    if 'envpairs' in args_parsed and args_parsed.envpairs:
+        pairs = {'provider': ['azure', 'aws', 'gcp', 'kvm', 'nutanix', 'vmware', 'unknown'], 
+                 'target_type': ['cluster', 'host'], 
+                 'cluster_type': ['hana_scale_up', 'hana_scale_out', 'ascs_ers'], 
+                 'architecture_type': ['classic', 'angi'], 
+                 'ensa_version': ['ensa1', 'ensa2', 'mixed_versions'], 
+                 'filesystem_type': ['resource_managed', 'simple_mount', 'mixed_fs_types']
+        }
+        entries = {}
+        for pair in args_parsed.envpairs:
+            if '=' not in pair:
+                print(f'Error in pair "{pair}".', file=sys.stderr)
+                sys.exit(1)        
+            key, value = pair.split('=')
+            if key not in pairs:
+                print(f'Unsupported key "{key}".', file=sys.stderr)
+                sys.exit(1) 
+            if value not in pairs[key]:
+                print(f'Unsupported value "{value}" for "{key}".', file=sys.stderr)
+                sys.exit(1) 
+            entries[key] = value
+        args_parsed.envpairs = entries
     
     try:
         if args_parsed.last_lines < 0:
@@ -377,26 +421,15 @@ def wanda_status(wanda: WandaStack) -> bool:
     
     return True if wanda.status and volumes_ok else False
     
-
-def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> bool:
-    """Starts a host container with the given supportfiles as member of the given host group."""
+    
+def hosts_create(hosts: HostsStack, hostgroup: str, envpairs: Dict[str,str], supportfiles: List[str]) -> bool:
+    """Creates and starts a host container with the given supportfiles as member of the given host group."""
 
     if hostgroup in hosts.hostgroups:
-        if supportfiles:
-            CLI.print_warn(f'Starting existing host group "{hostgroup}". Supportfiles are ignored!')
-        if hosts.start_hostgroup(hostgroup):
-            CLI.print_ok(f'Host group "{hostgroup}" started!')
-            CLI.print_json({'success': True})
-            return True        
-        else:
-            CLI.print_fail(f'Could not start host group "{hostgroup}!')
-            CLI.print_json({'success': False})
-            return False    
+        CLI.print_fail(f'Host group "{hostgroup}" already exists!')
+        CLI.print_json({'success': False})
+        return False
     else:
-        if not supportfiles:
-            CLI.print_fail(f'No support files given!')
-            CLI.print_json({'success': False, 'error': 'No support files given!'})
-            return False
         sf = SupportFiles(supportfiles)
         if sf.issues:
             for issue in sf.issues:
@@ -406,7 +439,7 @@ def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> b
 
         json_obj = {'success': True, 'started': [], 'failed': []}
         for host in sf.result:
-            hostname = hosts.create(hostgroup, host, sf.result[host])
+            hostname = hosts.create(hostgroup, host, sf.result[host], envpairs)   # ADD ENV RO OVERWRITE
             if hostname:
                 CLI.print_ok(f'Host container "{hostname}" started!')
                 json_obj['started'].append(hostname)
@@ -420,6 +453,25 @@ def hosts_start(hosts: HostsStack, hostgroup: str, supportfiles: List[str]) -> b
     return True
 
 
+def hosts_start(hosts: HostsStack, hostgroup: str) -> bool:
+    """Starts existing host containers of the given host group."""
+
+    if hostgroup in hosts.hostgroups:
+
+        if hosts.start_hostgroup(hostgroup):
+            CLI.print_ok(f'Host group "{hostgroup}" started.')
+            CLI.print_json({'success': True})
+            return True        
+        else:
+            CLI.print_fail(f'Could not start host group "{hostgroup}!')
+            CLI.print_json({'success': False})
+            return False
+        
+    CLI.print_fail(f'Unknown host group "{hostgroup}!')
+    CLI.print_json({'success': False})
+    return False
+        
+
 def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bool:
     """Prints the status of the host containers for all/requested host groups on screen
     and returns operational state."""
@@ -427,6 +479,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
     overall_state = True
 
     json_obj = {}
+        
     for group in hosts.hostgroups:
         
         if hostgroup and group != hostgroup:
@@ -438,6 +491,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
         output = []
 
         for host in hosts.filter_containers(filter={'hostgroup': group}, sortkey='hostgroup'):
+            
             host_status = {'name': host['name'], 
                         'status': CLI.ok if host['status'] == 'running' else CLI.error,
                         'status_text': host['status']
@@ -446,7 +500,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider':
+                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider', 'target_type', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):
@@ -466,7 +520,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
     CLI.print_json(json_obj)
    
     return overall_state
-        
+  
 
 def hosts_stop(hosts: HostsStack, hostgroup: str) -> bool:
     """Stops host containers of a given hostgroup."""
@@ -803,15 +857,20 @@ def main() -> None:
             
             hosts = HostsStack(config)
             
-            # tcsc hosts start GROUPNAME [SUPPORTFILE...]
+            # tcsc hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE... 
+            if arguments.host_commands == 'create':
+                wanda_must_run(wanda, config.wanda_autostart)
+                sys.exit(0) if hosts_create(hosts, arguments.hostgroup, arguments.envpairs, arguments.supportfiles) else sys.exit(5)
+
+            # tcsc hosts start GROUPNAME
             if arguments.host_commands == 'start':
                 wanda_must_run(wanda, config.wanda_autostart)
-                sys.exit(0) if hosts_start(hosts, arguments.hostgroup, arguments.supportfiles) else sys.exit(5)
-                
+                sys.exit(0) if hosts_start(hosts, arguments.hostgroup) else sys.exit(5)
+                                
             # tcsc hosts status [GROUPNAME]
             elif arguments.host_commands == 'status':
                 sys.exit(0) if hosts_status(hosts, arguments.hostgroup, arguments.host_details) else sys.exit(5)
-                
+
             # tcsc hosts stop GROUPNAME
             elif arguments.host_commands == 'stop':
                     sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)

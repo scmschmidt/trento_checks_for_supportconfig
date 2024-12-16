@@ -53,6 +53,13 @@ class SupportFiles():
                     host_provider = 'azure'
                 else:
                     host_provider = 'default'
+                    
+                # TODO: Add auto detection.
+                target_type = None
+                cluster_type = None
+                architecture_type = None
+                ensa_version = None
+                filesystem_type = None
                 
                 if hostname in self.result:
                     raise SupportFileException(f'{hostname} already present. Is "{file}" used twice?')
@@ -63,8 +70,13 @@ class SupportFiles():
                     raise SupportFileException(f'Mixing providers is not allowed. Previous supportconfigs have "{provider}", but "{file} has "{host_provider}".')
                 
                 self.result[hostname] = {'provider': host_provider,
-                                    'supportconfig': file
-                                    }    
+                                         'target_type': target_type,
+                                         'cluster_type': cluster_type,
+                                         'architecture_type': architecture_type,
+                                         'ensa_version': ensa_version,
+                                         'filesystem_type': filesystem_type,
+                                         'supportconfig': file
+                                        }    
             except Exception as err:
                         self.issues.append(err)
 

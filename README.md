@@ -61,7 +61,7 @@ Do the following steps as normale user:
    > The default always uses registry.opensuse.org/devel/sap/trento/factory/containers/trento containing the rolling release. To use a different, run: `WANDA_REGISTRY=... ./install`
    > The registry for the released version is registry.suse.com/trento.
 
-   > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script will put the new one as `~/.config/tscs/config.new`.
+   > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script puts the new one as `~/.config/tscs/config.new`.
    > Verify if changes need to be adapted.
 
    > :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
@@ -132,24 +132,37 @@ tcsc wanda stop
 
 ### Manage Hosts (supportconfig Containers)
 
-To run checks, for each supportconfig an individual (host) container must be started. Such a container runs the `trento-agent` inside and connects to Wanda. To Wanda the container is simply a host which shall be checked. Therefore the content of the supportconfig as well as all the additional support files are placed inside the container in a way, that the `trento-agent` accepts it as system data. \
-The idea is to "simulate" the customers setup using the support files and let Wanda check it.
+To run checks, for each supportconfig an individual (host) container must be started. Such a container runs the `trento-agent` inside and connects to Wanda. For Wanda the container is simply a host which shall be checked. Therefore the content of the supportconfig is placed inside the container in a way, that the `trento-agent` accepts it as system data. The idea is to "simulate" the customers setup using the support and let Wanda check it.
 
 Currently there are two types of Trento checks. Single checks and multi checks. \
-Single checks run only on one individual host, contrary multi checks which need at least two systems (depending on the check of cause) and it most cases compare settings between them.
+Single checks run only on one individual host, contrary to multi checks which need at least two systems (depending on the check of course) and it most cases compare settings between them. \
+As consequence you should always create one host container for each host with the appropriate supportconfig if you deal with a cluster. 
 
-As consequence you should always start one container for each host with the appropriate support files if you deal with a cluster. 
-
-To start a host container, run:
+To create a host container, run:
 ```
-tcsc hosts start GROUPNAME FILE...
+tcsc hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE...
 ```
 
-- `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the correct hosts. Use case numbers, system names, customer names, whatever is semantic.
+- `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the hosts. Use case numbers, system names, customer names, whatever is semantic.
 
-- `FILE` is the support file you wish to be incorporated. In case of a supportconfig it can be the file itself or a directory where the
-  archive has been extracted to.\
-   **Currently only supportconfigs are supported.** In the future, hb_reports, SAP sysinfo reports or SAP trace files can be used too.
+- `SUPPORTFILE` is the supportconfig itself or the directory with the extracted archive.
+  For each supportconfig one host container gets started.
+
+Checks require environment information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information are extracted from the supportconfig and can be checked with `tcsc hosts status -d GROUPNAME`. 
+
+> :exclamation: Currently only `provider` gets detected automatically. All other must either 
+> be given when creating the host group or when the checks get executed.
+
+These information are:
+
+  - `provider`: one of `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `unknown`
+  - `target_type`: one of `cluster`, `host`
+  - `cluster_type`: one of `hana_scale_up`, `hana_scale_out`, `ascs_ers`
+  - `architecture_type`: one of `classic`, `angi`
+  - `ensa_version`: one of `ensa1`, `ensa2`, `mixed_versions`
+  - `filesystem_type`: one of `resource_managed`, `simple_mount`, `mixed_fs_types`
+
+> :bulb: These details (environment) are described in the env section here: https://www.trento-project.io/wanda/specification.html#evaluation-scope 
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
 
@@ -162,7 +175,7 @@ and
 tcsc hosts remove GROUPNAME
 ```
 
-> :bulb: A `stop` only stops the container, but leaves the images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The support files are not read again.
+> :bulb: A `stop` only stops the container, but leaves the container images, so they can be started later again simply with: `tcsc hosts start GROUPNAME`. The support files are not read again.
 
 > :wrench: Example for a HA cluster:
 > ```
@@ -183,7 +196,7 @@ Anytime you can get an overview about your running host containers with:
 tcsc hosts status [GROUPNAME]
 ```
 
-> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint).
+> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint), the environment date (provider, cluster type, etc.) and the manifest (extracted information from the support files).
 
 The supportfiles are only read once when the host container is created. A restart of an existing host container does not reread the files,
 but it can be triggered with:
