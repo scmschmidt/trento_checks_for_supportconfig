@@ -9,7 +9,7 @@ import shlex
 import sys
 import termcolor
 import json
-from typing import TextIO, List
+from typing import TextIO, List, Dict
        
                    
 class CLI():
@@ -56,6 +56,33 @@ class CLI():
         if not cls.json:
             print(termcolor.colored(text, 'green', no_color=cls.no_color), file=file)
 
+    @classmethod
+    def print_keyvalue_pairs(cls, pairs: Dict[str, str], file: TextIO = sys.stdout) -> None:
+        """Prints key-value pairs formatted."""
+                
+        if cls.json:
+            return
+        
+        k_len, k_len2 = 0, 0
+        output = []
+        for k, v in pairs.items():
+            if isinstance(v, list):
+                v = ', '.join(v)
+            k_str = termcolor.colored(k, 'grey', no_color=cls.no_color)
+            v_str = termcolor.colored(v, 'white', no_color=cls.no_color)
+            k_len = max(k_len, len(k_str))
+            k_len2 = max(k_len2, len(k))
+            output.append((k_str, v_str))
+  
+        print(file=file)
+        for pair in output:
+            k, v = pair
+            if isinstance(v, str) and '\n' in v:
+                indent = f'''\n{k_len2*' '}  '''
+                v = v.replace('\n', indent)
+            print(f'{k:<{k_len}}: {v}', file=file)
+        print(file=file)
+                    
     @classmethod
     def print_status(cls, status_object: List[dict], status_first: bool = True, file: TextIO = sys.stdout) -> None:
         """Prints status object.

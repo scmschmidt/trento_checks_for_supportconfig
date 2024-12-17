@@ -101,6 +101,14 @@ class WandaStack():
 
         return [Check(c, attributes) for c in self._rabbiteer.list_catalog().get('items')]   
        
+    def check(self, check: str, attributes: List[str] = None) -> List[dict]:
+        """Returns (first) Check instance for given check (content of 'items').
+        The Check instance will have only the requested attributes.""" 
+        try:
+            return [Check(c, attributes) for c in self._rabbiteer.list_catalog().get('items') if check == c['id']][0]   
+        except:
+            return None
+       
     def start(self) -> List[str]:
         """Initiate start of Wanda containers. Only containers, which are in the states
         'exited' or 'created' are going to be started. The method will *not* wait for 
@@ -197,6 +205,9 @@ class Check():
                         'group': 'group', 
                         'metadata.provider': 'provider', 
                         'metadata.cluster_type': 'cluster_type', 
+                        'metadata.architecture_type': 'architecture_type',
+                        'metadata.ensa_version': 'ensa_version',
+                        'metadata.filesystem_type': 'filesystem_type',
                         'facts[].gatherer': 'gatherer',
                         'expectations[].type': 'check_type',
                         'remediation': 'remediation'

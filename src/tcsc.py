@@ -42,6 +42,10 @@ Changelog:
                             - hosts status details contain environment entries
                             - starting and creating hosts are two commands now
                             - host environment entries can be overridden on creation
+                            - `checks list` shows all environment entries
+                            - `checks list` shows only supported checks except newly introduced
+                              --a|--all is given
+                            - introduce `checks show` command
 """
 
 import argparse
@@ -85,7 +89,8 @@ class ArgParser(argparse.ArgumentParser):
                         {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] GROUPNAME]
                         {prog} [-j|--json] [-c|--config CONFIG] hosts remove GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] checks list [-d]
+                        {prog} [-j|--json] [-c|--config CONFIG] checks list [-d|--details] [-a|--all]
+                        {prog} [-j|--json] [-c|--config CONFIG] checks show CHECK
                         {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -g|--group GROUP... GROUPNAME
                         {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -c|--check CHECK... GROUPNAME
 
@@ -130,10 +135,9 @@ class ArgParser(argparse.ArgumentParser):
                         GROUPNAME           arbitrary name for the hostgroup
                         SUPPORTFILE         a supportfile (e.g. supportconfig)
                         CONTAINERNAME       name of the host container
-                        -e, --env KEY=VALUE environment entry key-value pair
-                                            available keys: provider, target_type, cluster_type,
-                                            architecture_type, ensa_version, mixed_versions,
-                                            filesystem_type
+                        -e, --env KEY=VALUE environment entry key-value pair with keys:
+                                            provider, cluster_type, architecture_type,
+                                            ensa_version, mixed_versions, filesystem_type
                         -d, --details       prints more details about the container
                         -l, --lines N       limits log output to the last N lines
                         
@@ -142,10 +146,12 @@ class ArgParser(argparse.ArgumentParser):
                         Lists and executes Trento checks.                        
 
                         list        lists all available checks
+                        show        shows check
                         run         execute supported checks
                         
                         GROUPNAME                arbitrary name for the hostgroup
-                        -d, --details            prints more details about the check 
+                        -d, --details            prints more details about the check
+                        -a, --all                shows all checks 
                         -p, --provider PROVIDER  the provider (infrastructure)
                         -f, --failure-only       print only checks which did not pass
                         -g, --group GROUP        run only checks from that Trento check group
@@ -271,7 +277,7 @@ def argument_parse() -> dict:
         
     # Selector: checks
     checks = selectors.add_parser('checks',  help='Manages checks.')
-    checks_commands = checks.add_subparsers(dest='checks_commands', metavar='list|run')
+    checks_commands = checks.add_subparsers(dest='checks_commands', metavar='list|show|run')
     checks_commands.required = True
     
     checks_list = checks_commands.add_parser('list', help='Lists available checks.')
@@ -281,6 +287,17 @@ def argument_parse() -> dict:
                              action='store_true',
                              required=False,
                              help='shows more details.') 
+    checks_list.add_argument('-a', '--all',
+                             dest='show_all',
+                             action='store_true',
+                             required=False,
+                             help='shows more details.')
+    
+    checks_show = checks_commands.add_parser('show', help='Shows check.')
+    
+    checks_show.add_argument(metavar='CHECK',
+                             dest='check',
+                             help='name of the check')
     
     checks_run = checks_commands.add_parser('run', help='Runs Trento checks.')
     
@@ -324,7 +341,6 @@ def argument_parse() -> dict:
     # Validate environment key value pairs.
     if 'envpairs' in args_parsed and args_parsed.envpairs:
         pairs = {'provider': ['azure', 'aws', 'gcp', 'kvm', 'nutanix', 'vmware', 'unknown'], 
-                 'target_type': ['cluster', 'host'], 
                  'cluster_type': ['hana_scale_up', 'hana_scale_out', 'ascs_ers'], 
                  'architecture_type': ['classic', 'angi'], 
                  'ensa_version': ['ensa1', 'ensa2', 'mixed_versions'], 
@@ -500,7 +516,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider', 'target_type', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type':
+                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):
@@ -624,19 +640,22 @@ def hosts_logs(hosts: HostsStack, containername: str, last_lines: int) -> None:
     CLI.print_json(json_obj)
     
 
-def checks_list(wanda: WandaStack, details: bool = False) -> None:
+def checks_list(wanda: WandaStack, details: bool = False, show_all: bool = False) -> None:
     """Prints the checks on screen returned by Wanda."""
 
     requested_attributes = ['id', 
                             'description', 
                             'group', 
                             'metadata.provider', 
-                            'metadata.cluster_type', 
+                            'metadata.cluster_type',
+                            'metadata.architecture_type',
+                            'metadata.ensa_version',
+                            'metadata.filesystem_type',
                             'facts[].gatherer',
                             'expectations[].type',
                            ] if details else ['id', 'description', 'group']
     check_counter, supported, unsupported, unknown  = 0, 0, 0, 0
-       
+
     check_groups = {}
 
     for check in wanda.checks(requested_attributes):
@@ -665,7 +684,10 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                 unknown += 1
                 status = CLI.warn
                 status_text = 'unknown'
-                
+            
+            if support != 'yes' and not show_all:
+                continue
+            
             check_output = {'name': f'{check.id} - {check.description}', 
                             'status': status,
                             'status_text': status_text 
@@ -673,7 +695,7 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
             check_json = {'name': f'{check.id} - {check.description}', 'status': status}
             if details:
                 check_output['details'] = {}
-                for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'gatherer']:
+                for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'gatherer']:
                     value = getattr(check, attribute)
                     if isinstance(value, list):
                         value = ' '.join(set(value))
@@ -693,6 +715,34 @@ def checks_list(wanda: WandaStack, details: bool = False) -> None:
                         }
     CLI.print_json(json_obj) 
     CLI.print_info(f'{check_counter} checks available ({supported=} {unsupported=} {unknown=}).')
+
+
+def checks_show(wanda: WandaStack, check: str) -> None:
+    """Shows given check on screen returned by Wanda."""
+
+    requested_attributes = ['id', 
+                            'description', 
+                            'group', 
+                            'metadata.provider', 
+                            'metadata.cluster_type',
+                            'metadata.architecture_type',
+                            'metadata.ensa_version',
+                            'metadata.filesystem_type',
+                            'facts[].gatherer',
+                            'expectations[].type',
+                            'remediation'
+                           ]
+    check_details = wanda.check(check, requested_attributes)
+    
+    json_obj = []
+    output = {}
+    if check_details:
+        for attribute in ['id', 'description', 'group', 'tcsc_support', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'gatherer', 'remediation']:
+            value = getattr(check_details, attribute)
+            output[attribute] = value
+            json_obj.append(f'{attribute}: {value}')
+    CLI.print_keyvalue_pairs(output)
+    CLI.print_json(json_obj) 
 
 
 def checks_run(wanda: WandaStack, 
@@ -892,10 +942,15 @@ def main() -> None:
             wanda_must_run(wanda, config.wanda_autostart)
             hosts = HostsStack(config)
                             
-            # tcsc wanda checks [-d|--details]
+            # tcsc checks list [-d|--details] [-a|--all]
             if arguments.checks_commands == 'list':
-                checks_list(wanda, arguments.check_details)
+                checks_list(wanda, arguments.check_details, arguments.show_all)
                 sys.exit(0)  
+                
+            # tcsc checks show CHECK
+            if arguments.checks_commands == 'show':
+                checks_show(wanda, arguments.check)
+                sys.exit(0) 
                 
             # tcsc checks run [-r|--response] [-p|--provider PROVIDER] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
             if arguments.checks_commands == 'run':

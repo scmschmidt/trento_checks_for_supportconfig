@@ -55,7 +55,6 @@ class SupportFiles():
                     host_provider = 'default'
                     
                 # TODO: Add auto detection.
-                target_type = None
                 cluster_type = None
                 architecture_type = None
                 ensa_version = None
@@ -70,7 +69,6 @@ class SupportFiles():
                     raise SupportFileException(f'Mixing providers is not allowed. Previous supportconfigs have "{provider}", but "{file} has "{host_provider}".')
                 
                 self.result[hostname] = {'provider': host_provider,
-                                         'target_type': target_type,
                                          'cluster_type': cluster_type,
                                          'architecture_type': architecture_type,
                                          'ensa_version': ensa_version,
