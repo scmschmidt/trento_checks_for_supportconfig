@@ -182,22 +182,37 @@ class Check():
     The representation reads takes the original dictionary created from JSON
     and creates a reduced flat dictionary with only the parts required."""
  
-    _known_gatherers = ['cibadmin@v1',
-                        'corosync-cmapctl@v1',
-                        'corosync.conf@v1',
-                        'hosts@v1',
-                        'package_version@v1',
-                        'saphostctrl@v1',
-                        'sbd_config@v1',
-                        'sbd_dump@v1',
-                        'systemd@v1',
-                        'verify_password@v1'
+    _known_gatherers = ['cibadmin', 'cibadmin@v1',
+                        'corosync-cmapctl', 'corosync-cmapctl@v1',
+                        'corosync.conf', 'corosync.conf@v1',
+                        'hosts', 'hosts@v1',
+                        'package_version', 'package_version@v1', 
+                        'saphostctrl', 'saphostctrl@v1',
+                        'sbd_config', 'sbd_config@v1',
+                        'sbd_dump', 'sbd_dump@v1',
+                        'systemd', 'systemd@v1', 'systemd@v2',
+                        'verify_password', 'verify_password@v1',
+                        'ascsers_cluster', 'ascsers_cluster@v1',
+                        'sap_profiles', 'sap_profiles@v1',
+                        'passwd', 'passwd@v1',
+                        'groups', 'groups@v1',
+                        'dir_scan', 'dir_scan@v1',
+                        'sapservices', 'sapservices@v1',
+                        'saptune', 'saptune@v1',
+                        'sapcontrol', 'sapcontrol@v1',
+                        'fstab', 'fstab@v1',
+                        'disp+work', 'disp+work@v1'
                        ]
-    _valid_gatherers = ['cibadmin@v1',
-                        'corosync.conf@v1', 
-                        'package_version@v1',
-                        'sbd_config@v1',
-                        'sbd_dump@v1',
+    _valid_gatherers = ['cibadmin', 'cibadmin@v1',
+                        'corosync.conf', 'corosync.conf@v1', 
+                        'package_version', 'package_version@v1',
+                        'sbd_config', 'sbd_config@v1',
+                        'sbd_dump', 'sbd_dump@v1',
+                        'sap_profiles', 'sap_profiles@v1',
+                        'dir_scan', 'dir_scan@v1',
+                        'sapservices', 'sapservices@v1',
+                        'saptune', 'saptune@v1',
+                        'fstab', 'fstab@v1'
                        ]
    
     _attribute_table = {'id': 'id', 

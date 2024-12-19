@@ -47,7 +47,6 @@ Changelog:
                               --a|--all is given
                             - introduce `checks show` command
                             - `checks run` reworked 
-
 """
 
 import argparse

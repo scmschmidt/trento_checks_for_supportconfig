@@ -1,9 +1,11 @@
 # ToDo
 
 - Very Soon:
-  - Rework `checks run`:
-    - manifest integration
-
+  - `process_supportfiles`:
+    - implement and test saptune 
+    - test missing files and commands having missing files 
+  -Add to `checks run`:
+    - a manifest integration (gatherer level? check level (dir)?)
   - Checkout supportfiles for being candidates.
     - `disp+work` \
       `plugin-ha_sap.txt` contains `/usr/sap/hostctrl/exe/saphostexec -version |tail -30`, which might 
@@ -14,7 +16,6 @@
       `plugin-ha_sap.txt` might contain data. 
     - Checkout `ascsers_cluster` gatherer. 
     - Try to get into the supportconfig:
-      - some `saptune` output in JSON
       - output of `corosync-cmapctl -b`
       - content of files below `/etc/products.d/`
 
@@ -29,8 +30,6 @@
 - Later:
   - Provide check development supportconfigs for a cluster.
   - Finish Trento check development document.
-  - Select simple and multi checks per option (for people who want to group non-related supportconfig in one host group).
-  
 
 - Much Later:
   - Auto-detection of other Trento environments as provider should be implemented and attached to host infos to be used in checks.

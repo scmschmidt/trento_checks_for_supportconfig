@@ -37,7 +37,7 @@ else
     echo "${SUPPORTCONFIG} is neither file nor directory." >&2
     exit 1
 fi
-./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" || exit 1   # hard exit to let host creation fail 
+./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" "${supportconfig_dir}/plugin-ha_sap.txt" "${supportconfig_dir}/fs-diskio.txt"|| exit 1   # hard exit to let host creation fail 
 
 # Copy files from supportconfig into rootfs.
 mkdir /etc/corosync/
@@ -45,6 +45,12 @@ cp -b /rootfs/etc/corosync/corosync.conf /etc/corosync/ ; add_temp_manifest 'cor
 cp -b /rootfs/etc/sysconfig/sbd /etc/sysconfig/ ; add_temp_manifest 'sysconfig_sbd'
 cp -b /rootfs/etc/os-release /etc/ ; add_temp_manifest 'os-release'
 cp -r /rootfs/var/lib/pacemaker /var/lib/ ; add_temp_manifest 'pacemaker_files'
+cp -r /rootfs/usr/sap /usr/ ; add_temp_manifest 'usr_sap'
+cp -r /rootfs/etc/fstab /etc/ ; add_temp_manifest 'fstab'
+
+# Extract sapservices.
+sed -n '/^# \/usr\/bin\/cat \/usr\/sap\/sapservices$/,/^$/p' "${supportconfig_dir}/plugin-ha_sap.txt" | tail -n +2 > /usr/sap/sapservices
+test -e /usr/sap/sapservices ; add_temp_manifest 'sapservices'
 
 # Copy prepared scripts.
 cp /sc/cibadmin /sc/sbd /bin/

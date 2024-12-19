@@ -468,7 +468,7 @@ https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers
 **Chances: :rage:**
 
 This is a complex gatherer and from reading the description it uses a unix socket connection with `/tmp/.sapstream5xx13`.
-Besides the fact, that those data is not part of the supportconfig, this approach would require to write a program that present the data via a socket to the gatherer.
+Besides the fact, that those data might not be part of the supportconfig, this approach would require to write a program that present the data via a socket to the gatherer.
 
 ### `saphostctrl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saphostctrl.go \
@@ -479,10 +479,10 @@ Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless whic
 
 ### `sap_profiles`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
-**Chances: :rage:**
+**Chances: :smiley:**
 
-Returns content of `/sapmnt/<SID>/profile` which is not part of the supportconfig.
-> :exclamation: `plugin-ha_sap.txt` contains some profiles. Worth to check if that is sufficient.
+Returns content of `/sapmnt/<SID>/profile` and instance profiles are part of `plugin-ha_sap.txt`.
+
 
 ### `sapinstance_hostname_resolver`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapinstancehostnameresolver.go \
@@ -492,16 +492,15 @@ Th gatherer needs to be investigated further, but the required data is not part 
 
 ### `sapservices`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
-**Chances: :neutral_face:**
+**Chances: :smiley:**
 
-The `/usr/sap/sapservices` is part of the supportconfig if ???? is installed (`plugin-ha_sap.txt`).
+The `/usr/sap/sapservices` is part of `plugin-ha_sap.txt`.
 
 ### `saptune`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
-**Chances: :neutral_face:**
+**Chances: :neutral_face:/:smiley:**
 
-Calls `saptune --format json` command with limited set of commands. Currently `plugin-saptune.txt` does not contain any JSON output and transform the human-readable output to JSON is hell.
-There are plans to add the JSON output of those commands to `plugin-saptune.txt` for `saptune` 3.2.
+Calls `saptune --format json` command with limited set of commands. The `plugin-saptune.txt` for 3.2 will contain the JSON output. 
 
 ### `sbd_config`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
@@ -535,9 +534,9 @@ The command `getent shadow USER` must work. Since the supportconfig does not con
 
 ### `ascsers_cluster`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/ascsers_cluster.go \
-**Chances: :question:**
+**Chances: :rage:**
 
-Need to ba analyzed.
+At first glance the gatherer requires `sapcontrol` to work and SAP directories to be present. Most probably not working yet.
 
 
 # Configuration File
