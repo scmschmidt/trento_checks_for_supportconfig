@@ -155,7 +155,7 @@ Checks require environment information normally detected by Trento and handed ov
 
 These information are:
 
-  - `provider`: one of `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `unknown`
+  - `provider`: one of `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `default`, `unknown`
   - `cluster_type`: one of `hana_scale_up`, `hana_scale_out`, `ascs_ers`
   - `architecture_type`: one of `classic`, `angi`
   - `ensa_version`: one of `ensa1`, `ensa2`, `mixed_versions`

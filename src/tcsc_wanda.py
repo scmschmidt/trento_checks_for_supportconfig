@@ -153,13 +153,13 @@ class WandaStack():
         
         return stopped
 
-    def execute_check(self, provider: str, agent_ids: List[str], check_id: str) -> Tuple[str, bool]:
-        """Executes check on the given hosts and returns uple with the result of `rabbiteer`
+    def execute_check(self, environment: Dict[str, str], agent_ids: List[str], check_id: str) -> Tuple[str, bool]:
+        """Executes check on the given hosts and returns tuple with the result of `rabbiteer`
         as JSON string and False. In case of an error a tuple with the error string and True."""
         
         try:
             responses = self._rabbiteer.execute_checks(agent_ids, 
-                                                      {'provider': provider}, 
+                                                      environment, 
                                                       [check_id], 
                                                       timeout=self.timeout, 
                                                       running_dots=False)
@@ -253,8 +253,8 @@ class Check():
             raise CheckException(f'Unsupported attributes: {set(attributes) - Check._attribute_table.keys()}')
         
         for key, value in Check._retrieve_attributes(check, attributes).items():
-            if key == 'metadata.provider':
-                if isinstance(value, str):
+            for env in 'metadata.provider', 'metadata.cluster_type', 'metadata.architecture_type', 'metadata.ensa_version', 'metadata.filesystem_type':
+                if key == env and isinstance(value, str):
                     value = [value]
             if key == 'expectations[].type':
                 if len(set(value)) != 1:

@@ -163,10 +163,10 @@ class HostsStack():
                  'supportfiles': container.labels.get('com.suse.tcsc.supportfiles') or '-',
                  'supportconfig': container.labels.get('com.suse.tcsc.supportconfig') or '-',
                  'provider': container.labels.get('com.suse.tcsc.env.provider') or 'default',
-                 'cluster_type': container.labels.get('com.suse.tcsc.env.cluster_type') or '-',
-                 'architecture_type': container.labels.get('com.suse.tcsc.env.architecture_type') or '-',
-                 'ensa_version': container.labels.get('com.suse.tcsc.env.ensa_version') or '-',
-                 'filesystem_type': container.labels.get('com.suse.tcsc.env.filesystem_type') or '-',
+                 'cluster_type': container.labels.get('com.suse.tcsc.env.cluster_type') or None,
+                 'architecture_type': container.labels.get('com.suse.tcsc.env.architecture_type') or None,
+                 'ensa_version': container.labels.get('com.suse.tcsc.env.ensa_version') or None,
+                 'filesystem_type': container.labels.get('com.suse.tcsc.env.filesystem_type') or None,
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',
                  'hostname': container.labels.get('com.suse.tcsc.hostname') or '-',
                  'status': container.status or 'unknown',
@@ -192,9 +192,11 @@ class HostsStack():
             containers.append(container)
         return sorted(containers, key=lambda x: x[sortkey])
     
-    def get_manifest(self, container: docker.models.containers.Container) -> Tuple[int, str, str]:
+    @classmethod
+    def get_manifest(self, container: docker.models.containers.Container) -> Tuple[str, str]:
         """Retrieves the manifest of the given container object. A tuple is returned.
-        If everything went well the tuple is (t)""" 
+        If everything went well the tuple is (True, error message) or (False, command output)
+        if not.""" 
 
         error, stdout, stderr = self._run_cmd(container, ['cat', '/manifest'], exception_on_error=False)
         if error != 0:
@@ -207,6 +209,7 @@ class HostsStack():
             return True, 'Could not parse manifest. Invalid format!'
         return False, manifest, 
     
+    @classmethod
     def _run_cmd(self, 
                  container: docker.models.containers.Container, 
                  command: List[str], 
@@ -227,6 +230,7 @@ class HostsStack():
             raise HostsException(f'''Executing "{' '.join(command)}" on {container.name} failed. Exit code: {error} error:{error_text}''')    
         return error, stdout, stderr 
     
+    @classmethod
     def _generate_id(self) -> Tuple[str]:
         """Return a generated dbus uuid by calling `dbus-uuidgen` and the derived trento-agent id."""
         

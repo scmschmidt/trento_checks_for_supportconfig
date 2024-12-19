@@ -2,11 +2,7 @@
 
 - Very Soon:
   - Rework `checks run`:
-    - use always supported check, that match the given filters as base
-    - replace provider with environment 
-    - skip checks which does not fit the systems (environment)
-    - introduce -a|--all to "run" skipped check with reason for skipping
-    - keep -f|--fail-only to print failed checks
+    - manifest integration
 
   - Checkout supportfiles for being candidates.
     - `disp+work` \

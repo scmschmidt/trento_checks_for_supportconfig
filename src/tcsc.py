@@ -37,7 +37,7 @@ Changelog:
                             - support supportconfig directories too
                             - fixed bug: hosts status ignored given host group
                             - string decoding not utf-8 per default but sys.getdefaultencoding()
-16.12.2024      v1.3        - all Trento check environment entries are now set as label for host
+19.12.2024      v1.3        - all Trento check environment entries are now set as label for host
                               containers with no auto detection from supportconfig except provider
                             - hosts status details contain environment entries
                             - starting and creating hosts are two commands now
@@ -46,6 +46,8 @@ Changelog:
                             - `checks list` shows only supported checks except newly introduced
                               --a|--all is given
                             - introduce `checks show` command
+                            - `checks run` reworked 
+
 """
 
 import argparse
@@ -91,8 +93,8 @@ class ArgParser(argparse.ArgumentParser):
                         {prog} [-j|--json] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
                         {prog} [-j|--json] [-c|--config CONFIG] checks list [-d|--details] [-a|--all]
                         {prog} [-j|--json] [-c|--config CONFIG] checks show CHECK
-                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -g|--group GROUP... GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-p|--provider PROVIDER] [-f|--failure-only] -c|--check CHECK... GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -g|--group GROUP... GROUPNAME
+                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -c|--check CHECK... GROUPNAME
 
                 v{__version__}
             
@@ -152,7 +154,10 @@ class ArgParser(argparse.ArgumentParser):
                         GROUPNAME                arbitrary name for the hostgroup
                         -d, --details            prints more details about the check
                         -a, --all                shows all checks 
-                        -p, --provider PROVIDER  the provider (infrastructure)
+                        -s, --show-skipped       shows also skipped checks
+                        -e, --env KEY=VALUE      environment entry key-value pair with keys:
+                                                 provider, cluster_type, architecture_type,
+                                                 ensa_version, mixed_versions, filesystem_type
                         -f, --failure-only       print only checks which did not pass
                         -g, --group GROUP        run only checks from that Trento check group
                         -c, --check CHECK        run only this check
@@ -304,19 +309,22 @@ def argument_parse() -> dict:
     checks_run.add_argument(metavar='GROUPNAME',
                             dest='hostgroup',
                             help='name of the host group')
-    checks_run.add_argument('-p', '--provider',
-                            metavar='PROVIDER',
-                            dest='provider',
-                            choices=['default','kvm','vmware','azure','aws','gcp'],
-                            default='default',
-                            type=str,
-                            required=False,
-                            help='provider to use for the check')
+    checks_run.add_argument('-e', '--env',
+                            action='append',
+                            dest='envpairs',
+                            default=[],
+                            help='environment entry key-value pair')
     checks_run.add_argument('-f', '--failure-only',
                             dest='failure_only',
                             action='store_true',
                             required=False,
                             help='returns only results that have not passed')
+    checks_run.add_argument('-s', '--show-skipped',
+                            dest='show_skipped',
+                            action='store_true',
+                            required=False,
+                            help='shows skipped checks too')
+    
     run_exclusive = checks_run.add_mutually_exclusive_group()
     run_exclusive.add_argument('-g', '--group',
                                metavar='GROUP',
@@ -748,9 +756,10 @@ def checks_show(wanda: WandaStack, check: str) -> None:
 def checks_run(wanda: WandaStack, 
                hosts: HostsStack,
                hostgroup: str, 
-               provider: str, 
+               envpairs: Dict[str, str], 
                check_groups: List[str],
                requested_checks: List[str],
+               show_skipped: bool,
                failure_only: bool) -> bool:
     """Executed the requested checks."""
     
@@ -761,98 +770,124 @@ def checks_run(wanda: WandaStack,
                     }
     json_obj = {}
     
-    # Build host target list.
+    # Build host target list, a mapping from agent id to host name
+    # and the environment entry dict for the entire hostgroup.
     targets = []
     agent2host = {}
+    hostgroup_env = {}
     for host in hosts.filter_containers({'hostgroup': hostgroup}):
         if host['status'] != 'running':
-            err_text = f'''Host "{host['name']}" is not running, but has status "{host['status']}".'''
+            err_text = f'''Host "{host['hostname']}" is not running, but has status "{host['status']}".'''
             CLI.print_fail(err_text)
             CLI.print_json({'success': False, 'error': err_text})
             return False
+        err, result = hosts.get_manifest(host['container'])
+        if err:
+            err_text = f'''Could not retrieve manifest from host "{host['hostname']}": {result}".'''
+            CLI.print_fail(err_text)
+            CLI.print_json({'success': False, 'error': err_text})       
+        host['manifest'] = result
+        for env in 'provider', 'architecture_type', 'ensa_version', 'filesystem_type':
+            value = envpairs[env] if env in envpairs else host[env]
+            if value:  # only environments which are set
+                if env in hostgroup_env:
+                    if hostgroup_env[env] != value:
+                        err_text = f'''Value of "{env}" differs for host "{host['hostname']} from previous hosts": {value}!={hostgroup_env[env]}".'''
+                        CLI.print_fail(err_text)
+                        CLI.print_json({'success': False, 'error': err_text})      
+                else:
+                    hostgroup_env[env] = value            
         targets.append(host)
-        agent2host[host['agent_id']] = host['name']
-    
-    # Print overview about hosts to check.
-    host_count = len(targets)
+        agent2host[host['agent_id']] = host['hostname']
     if not targets:
         err_text = f'No hosts for host group "{hostgroup}" found.'
         CLI.print_fail(err_text)
         CLI.print_json({'success': False, 'error': err_text})
         return False
-    json_obj['hostgroup'] = hostgroup
-    json_obj[hostgroup] = [h['name'] for h in targets]
-    CLI.print_info(f'''{host_count} hosts for "{hostgroup}": {', '.join(h['name'] for h in targets)}''')
 
-    # Build effective checks list and print overview.
+    # Build effective checks list.
     checks2run = collections.defaultdict(list)
-    available, selected = set(), set()
-    remediations = {}
-    for check in wanda.checks(['id', 'description', 'group', 'expectations[].type', 'remediation']):
-        if check.tcsc_support != 'yes':
+    for check in wanda.checks(['id', 'description', 'group', 'metadata.provider', 'metadata.architecture_type', 
+                               'metadata.ensa_version', 'metadata.filesystem_type', 'expectations[].type', 'remediation']):
+        if check.tcsc_support != 'yes':  # skip unsupported checks
             continue
-        available.add(check.id)
-        if host_count == 1 and check.check_type.startswith('multi'):
+        if check_groups and check.group not in check_groups:  # skip checks not part of the requested group
             continue
-        if check_groups and check.group not in check_groups:
-            continue
-        if requested_checks and check.id not in requested_checks:
+        if requested_checks and check.id not in requested_checks:  # skip checks not among the requested checks
             continue 
-        selected.add(check.id)
-        checks2run[check.group].append((check.id, check.description, check.check_type)) 
-        remediations[check.id] = check.remediation
-    skipped = available - selected
-    json_obj['checks'] = {'available': list(available),'skipped': list(skipped), 'selected checks':list(selected)}
-    CLI.print_info(f'''{len(skipped)} of {len(available)} checks skipped: {', '.join(skipped)}''')
-    CLI.print_info(f'''{len(selected)} of {len(available)} checks selected: {', '.join(selected)}''')    
-    if not available:
+        checks2run[check.group].append(check)   
+    if not checks2run:
         err_text = 'No checks to run.'
         CLI.print_fail(err_text)
         CLI.print_json({'success': False, 'error': err_text})
         return False
-       
+
     # Walk through check groups and their checks and run them.
     output = []
     for check_group in checks2run:
-        print()
+        CLI.print()
         CLI.print_header(check_group)
         check_group_json = []
         for check in checks2run[check_group]:
+            skip = False
+            skip_reason = []
             
-            id, description, check_type = check
-            check_results, err = wanda.execute_check(provider, [h['agent_id'] for h in targets], id)
+            # Skip multi checks if only one hoist is there.
+            if len(agent2host) == 1 and check.check_type.startswith('multi'):
+                skip = True 
+                skip_reason.append('Multi check, but only one host.')
 
-            if err:
-                results = [{'name': f'{id} - {description}',
-                            'status': CLI.error,
-                            'status_text': 'error',
-                            'details': {'error': check_results}}]
-            else:    
-                results = []
-                for check_result in json.loads(check_results):
-                    
-                    # For the paranoid. This should never happen.
-                    if id != check_result['check']:
-                        results = [{'name': f'{id} - {description}',
-                                    'status': CLI.error,
-                                    'status_text': 'error',
-                                    'details': {'error': '''The check id from the call "{id}" and the result "{check_result['check']}" differ. You found a bug!'''}}]
-                    else:             
-                        details = {'hostname': agent2host[check_result['agent_id']],
-                                'hostgroup': hostgroup,
-                                'agent id': check_result['agent_id']}
-                        if 'messages' in check_result:
-                            details['messages'] = check_result['messages']
-                        if status_codes[check_result['result']] != CLI.ok:
-                            details['remediation'] = remediations[id]
+            # Skip checks when environment does not match.                 
+            for env_name, check_env in ('provider', check.provider), ('architecture_type', check.architecture_type), ('ensa_version', check.ensa_version), ('filesystem_type', check.filesystem_type):
+                if check_env:   # check has a requirement
+                    if env_name not in hostgroup_env:
+                        skip = True 
+                        skip_reason.append(f'''Hostgroup does not have "{env_name}" set, but check requires one of: {' '.join(check_env)}.''')
+                    elif hostgroup_env[env_name] not in check_env:
+                        skip = True 
+                        skip_reason.append(f'''Hostgroup has "{hostgroup_env[env_name]}" for "{env_name}", but check requires one of: {' '.join(check_env)}.''')
+                        
+            if skip:
+                if show_skipped:
+                    results = [{'name': f'{check.id} - {check.description}',
+                                    'status': CLI.warn,
+                                    'status_text': 'skipped',
+                                    'details': {'reason': '\n'.join(skip_reason)}}]
+                else:
+                    continue       
+            else:
+                check_results, err = wanda.execute_check(hostgroup_env, [h['agent_id'] for h in targets], check.id)
+                if err:
+                    results = [{'name': f'{check.id} - {check.description}',
+                                'status': CLI.error,
+                                'status_text': 'error',
+                                'details': {'error': check_results}}]
+                else:   
+                    results = []
+                    for check_result in json.loads(check_results):
+                        
+                        # For the paranoid. This should never happen.
+                        if check.id != check_result['check']:
+                            results = [{'name': f'{check.id} - {check.description}',
+                                        'status': CLI.error,
+                                        'status_text': 'error',
+                                        'details': {'error': f'''The check id from the call ("{check.id}") and the result ("{check_result['check']}") differ. You found a bug!'''}}]
+                        else:             
+                            details = {'hostname': agent2host[check_result['agent_id']],
+                                    'hostgroup': hostgroup,
+                                    'agent id': check_result['agent_id']}
+                            if 'messages' in check_result:
+                                details['messages'] = check_result['messages']
+                            if status_codes[check_result['result']] != CLI.ok:
+                                details['remediation'] = check.remediation
 
-                        if failure_only and status_codes[check_result['result']] == CLI.ok:
-                            continue
-                    
-                    results.append({'name': f'{id} - {description}',
-                                    'status': status_codes[check_result['result']],
-                                    'status_text': check_result['result'],
-                                    'details': details})
+                            if failure_only and status_codes[check_result['result']] == CLI.ok:
+                                continue
+                        
+                            results.append({'name': f'{check.id} - {check.description}',
+                                            'status': status_codes[check_result['result']],
+                                            'status_text': check_result['result'],
+                                            'details': details})
 
             CLI.print_status(results)
             if results:
@@ -952,13 +987,14 @@ def main() -> None:
                 checks_show(wanda, arguments.check)
                 sys.exit(0) 
                 
-            # tcsc checks run [-r|--response] [-p|--provider PROVIDER] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
+            # tcsc checks run [-r|--response] [-e|--env KEY=VALUE...] [-a|--all] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
             if arguments.checks_commands == 'run':
                 sys.exit(0) if checks_run(wanda, hosts, 
                                           arguments.hostgroup, 
-                                          arguments.provider, 
+                                          arguments.envpairs, 
                                           arguments.check_groups,
                                           arguments.requested_checks,
+                                          arguments.show_skipped,
                                           arguments.failure_only,
                                          ) else sys.exit(6)
     
