@@ -1,0 +1,18 @@
+#!/bin/bash
+
+disp_work='/tmp/saphostexec_version'
+
+# Currently we only support no options.
+if [ $# -ne 0 ] ; then 
+    echo "\"${@}\" not supported!" >&2
+    exit 1
+fi 
+
+if [ -e "${disp_work}" ] ; then
+    cat "${disp_work}"
+else
+    echo "${disp_work} does not exist!" >&2
+    exit 1
+fi
+
+exit 0

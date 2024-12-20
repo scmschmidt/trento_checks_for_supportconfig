@@ -2,8 +2,8 @@
 set -e  # exits in called scripts must terminate this one
 
 setup/uninstall_wanda
-setup/uninstall_host
 setup/uninstall_cmd
+setup/uninstall_host
 setup/uninstall_networks
 
 # Bye.

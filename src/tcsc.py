@@ -831,7 +831,7 @@ def checks_run(wanda: WandaStack,
             skip = False
             skip_reason = []
             
-            # Skip multi checks if only one hoist is there.
+            # Skip multi checks if only one host is there.
             if len(agent2host) == 1 and check.check_type.startswith('multi'):
                 skip = True 
                 skip_reason.append('Multi check, but only one host.')

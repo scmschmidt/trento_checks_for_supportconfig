@@ -3,3 +3,15 @@ echo 'Pull image for host (supportconfig) container'
 echo '---------------------------------------------'
 
 docker image pull ghcr.io/scmschmidt/tcsc_host:latest || exit 1
+
+echo
+echo 'Altering tcsc config file'
+echo '-------------------------'
+config_file="${HOME}/.config/tcsc/config"
+if [ -f "${config_file}" ] ; then
+    sed -i '/^[[:space:]]*"hosts_image":/s/.*/"hosts_image": "ghcr.io\/scmschmidt\/tcsc_host"/' "${config_file}"
+    echo "Set hosts_image in ${config_file} to ghcr.io\/scmschmidt\/tcsc_host."
+    config_file="${config_file_new}"
+else
+    echo "Config file ${config_file} does not exists. Writing to ${config_file_new}."
+fi

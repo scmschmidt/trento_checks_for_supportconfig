@@ -5,11 +5,11 @@ set -e  # exits in called scripts must terminate this one
 setup/install_wanda
 
 if [ -n "${BUILD_LOCAL}" ] ; then
-    setup/install_host_local
     setup/install_cmd_local
+    setup/install_host_local
 else
-    setup/install_host
     setup/install_cmd
+    setup/install_host
 fi
 
 # Bye.

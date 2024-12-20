@@ -155,11 +155,17 @@ Checks require environment information normally detected by Trento and handed ov
 
 These information are:
 
-  - `provider`: one of `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `default`, `unknown`
-  - `cluster_type`: one of `hana_scale_up`, `hana_scale_out`, `ascs_ers`
-  - `architecture_type`: one of `classic`, `angi`
-  - `ensa_version`: one of `ensa1`, `ensa2`, `mixed_versions`
-  - `filesystem_type`: one of `resource_managed`, `simple_mount`, `mixed_fs_types`
+  - `provider`\
+    Virtualization or Cloud the system is running on. For bare metal use `default`.\
+    one of: `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `default`, `unknown`
+  - `cluster_type`\
+    one of: `hana_scale_up`, `hana_scale_out`, `ascs_ers`
+  - `architecture_type`\
+    one of: `classic`, `angi`
+  - `ensa_version`\
+    one of: `ensa1`, `ensa2`, `mixed_versions`
+  - `filesystem_type`\
+    one of: `resource_managed`, `simple_mount`, `mixed_fs_types`
 
 > :bulb: These details (environment) are described in the env section here: https://www.trento-project.io/wanda/specification.html#evaluation-scope 
 
@@ -209,64 +215,52 @@ The host container must be running at that time.
 
 ### Run the Checks
 
-To get an overview about existing checks, run:
-
+To list all supported checks grouped by the Trento check group, run:
 ```
 tcsc checks list
 ```
-It lists all checks grouped by the Trento check group and tells if `tcsc` currently supports it:
 
- - `supported` \
-   The check is supported.
-
- - `not supported` \
-   The check is not (yet) supported, because the information required is not part of
-   the support files or there is not yet a method implemented to prepare the data
-   for the Trento gatherers (see [Which Gatherer Works](#which-gatherer-works) for details).
-
- - `unknown` \
-   The check (or more precise the used gatherer) is not known to `tcsc` yet.
+> :bulb: To also list not supported or unknown checks, use `-a` or `--all`. \
+>  A check is not (yet) supported, because the information required is not part of the support files or there is not yet
+>  a method implemented to prepare the data for the Trento gatherers (see [Which Gatherer Works](#which-gatherer-works) for details). \
+>  An unknown check means that the gatherer used by the check is not known to `tcsc` yet.
 
 > :bulb: Use `-d` or `--detail` to get more information about the checks, like type, supported providers and cluster types or the used gatherer.
 
-
-After all your host containers have been started, you can execute the supported checks:
-
+To execute all supported checks on a group (of running host containers), run:
 ```
-tcsc checks GROUPNAME -p PROVIDER
+tcsc checks GROUPNAME
 ```
 
-- `GROUPNAME` identifies the host containers where the checks should be executed.
+> :exclamation: Checks need information normally provided by Trento, like provider, architecture type, ENSA version or filesystem type.
+> Currently only the provider gets detected automatically. All other must either be given when creating the host group or when the checks
+> get executed. \
+> Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
+> To override the settings use `-e KEY=VALUE...` when running the checks.
 
-- `PROVIDER` defines the infrastructure of the hosts the support files are coming from.
-  Depending on the infrastructure some checks use different settings or may not. \
-  Either `default`, `kvm`, `vmware`, `azure` or `gcp`.
-
-  > :exclamation: Currently you have to provide the correct provider yourself. Future versions get an auto-detection.
-
-If only a limited amount of checks shall be executed, you can either provide Trento check groups:
+If only a limited amount of checks shall be executed, you can either provide the Trento check group:
 ```
-tcsc checks GROUPNAME -p PROVIDER -g GROUP...
+tcsc checks GROUPNAME -p PROVIDER -g GROUP
 ```
-or the check ids itself:
+or the check id:
 ```
 tcsc checks GROUPNAME -p PROVIDER -c CHECK
 ```
-  
-- `GROUP` allows to select a subset of checks depending on their group.
-- `CHECK` allows you to select a specific check. 
 
 > :wrench: To have more then one group or check, use `-g` or `-c` multiple times.
 
 > :wrench: To see only checks, which have not passed, add the option `-f`.
 
-> :wrench: If checks you see in `tcsc checks list` are skipped during a check, the reason can be:
->   - The check is not supported by `tcsc` (yet).
->   - It is a multi check, but the hostgroup only contains one host.
->   - You have used `-c|--check` or `-g|--group` to limit the amount of checks.
-
-
+> :wrench: Skipped checks are only shown with `-s`.
 A check can have the following results:
+
+- `skipped` \
+  The check was skipped because:
+    - It is a multi check, but the hostgroup only contains one host.
+    - Certain provider, architecture type, ENSA version or filesystem type are required by the check,
+      but do not match the hosts.
+
+  Skipped checks are only shown with `-s|--show-skipped`.
 
 - `passing` \
   Everything went fine.
@@ -282,9 +276,9 @@ A check can have the following results:
 - `error` \
   An error can have multiple reasons. Here a few examples:
 
-    - communication error with Wanda
-    - Wanda cannot process the check
-    - the check has a bug
+    - communication error with Wanda,
+    - Wanda cannot process the check,
+    - the check has a bug or
     - anything else.
 
 If you get a `Wanda response: 422 - Unprocessable content.` error, in most cases it is an incompatibility between the host setup and the check. Contrary to Trento `tcsc` does not yet filters out checks, which are not suited for the support files.
@@ -293,7 +287,6 @@ Some checks are only valid on for certain providers (e.g. AWS) and do not work o
 
 Wanda is not very chatty in regards of error messages. If you are sure, that the check should work, something in the check or the Wanda API has changed and the checks or tools (like `rabbiteer.py`) are not up to date yet. Trento is very active. \
 Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue. 
-
 
 
 ## Troubleshooting
@@ -381,57 +374,116 @@ For a check to work, the called gatherer must work with the confinements of the 
 1. The data must part of the supportconfig or the project must be extended to consume more input data.
 2. The gatherer must retrieve the data in the ways the programmer has intended it. 
 
-This chapter contains an evaluation for the gatherers (November 2024).
+This chapter contains an evaluation for the gatherers (December 2024).
 
-### `cibadmin`
+### Working
+
+#### `cibadmin`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/cibadmin.go \
 **Chances: :smiley:**
 
 Works by providing a script as `cibadmin` command, which returns `/var/lib/pacemaker/cib/cib.xml` (`ha.txt`) when called with `--query --local`.
 
-### `corosync.conf`
+#### `corosync.conf`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosyncconf.go \
 **Chances: :smiley:**
 
 Works by providing `/etc/corosync./corosync.conf` (`ha.txt`) in the container rootfs.
 
-### `corosync-cmapctl`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosynccmapctl.go \
-**Chances: :rage:**
-
-The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non-persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
-
-### `dir_scan`
+#### `dir_scan`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dir_scan.go \
 **Chances: :neutral_face:**
 
 The gatherer scans directories with a glob pattern provided as argument and returns a list of files matched by the pattern with group/user information associated to each file. Only such checks would work, which address directories/files provided by the supportconfig. **It depends therefore on the check if it works or not.**
 
-### `disp+work`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dispwork.go \
-**Chances: :rage:**
-
-With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks do not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same way as the original `disp+work`.
-
-### `fstab`
+#### `fstab`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/fstab.go \
 **Chances: :smiley:**
 
 Works by providing `/etc/fstab` (`fs-diskio.txt`) in the container rootfs.
 
-### `groups`
-https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
-**Chances: :rage:**
-
-With `/etc/groups` not part of the supportconfig, checks using this gatherer do not work.
-
-### `hosts`
+#### `hosts`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/hostsfile.go \
 **Chances: :smiley:**
 
 Works by providing `/etc/hosts` (`env.txt`) in the container rootfs.
 
-### `mount_info` 
+#### `os-release`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/osrelease.go \
+**Chances: :smiley:**
+
+Works by providing `/etc/os-release` (`basic-environment.txt`) in the container rootfs.
+
+#### `package_version`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/packageversion.go \
+**Chances: :smiley:**
+
+Works by providing an empty on-the-fly created RPM package from `rpm.txt`.
+
+#### `sap_profiles`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
+**Chances: :smiley:**
+
+Returns content of `/sapmnt/<SID>/profile` and instance profiles are part of `plugin-ha_sap.txt`.
+
+#### `sapservices`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
+**Chances: :smiley:**
+
+The `/usr/sap/sapservices` is part of `plugin-ha_sap.txt`.
+
+#### `sbd_config`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
+**Chances: :smiley:**
+
+Works by providing `/etc/sysconfig/sbd` (`ha.txt`) in the container rootfs.
+
+#### `sbd_dump`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbddump.go \
+**Chances: :smiley:**
+
+Works by having a `sbd` script which returns the expected output from `sbd -d <device> dump` by processing the sbd dumps of `ha.txt`.
+
+#### `sysctl`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sysctl.go \
+**Chances: :smiley:**
+
+The gatherer executes `sysctl -a` which is part of the supportconfig. Just a script named `sysctl` is needed which returns that part of `env.txt`.
+
+#### `saptune`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
+**Chances: :neutral_face:/:smiley:**
+
+Calls `saptune --format json` command with limited set of commands. The `plugin-saptune.txt` for 3.2 will contain the JSON output. 
+
+#### `systemd`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/systemd_v2.go \
+**Chances: :neutral_face:**
+
+The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and a fake `systemd` answering the questions of the gatherer from the supportconfig.
+
+
+### Not Working
+
+#### `corosync-cmapctl`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/corosynccmapctl.go \
+**Chances: :rage:**
+
+The gatherer is calling `corosync-cmapctl -b`, which therefore must work. With the corosync object database being an in-memory non-persistent database, checks using that gatherer won't work as long as a dump of the corosync object database is not part of the supportconfig (or provided otherwise).
+
+#### `disp+work`
+https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/dispwork.go \
+**Chances: :rage:**
+
+With calling the `disp+work` command to get compilation_mode, kernel_release and patch_number checks do not work. This data is not part of the supportconfig. To get it to work additional information must be provided as well as a `disp+work` replacement, which presents the data in the same way as the original `disp+work`.
+
+#### `groups`
+https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
+**Chances: :rage:**
+
+With `/etc/groups` not part of the supportconfig, checks using this gatherer do not work.
+
+#### `mount_info` 
 https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
 **Chances: :rage:**
 
@@ -439,100 +491,45 @@ The gatherer does not work most probably. It relies on https://github.com/moby/s
 
 Also `blkid DEVICE -o export` gets called by the gatherer. The original command must be replaced by a script presenting the output of `blkid` (`fs-diskio.txt`) in the way the gatherer expects it.
 
-### `os-release`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/osrelease.go \
-**Chances: :smiley:**
-
-Works by providing `/etc/os-release` (`basic-environment.txt`) in the container rootfs.
-
-### `package_version`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/packageversion.go \
-**Chances: :smiley:**
-
-Works by providing an empty on-the-fly created RPM package from `rpm.txt`.
-
-### `passwd`
+#### `passwd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/passwd.go \
 **Chances: :rage:**
 
 With `/etc/passwd` not part of the supportconfig, checks using this gatherer does not work.
 
-### `products`
+#### `products`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/products.go \
 **Chances: :rage:**
 
 With only the file list of `/etc/products.d/` but not the content of those files being part of the supportconfig, checks using this gatherer do not work.
 
-### `sapcontrol`
+#### `sapcontrol`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapcontrol.go \
 **Chances: :rage:**
 
 This is a complex gatherer and from reading the description it uses a unix socket connection with `/tmp/.sapstream5xx13`.
 Besides the fact, that those data might not be part of the supportconfig, this approach would require to write a program that present the data via a socket to the gatherer.
 
-### `saphostctrl`
+#### `saphostctrl`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saphostctrl.go \
 **Chances: :rage:**
 
-Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Regardless which functions are supported, the data is not part of the supportconfig. For checks to work the required data/dumps must be provided by other means.
-> :exclamation: Some `sapcontrol` calls are part of `plugin-ha_sap.txt`. Maybe the content is sufficient.
+Executes `/usr/sap/hostctrl/exe/saphostctrl -function FUNCTION`. Currently only `Ping` and `ListInstances` seems to be supported. \
+`ListInstances` is part of `plugin-ha_sap.txt`, but `Ping` is still missing but might be added in the future.
 
-### `sap_profiles`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapprofiles.go \
-**Chances: :smiley:**
-
-Returns content of `/sapmnt/<SID>/profile` and instance profiles are part of `plugin-ha_sap.txt`.
-
-
-### `sapinstance_hostname_resolver`
+#### `sapinstance_hostname_resolver`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapinstancehostnameresolver.go \
 **Chances: :rage:**
 
 Th gatherer needs to be investigated further, but the required data is not part of the supportconfig.
 
-### `sapservices`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sapservices.go \
-**Chances: :smiley:**
-
-The `/usr/sap/sapservices` is part of `plugin-ha_sap.txt`.
-
-### `saptune`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
-**Chances: :neutral_face:/:smiley:**
-
-Calls `saptune --format json` command with limited set of commands. The `plugin-saptune.txt` for 3.2 will contain the JSON output. 
-
-### `sbd_config`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbd.go \
-**Chances: :smiley:**
-
-Works by providing `/etc/sysconfig/sbd` (`ha.txt`) in the container rootfs.
-
-### `sbd_dump`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sbddump.go \
-**Chances: :smiley:**
-
-Works by having a `sbd` script which returns the expected output from `sbd -d <device> dump` by processing the sbd dumps of `ha.txt`.
-
-### `sysctl`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/sysctl.go \
-**Chances: :smiley:**
-
-The gatherer executes `sysctl -a` which is part of the supportconfig. Just a script named `sysctl` is needed which returns that part of `env.txt`.
-
-### `systemd`
-https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/systemd_v2.go \
-**Chances: :neutral_face:**
-
-The gatherer connects to `dbus` to communicate with `systemd`. For checks to work, the container needs a `dbus` and a fake `systemd` answering the questions of the gatherer from the supportconfig.
-
-### `verify_passwd`
+#### `verify_passwd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/verifypassword.go \
 **Chances: :rage:**
 
 The command `getent shadow USER` must work. Since the supportconfig does not contain `/etc/shadow` or a dump of the user`s password hashes, checks using this gatherer does not work.
 
-### `ascsers_cluster`
+#### `ascsers_cluster`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/ascsers_cluster.go \
 **Chances: :rage:**
 
@@ -552,9 +549,14 @@ The configuration file in JSON is located at `~/.config/tcsc/config` anf is gene
 | `docker_timeout` | int | `10` | Timeout in seconds for `docker` operations.
 | `startup_timeout` | int | `3` | Timeout in seconds until a host container start is considered failed.
 | `wanda_url` | string | `"http://tcsc-wanda:4000"` | URL to the Wanda stack (from inside the `tcsc` container).
-| `hosts_image` | string | `"tscs_host"` | Image for the host containers.
+| `hosts_image` | string | `"ghcr.io/scmschmidt/tcsc_host"` | Image for the host containers.
 | `wanda_autostart` | bool | `true` | Enables/disables starting of Wanda on demand.
 | `colored_output`" | bool | `true` | Enables/disables coloring the output.
+
+> :bulb: Should you build local host images, check and adapt `hosts_image`. \
+> The scripts `setup/install_cmd` and `setup/install_cmd_local` set the parameter to `ghcr.io/scmschmidt/tcsc_host`. \
+> The script `setup/install_hosts` sets it to `ghcr.io/scmschmidt/tcsc_host` and `setup/install_hosts_local` to `tscs_host`.
+
 ```
 {
     "id": "73f31f16-eaba-11ee-994d-5b663d913758",

@@ -4,3 +4,15 @@ echo '--------------------------------------------------'
 
 # Build the tcsc_host image.
 docker build -t tcsc_host -f Dockerfile.host . || exit 1
+
+echo
+echo 'Altering tcsc config file'
+echo '-------------------------'
+config_file="${HOME}/.config/tcsc/config"
+if [ -f "${config_file}" ] ; then
+    sed -i '/^[[:space:]]*"hosts_image":/s/.*/"hosts_image": "tcsc_host"/' "${config_file}"
+    echo "Set hosts_image in ${config_file} to tcsc_host."
+    config_file="${config_file_new}"
+else
+    echo "Config file ${config_file} does not exists. Writing to ${config_file_new}."
+fi

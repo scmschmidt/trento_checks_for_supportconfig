@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Currently we only support:
+#   saphostctrl -function ListInstances
+#   saphostctrl -function Ping
+case "${@}" in 
+    "-function ListInstances")
+        src='tmp/saphostctrl_listinstances'
+        ;;
+    "-function Ping")
+        src='/tmp/saphostctrl_ping'
+        ;;
+    *)
+        echo "\"${@}\" not supported!"  >&2
+        exit 1
+        ;;
+esac
+
+if [ -e "${src}" ] ; then
+    cat "${src}"
+else
+    echo "${src} does not exist!" >&2
+    exit 1
+fi
+
+exit 0

@@ -37,10 +37,13 @@ else
     echo "${SUPPORTCONFIG} is neither file nor directory." >&2
     exit 1
 fi
-./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" "${supportconfig_dir}/plugin-ha_sap.txt" "${supportconfig_dir}/fs-diskio.txt"|| exit 1   # hard exit to let host creation fail 
+./split-supportconfig "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" "${supportconfig_dir}/plugin-ha_sap.txt" "${supportconfig_dir}/fs-diskio.txt" || exit 1   # hard exit to let host creation fail 
 
 # Copy files from supportconfig into rootfs.
 mkdir /etc/corosync/
+
+rm -f /etc/corosync/corosync.conf /etc/sysconfig/sbd /etc/os-release /etc/fstab
+rm -fr /var/lib/pacemaker /usr/sap
 cp -b /rootfs/etc/corosync/corosync.conf /etc/corosync/ ; add_temp_manifest 'corosync.conf'
 cp -b /rootfs/etc/sysconfig/sbd /etc/sysconfig/ ; add_temp_manifest 'sysconfig_sbd'
 cp -b /rootfs/etc/os-release /etc/ ; add_temp_manifest 'os-release'
@@ -48,15 +51,38 @@ cp -r /rootfs/var/lib/pacemaker /var/lib/ ; add_temp_manifest 'pacemaker_files'
 cp -r /rootfs/usr/sap /usr/ ; add_temp_manifest 'usr_sap'
 cp -r /rootfs/etc/fstab /etc/ ; add_temp_manifest 'fstab'
 
-# Extract sapservices.
-sed -n '/^# \/usr\/bin\/cat \/usr\/sap\/sapservices$/,/^$/p' "${supportconfig_dir}/plugin-ha_sap.txt" | tail -n +2 > /usr/sap/sapservices
-test -e /usr/sap/sapservices ; add_temp_manifest 'sapservices'
+# Extract saptune JSON output.
+rm -f /tmp/saptune_status.json /tmp/saptune_note_verify.json /tmp/saptune_note_list.json /tmp/saptune_check.json
+sed -n '/^# saptune --format json status$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_status.json
+sed -n '/^# saptune --format json note verify$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_note_verify.json
+sed -n '/^# saptune --format json note list$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_note_list.json
+sed -n '/^# saptune --format json check$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_check.json
+test -n "$(cat /tmp/saptune_*)"  ; add_temp_manifest 'saptune'
 
-# Copy prepared scripts.
-cp /sc/cibadmin /sc/sbd /bin/
+# Extract sapservices.
+rm -f /usr/sap/sapservices
+sed -n '/^# \/usr\/bin\/cat \/usr\/sap\/sapservices$/,/^$/p' "${supportconfig_dir}/plugin-ha_sap.txt" | tail -n +2 > /usr/sap/sapservices
+test -n "$(cat /usr/sap/sapservices)" ; add_temp_manifest 'sapservices'
+
+# Extract saphostexec -version for disp+work (replacement).
+rm -f /tmp/saphostexec_version
+sed -n '/^# \/usr\/sap\/hostctrl\/exe\/saphostexec -version/,/^#==/p' "${supportconfig_dir}/plugin-ha_sap.txt" | grep -v '^#' > /tmp/saphostexec_version
+test -n "$(cat /tmp/saphostexec_version)" ; add_temp_manifest 'disp+work'
+
+# Extract saphostctrl -function outputs.
+rm -f /tmp/saphostctrl_listinstances /tmp/saphostctrl_ping
+sed -n '/^# \/usr\/sap\/hostctrl\/exe\/saphostctrl -function ListInstances$/,/^#==/p' "${supportconfig_dir}/plugin-ha_sap.txt" | grep -v '^#' > /tmp/saphostctrl_listinstances
+sed -n '/^# \/usr\/sap\/hostctrl\/exe\/saphostctrl -function Ping$/,/^#==/p' "${supportconfig_dir}/plugin-ha_sap.txt" | grep -v '^#' > /tmp/saphostctrl_ping
+test -n "$(cat /tmp/saphostctrl_*)" ; add_temp_manifest 'saphostctrl'
 
 # Create sbd dumps.
+rm -f /tmp/sbd_dumps
 sed -n '/==Dumping header on disk/,/==Header on disk/p' "${supportconfig_dir}/ha.txt" > /tmp/sbd_dumps ; add_temp_manifest 'sbd_dumps'
+
+# Copy prepared scripts.
+cp /sc/cibadmin /sc/sbd /sc/saptune /sc/disp+work /bin/
+mkdir -p /usr/sap/hostctrl/exe/
+cp /sc/saphostctrl /usr/sap/hostctrl/exe/
 
 if [ -e "${supportconfig_dir}/rpm.txt" ] ; then 
 
@@ -64,7 +90,7 @@ if [ -e "${supportconfig_dir}/rpm.txt" ] ; then
     rpmdev-setuptree
 
     # Build RPM packages.
-    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release ; do 
+    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release saptune; do 
         entry=$(grep -e "^${package}[[:space:]]"  "${supportconfig_dir}/rpm.txt" | tr -s ' ')
         [[ -z "${entry}" ]] && continue
 

@@ -1,13 +1,19 @@
 #!/bin/bash
 
+cib_xml='/var/lib/pacemaker/cib/cib.xml'
+
 # Currently we only support '--query --local'.
 case "${@}" in 
-
     '--query --local')
-        cat /var/lib/pacemaker/cib/cib.xml
+        if [ -e "${cib_xml}" ] ; then
+            cat "${cib_xml}"
+        else
+            echo "${cib_xml} does not exist!" >&2
+            exit 1
+        fi
         ;;
     *)
-        echo "\"${@}\" not supported"
+        echo "\"${@}\" not supported!" >&2
         exit 1
         ;;
 esac

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Currently we only support:
+#   saptune --format json status  (--non-compliance-check accepted, but not honored)
+#   saptune --format json note verify
+#   saptune --format json note list
+#   saptune --format json solution verify (uses saptune --format json note verify)
+#   saptune --format json solution list
+#   saptune --format json check
+case "${@}" in 
+    "--format json status --non-compliance-check")
+        src='/tmp/saptune_status.json'
+        ;;
+    "--format json status")
+        src='/tmp/saptune_status.json'
+        ;;
+    "--format json note verify")
+        src='/tmp/saptune_note_verify.json'
+        ;;
+    "--format json note list")
+        src='/tmp/saptune_note_list.json'
+        ;;
+    "--format json solution list")
+        src=''
+        ;;
+    "--format json solution verify")
+        src='/tmp/saptune_note_verify.json'
+        ;;
+    "--format json check")
+        src='/tmp/saptune_check.json'
+        ;;
+    *)
+        echo "\"${@}\" not supported!"  >&2
+        exit 1
+        ;;
+esac
+
+if [ -e "${src}" ] ; then
+    cat "${src}"
+else
+    echo "${src} does not exist!" >&2
+    exit 1
+fi
+
+exit 0
