@@ -406,7 +406,7 @@ Works by providing `/etc/fstab` (`fs-diskio.txt`) in the container rootfs.
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/hostsfile.go \
 **Chances: :smiley:**
 
-Works by providing `/etc/hosts` (`env.txt`) in the container rootfs.
+Works by providing `/etc/hosts` (`network.txt`) in the container rootfs.
 
 #### `os-release`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/osrelease.go \

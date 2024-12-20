@@ -228,6 +228,26 @@ class Check():
                         'remediation': 'remediation'
                        }
     
+    @staticmethod
+    def gatherer2manifest(gatherer: str) -> List[str]:
+        """Returns the list of manifest entries required for the given gatherer to work."""
+        
+        gatherer = gatherer.split('@')[0]
+        map = {'cibadmin': ['pacemaker_files'],
+               'corosync.conf': ['corosync.conf'],
+               'hosts': ['hosts'],
+               'package_version': ['rpm_packages'],
+               'saphostctrl': ['saphostctrl'],
+               'sbd_config': ['sysconfig_sbd'],
+               'sbd_dump': ['sbd_dumps'],
+               'sap_profiles': ['usr_sap'],
+               'dir_scan': [],
+               'sapservices': ['sapservices'],
+               'saptune': ['saptune'],
+               'fstab': ['fstab'],
+               'disp+work': ['disp+work']
+              }
+        return map[gatherer] if gatherer in map else None
     
     @staticmethod
     def _retrieve_attributes(dictionary: Dict, keys: List[str]):

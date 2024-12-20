@@ -1,12 +1,8 @@
 # ToDo
-
-- Add to `checks run`:
-    - a manifest integration (gatherer level? check level (dir)?)
-
+    
 - Auto-skip of checks if the supportfiles do not provide the required data (manifest).
 - Document manifest.
 - Add check coverage section to the README (including version of support files).
-
 - Try to get into the supportconfig:
   - output of `corosync-cmapctl -b` for `corosync-cmapctl` gatherer
   - output of `su - SAPUSER -c disp+work` for `disp+work` gatherer
