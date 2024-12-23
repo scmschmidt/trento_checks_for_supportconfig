@@ -201,7 +201,12 @@ class Check():
                         'saptune', 'saptune@v1',
                         'sapcontrol', 'sapcontrol@v1',
                         'fstab', 'fstab@v1',
-                        'disp+work', 'disp+work@v1'
+                        'disp+work', 'disp+work@v1',
+                        'os-release', 'os-release@v1',
+                        'mount_info', 'mount_info@v1',
+                        'products', 'products@v1',
+                        'sapinstance_hostname_resolver', 'sapinstance_hostname_resolver@v1',
+                        'sysctl', 'sysctl@v1'
                        ]
     _valid_gatherers = ['cibadmin', 'cibadmin@v1',
                         'corosync.conf', 'corosync.conf@v1', 
@@ -212,7 +217,9 @@ class Check():
                         'dir_scan', 'dir_scan@v1',
                         'sapservices', 'sapservices@v1',
                         'saptune', 'saptune@v1',
-                        'fstab', 'fstab@v1'
+                        'fstab', 'fstab@v1',
+                        'os-release', 'os-release@v1',
+                        'sysctl', 'sysctl@v1'
                        ]
    
     _attribute_table = {'id': 'id', 
@@ -241,11 +248,14 @@ class Check():
                'sbd_config': ['sysconfig_sbd'],
                'sbd_dump': ['sbd_dumps'],
                'sap_profiles': ['usr_sap'],
-               'dir_scan': [],
+               'dir_scan': ['usr_sap', 'multi-user.target.wants'],
                'sapservices': ['sapservices'],
                'saptune': ['saptune'],
                'fstab': ['fstab'],
-               'disp+work': ['disp+work']
+               'disp+work': ['disp+work'],
+               'os-release': ['os-release'],
+               'cibadmin': ['pacemaker_files'],
+               'sysctl': ['sysctl']
               }
         return map[gatherer] if gatherer in map else None
     

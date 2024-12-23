@@ -37,7 +37,7 @@ else
     echo "${SUPPORTCONFIG} is neither file nor directory." >&2
     exit 1
 fi
-./split-supportconfig "${supportconfig_dir}/network.txt" "${supportconfig_dir}/etc.txt" "${supportconfig_dir}/sysconfig.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" "${supportconfig_dir}/plugin-ha_sap.txt" "${supportconfig_dir}/fs-diskio.txt" || exit 1   # hard exit to let host creation fail 
+./split-supportconfig "${supportconfig_dir}/env.txt" "${supportconfig_dir}/network.txt" "${supportconfig_dir}/basic-environment.txt" "${supportconfig_dir}/ha.txt" "${supportconfig_dir}/plugin-ha_sap.txt" "${supportconfig_dir}/fs-diskio.txt" || exit 1   # hard exit to let host creation fail 
 
 # Copy files from supportconfig into rootfs.
 mkdir /etc/corosync/
@@ -56,6 +56,8 @@ rm -f /tmp/saptune_status.json /tmp/saptune_note_verify.json /tmp/saptune_note_l
 sed -n '/^# saptune --format json status$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_status.json
 sed -n '/^# saptune --format json note verify$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_note_verify.json
 sed -n '/^# saptune --format json note list$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_note_list.json
+sed -n '/^# saptune --format json solution list$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_solution_list.json
+
 sed -n '/^# saptune --format json check$/,/^$/p' "${supportconfig_dir}/plugin-saptune.txt" | grep '^{"$schema"' > /tmp/saptune_check.json
 test -n "$(cat /tmp/saptune_*)"  ; add_temp_manifest 'saptune'
 
@@ -75,12 +77,22 @@ sed -n '/^# \/usr\/sap\/hostctrl\/exe\/saphostctrl -function ListInstances$/,/^#
 sed -n '/^# \/usr\/sap\/hostctrl\/exe\/saphostctrl -function Ping$/,/^#==/p' "${supportconfig_dir}/plugin-ha_sap.txt" | grep -v '^#' > /tmp/saphostctrl_ping
 test -n "$(cat /tmp/saphostctrl_*)" ; add_temp_manifest 'saphostctrl'
 
+# Extract sysctl output.
+rm -f /tmp/sysctl
+sed -n '/^# \/sbin\/sysctl -a$/,/^#==/p' "${supportconfig_dir}/env.txt" | grep -v '^#' | grep -v '^$' > /tmp/sysctl
+test -n "$(cat /tmp/sysctl)" ; add_temp_manifest 'sysctl'
+
 # Create sbd dumps.
 rm -f /tmp/sbd_dumps
 sed -n '/==Dumping header on disk/,/==Header on disk/p' "${supportconfig_dir}/ha.txt" > /tmp/sbd_dumps ; add_temp_manifest 'sbd_dumps'
 
+# Write files for check 972BE0
+rm -f  /tmp/file_lst
+sed -n '/^# \/bin\/ls -alR \/etc\/systemd\/$/,/^#==/p' "${supportconfig_dir}/systemd.txt" | grep -v -e '^#' > /tmp/file_lst
+sc/mkfiles.py /tmp/file_lst ; add_temp_manifest 'multi-user.target.wants'
+
 # Copy prepared scripts.
-cp /sc/cibadmin /sc/sbd /sc/saptune /sc/disp+work /bin/
+cp /sc/cibadmin /sc/sbd /sc/saptune /sc/disp+work /sc/sysctl /bin/
 mkdir -p /usr/sap/hostctrl/exe/
 cp /sc/saphostctrl /usr/sap/hostctrl/exe/
 

@@ -882,7 +882,7 @@ def checks_run(wanda: WandaStack,
 
                             if failure_only and status_codes[check_result['result']] == CLI.ok:
                                 continue
-                        
+                            
                             results.append({'name': f'{check.id} - {check.description}',
                                             'status': status_codes[check_result['result']],
                                             'status_text': check_result['result'],

@@ -1,16 +1,17 @@
 # ToDo
     
-- Update README
-  - adding -e should be described in the main text until we have autodetection
-  - not all providers get detectd automatically!
-  - Add section to list which files of the supportconfig are used for what
+- Create files of `/etc/systemd/system/multi-user.target.wants/` (`systemd.txt`).
+  !!Spaces in filenames!!
+
 - Checks shall fail with `error` if the supportfiles do not provide the required data (manifest).
 - Document manifest.
+
 - Try to get into the supportconfig:
   - output of `corosync-cmapctl -b` for `corosync-cmapctl` gatherer
   - output of `su - SAPUSER -c disp+work` for `disp+work` gatherer
   - content of files below `/etc/products.d/` for `products` gatherer
   - output of `/usr/sap/hostctrl/exe/saphostctrl -function Ping` for `saphostctrl` gatherer
+  - `/etc/polkit-1/rules.d/[0-9][0-9]-SAP[A-Z][A-Z0-9][A-Z0-9]-[0-9][0-9].rules`
 - Implement `ascsers_cluster` gatherer to get a much better coverage.
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
 - Provide check development supportconfigs for (various) clusters.

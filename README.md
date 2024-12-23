@@ -140,7 +140,7 @@ As consequence you should always create one host container for each host with th
 
 To create a host container, run:
 ```
-tcsc hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE...
+tcsc hosts create GROUPNAME -e KEY=VALUE... SUPPORTFILE...
 ```
 
 - `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the hosts. Use case numbers, system names, customer names, whatever is semantic.
@@ -148,12 +148,7 @@ tcsc hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE...
 - `SUPPORTFILE` is the supportconfig itself or the directory with the extracted archive.
   For each supportconfig one host container gets started.
 
-Checks require environment information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information are extracted from the supportconfig and can be checked with `tcsc hosts status -d GROUPNAME`. 
-
-> :exclamation: Currently only `provider` gets detected automatically. All other must either 
-> be given when creating the host group or when the checks get executed.
-
-These information are:
+- `KEY=VALUE` environment pairs provide information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information must be given manually. These are:
 
   - `provider`\
     Virtualization or Cloud the system is running on. For bare metal use `default`.\
@@ -167,7 +162,10 @@ These information are:
   - `filesystem_type`\
     one of: `resource_managed`, `simple_mount`, `mixed_fs_types`
 
-> :bulb: These details (environment) are described in the env section here: https://www.trento-project.io/wanda/specification.html#evaluation-scope 
+> :bulb: Currently `provider` gets detected automatically in case of AWS or Azure only.
+> In future versions all environment information will be discovered automatically.
+
+> :bulb: The environment information also can be provided when running the checks.
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
 
@@ -184,8 +182,7 @@ tcsc hosts remove GROUPNAME
 
 > :wrench: Example for a HA cluster:
 > ```
-> tcsc hosts start ACME-HANAProd cases/47114711/scc_vmhana01_231011_1528.txz
-> tcsc hosts start ACME-HANAProd cases/47114711/scc_vmhana02_231011_1533.txz
+> tcsc hosts create ACME-HANAProd -e provider=azure -e cluster_type=hana_scale_up -e architecture_type=classic cases/47114711/scc_vmhana01_231011_1528.txz cases/47114711/scc_vmhana02_231011_1533.txz
 > ```
 > 
 > This starts two containers, one for *scc_vmhana01_231011_1528* and one for *scc_vmhana02_231011_1533*, which
@@ -201,7 +198,7 @@ Anytime you can get an overview about your running host containers with:
 tcsc hosts status [GROUPNAME]
 ```
 
-> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint), the environment date (provider, cluster type, etc.) and the manifest (extracted information from the support files).
+> :bulb: Use `-d` or `--detail` to get more information about the host containers, like the container id, the Trento agent id, the hostname (from the supportconfig), the hostgroup and the referenced support files (with the container hostfs mountpoint), the environment data (provider, cluster type, etc.) and the manifest (extracted information from the support files).
 
 The supportfiles are only read once when the host container is created. A restart of an existing host container does not reread the files,
 but it can be triggered with:
@@ -365,6 +362,106 @@ You can enter the running host with `docker exec -it CONTAINERID bash` and run `
   ```
   They come either from the limited container environment (the first two) or because nut a full Trento setup is present (discovery errors). \
   All of those errors can be considered as normal and do not limit the ability to execute checks.
+
+
+## Used Supportconfig Files
+
+The following files from the `supportconfig` are used:
+
+- `basic-environment.txt`\
+  Content of `/etc/os-release`.\
+  gatherer: `os-release`, `os-release@v1`\
+  manifest entry: `os-release`
+
+- `env.txt`\
+  Output of `/sbin/sysctl -a`.\
+  gatherer: `sysctl`, `sysctl@v1`\
+  manifest entry: `sysctl`
+
+- `fs-diskio.txt`\
+  Content of `/etc/fstab`.\
+  gatherer: `fstab`, `fstab@v1`\
+  manifest entry: `fstab`
+
+- `network.txt`\
+  Content of `/etc/hosts`.\
+  gatherer: `hosts`, `hosts@v1`\
+  manifest entry: `hosts`
+
+- `ha.txt`\
+  Contents of:
+    - `/etc/corosync/corosync.conf`
+    - `/etc/sysconfig/sbd`
+    - `/var/lib/pacemaker/`
+  as well as the dump of `/usr/sbin/sbd -d DISK dump`.
+
+  gatherer:
+    - `corosync.conf`, `corosync.conf@v1`
+    - `sbd_config`, `sbd_config@v1`
+    - `cibadmin`, `cibadmin@v1`
+    - `sbd_dump`, `sbd_dump@v1` 
+  
+  manifest entry:
+    - `corosync.conf`
+    - `sysconfig_sbd`
+    - `pacemaker_files`
+    - `sbd_dumps`
+
+- `rpm.txt`\
+  Package information for
+  - `pacemaker`
+  - `corosync`
+  - `python3`
+  - `SAPHanaSR`
+  - `sbd`
+  - `supportutils-plugin-ha-sap`
+  - `sap_suse_cluster_connector`
+  - `SLES_SAP-release`
+  - `saptune`
+
+  gatherer: `package_version`, `fstpackage_versionb@v1`\
+  manifest entry: `rpm_packages`
+
+- `systemd.txt`\
+  Create empty files with the correct permissions and ownerships from:
+    - `/etc/systemd/system/multi-user.target.wants/`
+
+  gatherer: `dir_scan`, `dir_scan@v1`\
+  manifest entry: `usr_sap`, `multi-user.target.wants`
+
+- `plugin-ha_sap.txt`\
+  The directory `/usr/sap/` including `/usr/sap/sapservices` as well as the outputs of
+  `/usr/sap/hostctrl/exe/saphostexec` and `/usr/sap/hostctrl/exe/saphostctrl` commands.
+
+  gatherer: 
+    - `saphostctrl`, `saphostctrl@v1`
+    - `sap_profiles`, `sap_profiles@v1`
+    - `sapservices`, `sapservices@v1`
+    - `disp+work`, `disp+work@v1`
+
+  manifest entry:
+    - `saphostctrl`
+    - `usr_sap`
+    - `sapservices`
+    - `disp+work`
+ 
+
+- `plugin-saptune.txt`\
+  The following command outputs get extracted: 
+    - `saptune --format json status`
+    - `saptune --format json note verify`
+    - `saptune --format json note list`
+    - `saptune --format json solution list`
+    - `saptune --format json check`
+  gatherer: `saptune`, `saptune@v1`\
+  manifest entry: `saptune`
+
+
+> :exclamation: Not all files can or data can be present in a supportconfig. Reasons can be:
+>   - the files were skipped deliberately when the supportconfig was created,
+>   - the data was never on the system
+>   - the data gets collected in newer versions of the supportconfig
+>   - the used plugin was not present (missing package) or the version does not yet contain the needed data
 
 
 ## Which Gatherer Works

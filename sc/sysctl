@@ -1,0 +1,22 @@
+#!/bin/bash
+
+sysctl_source='/tmp/sysctl'
+
+# Currently we only support '-a'.
+case "${@}" in 
+    -a)
+        if [ -e "${sysctl_source}" ] ; then
+            cat "${sysctl_source}"
+        else
+            echo "${sysctl_source} does not exist!" >&2
+            exit 1
+        fi            
+        ;;
+    *)
+        echo "\"${@}\" not supported!"  >&2
+        exit 1
+        ;;
+esac
+
+exit 0
+

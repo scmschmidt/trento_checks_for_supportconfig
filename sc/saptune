@@ -21,7 +21,7 @@ case "${@}" in
         src='/tmp/saptune_note_list.json'
         ;;
     "--format json solution list")
-        src=''
+        src='/tmp/saptune_solution_list.json'
         ;;
     "--format json solution verify")
         src='/tmp/saptune_note_verify.json'
