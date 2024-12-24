@@ -19,7 +19,9 @@ with open(sys.argv[1], 'r') as f:
     for line in f.readlines():
         line = line.strip()
         if line.startswith('/'):
-            base_dir = line[:-2]
+            base_dir = line[:-1]
+            if not base_dir.endswith('/'):
+                base_dir = base_dir + '/' 
         elif line.startswith('total '):
             continue
         elif line.endswith(' ..'):
@@ -38,6 +40,14 @@ with open(sys.argv[1], 'r') as f:
 # Creating files.
 for file in files:
     t, perm, user, group, name = file
+    try:
+        pwd.getpwnam(user)
+    except KeyError:
+        os.system(f'useradd {user}')
+    try:
+        grp.getgrnam(group)
+    except KeyError:
+        os.system(f'groupadd {group}')  
     try:
         perm_int = perm2oct(perm)
         if t == 'd':

@@ -807,7 +807,7 @@ def checks_run(wanda: WandaStack,
     # Build effective checks list.
     checks2run = collections.defaultdict(list)
     for check in wanda.checks(['id', 'description', 'group', 'metadata.provider', 'metadata.architecture_type', 
-                               'metadata.ensa_version', 'metadata.filesystem_type', 'expectations[].type', 'remediation']):
+                               'metadata.ensa_version', 'metadata.filesystem_type', 'expectations[].type', 'facts[].gatherer', 'remediation']):
         if check.tcsc_support != 'yes':  # skip unsupported checks
             continue
         if check_groups and check.group not in check_groups:  # skip checks not part of the requested group
@@ -855,6 +855,7 @@ def checks_run(wanda: WandaStack,
                 else:
                     continue       
             else:
+                
                 check_results, err = wanda.execute_check(hostgroup_env, [h['agent_id'] for h in targets], check.id)
                 if err:
                     results = [{'name': f'{check.id} - {check.description}',

@@ -1,10 +1,4 @@
 # ToDo
-    
-- Create files of `/etc/systemd/system/multi-user.target.wants/` (`systemd.txt`).
-  !!Spaces in filenames!!
-
-- Checks shall fail with `error` if the supportfiles do not provide the required data (manifest).
-- Document manifest.
 
 - Try to get into the supportconfig:
   - output of `corosync-cmapctl -b` for `corosync-cmapctl` gatherer
@@ -16,6 +10,7 @@
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
 - Provide check development supportconfigs for (various) clusters.
 - Finish Trento check development document (`Trento Check Development.md`).
+- Fail check premature if the supportfiles do not provide the required data (manifest).
 - Auto-detection of `architecture_type` `ensa_version` and `filesystem_type` from supportconfig.
 - Checkout other supportfiles to be added.
 - Think about filter for listing checks to get a better overview. 
