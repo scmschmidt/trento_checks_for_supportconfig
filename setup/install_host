@@ -9,7 +9,7 @@ echo 'Altering tcsc config file'
 echo '-------------------------'
 config_file="${HOME}/.config/tcsc/config"
 if [ -f "${config_file}" ] ; then
-    sed -i '/^[[:space:]]*"hosts_image":/s/.*/"hosts_image": "ghcr.io\/scmschmidt\/tcsc_host"/' "${config_file}"
+    sed -i '/^[[:space:]]*"hosts_image":/s/.*/    "hosts_image": "ghcr.io\/scmschmidt\/tcsc_host",/' "${config_file}"
     echo "Set hosts_image in ${config_file} to ghcr.io\/scmschmidt\/tcsc_host."
     config_file="${config_file_new}"
 else

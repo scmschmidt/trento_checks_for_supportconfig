@@ -1,6 +1,6 @@
 # tcsc - Trento checks for supportconfig
 
-Makes Trento checks usable for support cases by using them on supportconfigs. Also `jq` is needed by the scripts to parse JSON.
+Makes Trento checks usable for support cases by using them on supportconfigs. 
 
 > :bulb: This is a rewrite of the proof-of-value which final version can be found here: https://github.com/scmschmidt/trento_checks_for_supportconfig/releases/tag/pov-final
 
