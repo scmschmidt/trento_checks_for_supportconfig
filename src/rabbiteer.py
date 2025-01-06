@@ -40,6 +40,9 @@ Changelog:
                               https://github.com/scmschmidt/trento_checks_for_supportconfig.
 20.11.2024      v1.1        - Moved formatting of ExecuteCheck output to function evaluate_check_results(), so it can be called from tcsc
                               (https://github.com/scmschmidt/trento_checks_for_supportconfig).
+06.01.2024      v1.2        - Bug fix: wrong output in environment error messages
+                            - Support for environment key `hana_scenario'.
+                            - Dependency check between environment keys added.
 """
 
 import argparse
@@ -55,7 +58,7 @@ import uuid
 from typing import List, Dict, Any
 
 
-__version__ = '1.1'
+__version__ = '1.2'
 __author__ = 'soeren.schmidt@suse.com'
 
 
@@ -354,9 +357,16 @@ class ArgParser(argparse.ArgumentParser):
                         the execution to be finished and prints the results.
                 
                         -e, --env ENV_PARAM...      sets environment parameter (https://www.trento-project.io/wanda/specification.html#evaluation-scope)
-                                                        provider        one of: azure, aws, gcp, kvm, nutanix, vmware, default;   Default: default
-                                                        cluster_type    one of: hana_scale_up, hana_scale_out, ascs_ers;   Default: -
-                                                        target_type     target type; one of: cluster, host;   Default: -
+                                                        provider            one of: azure, aws, gcp, kvm, nutanix, vmware, default;   Default: default
+                                                        cluster_type        one of: hana_scale_up, hana_scale_out, ascs_ers;   Default: -
+                                                        hana_scenario	    one of: performance_optimized, cost_optimized, unknown;   Default: -
+                                                                            (must be set, if cluster_type is hana_scale_up)
+                                                        architecture_type   one of: classic, angi;   Default: -
+                                                                            (must be set, if cluster_type is hana_scale_up or hana_scale_out)
+                                                        ensa_version	    one of: ensa1, ensa2, mixed_versions
+                                                                            (must be set, if cluster_type is ascs_ers)
+                                                        filesystem_type     one of: resource_managed, simple_mount, mixed_fs_types   Default: -
+                                                                            (must be set, if cluster_type is ascs_ers)
                         -c, --check CHECK...        Trento check id (e.g. 21FCA6)
                         -t, --target                agent uuid of target host (e.g. )
                         --timeout TIMEOUT           timeout in seconds waiting for an execution to appear or to complete 
@@ -519,6 +529,7 @@ def argument_parse() -> argparse.Namespace:
             except ValueError:
                 print(f'environment parameters must have the form "key=value", but got: {parameter}', file=sys.stderr)
                 sys.exit(2)
+                                
             if key == 'provider':
                 if value not in ['azure', 'aws', 'gcp', 'kvm', 'nutanix', 'vmware', 'default']:
                     print(f'invalid value for "provider": {value}', file=sys.stderr)
@@ -527,22 +538,43 @@ def argument_parse() -> argparse.Namespace:
                 if value not in ['hana_scale_up', 'hana_scale_out', 'ascs_ers']:
                     print(f'invalid value for "cluster_type": {value}', file=sys.stderr)
                     sys.exit(2)
-            elif key == 'target_type':
-                if value not in ['cluster', 'host']:
-                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+            elif key == 'hana_scenario':
+                if value not in ['performance_optimized', 'cost_optimized', 'unknown']:
+                    print(f'invalid value for "hana_scenario": {value}', file=sys.stderr)
+                    sys.exit(2)
+            elif key == 'architecture_type':
+                if value not in ['classic', 'angi']:
+                    print(f'invalid value for "architecture_type": {value}', file=sys.stderr)
                     sys.exit(2)
             elif key == 'ensa_version':
                 if value not in ['ensa1', 'ensa2', 'mixed_versions']:
-                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+                    print(f'invalid value for "ensa_version": {value}', file=sys.stderr)
                     sys.exit(2)
-            elif key == 'fs_type':
+            elif key == 'filesystem_type':
                 if value not in ['resource_managed', 'simple_mount', 'mixed_fs_types']:
-                    print(f'invalid value for "target_type": {value}', file=sys.stderr)
+                    print(f'invalid value for "filesystem_type": {value}', file=sys.stderr)
                     sys.exit(2)
             else:
                 print(f'invalid environment parameter: {key}', file=sys.stderr)
                 sys.exit(2)
             env[key] = value
+        if 'cluster_type' in env:                 
+            if env['cluster_type'] == 'hana_scale_up':
+                if 'hana_scenario' not in env:
+                        print('"hana_scenario" must be set, if "cluster_type" is "hana_scale_up"', file=sys.stderr)
+                        sys.exit(2)
+            if env['cluster_type'] == 'hana_scale_up' or env['cluster_type'] == 'hana_scale_out':    
+                if 'architecture_type' not in env:
+                        print('"architecture_type" must be set, if "cluster_type" is "hana_scale_up" or "hana_scale_out"', file=sys.stderr)
+                        sys.exit(2)
+            if env['cluster_type'] == 'ascs_ers':    
+                if 'ensa_version' not in env:
+                        print('"ensa_version" must be set, if "cluster_type" is "ascs_ers"', file=sys.stderr)
+                        sys.exit(2)
+                if 'filesystem_type' not in env:
+                        print('"filesystem_type" must be set, if "cluster_type" is "ascs_ers"', file=sys.stderr)
+                        sys.exit(2)                                                            
+            
     if 'provider' not in env:
         env['provider'] = 'default'
     args_parsed.environment = env
@@ -662,7 +694,7 @@ def evaluate_check_results(responses: List[Any], brief: bool, json_output: bool)
             output_string = ''
             for result in results:
                 for key, value in result.items():
-                    output_string += f'{key}="{value}"'
+                    output_string += f'{key}="{value}" '
                 output_string += '\n'  
         return  output_string
 

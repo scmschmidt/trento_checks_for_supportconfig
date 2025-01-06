@@ -138,7 +138,8 @@ class ArgParser(argparse.ArgumentParser):
                         CONTAINERNAME       name of the host container
                         -e, --env KEY=VALUE environment entry key-value pair with keys:
                                             provider, cluster_type, architecture_type,
-                                            ensa_version, mixed_versions, filesystem_type
+                                            ensa_version, mixed_versions, filesystem_type,
+                                            hana_scenario
                         -d, --details       prints more details about the container
                         -l, --lines N       limits log output to the last N lines
                         
@@ -156,7 +157,8 @@ class ArgParser(argparse.ArgumentParser):
                         -s, --show-skipped       shows also skipped checks
                         -e, --env KEY=VALUE      environment entry key-value pair with keys:
                                                  provider, cluster_type, architecture_type,
-                                                 ensa_version, mixed_versions, filesystem_type
+                                                 ensa_version, mixed_versions, filesystem_type,
+                                                 hana_scenario
                         -f, --failure-only       print only checks which did not pass
                         -g, --group GROUP        run only checks from that Trento check group
                         -c, --check CHECK        run only this check
@@ -351,7 +353,8 @@ def argument_parse() -> dict:
                  'cluster_type': ['hana_scale_up', 'hana_scale_out', 'ascs_ers'], 
                  'architecture_type': ['classic', 'angi'], 
                  'ensa_version': ['ensa1', 'ensa2', 'mixed_versions'], 
-                 'filesystem_type': ['resource_managed', 'simple_mount', 'mixed_fs_types']
+                 'filesystem_type': ['resource_managed', 'simple_mount', 'mixed_fs_types'],
+                 'hana_scenario': ['performance_optimized', 'cost_optimized', 'unknown']
         }
         entries = {}
         for pair in args_parsed.envpairs:
@@ -523,7 +526,7 @@ def hosts_status(hosts: HostsStack, hostgroup: str, details: bool = False) -> bo
             if details:    
                 host_status['details'] = {}
                 host_json['details'] = {}
-                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type':
+                for key in 'container_id', 'container_short_id', 'agent_id', 'hostname', 'hostgroup', 'supportconfig', 'supportfiles', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario':
                     value = host[key]
                     host_json['details'][key] = value
                     if isinstance(value, list):
@@ -658,6 +661,7 @@ def checks_list(wanda: WandaStack, details: bool = False, show_all: bool = False
                             'metadata.architecture_type',
                             'metadata.ensa_version',
                             'metadata.filesystem_type',
+                            'metadata.hana_scenario',
                             'facts[].gatherer',
                             'expectations[].type',
                            ] if details else ['id', 'description', 'group']
@@ -702,7 +706,7 @@ def checks_list(wanda: WandaStack, details: bool = False, show_all: bool = False
             check_json = {'name': f'{check.id} - {check.description}', 'status': status}
             if details:
                 check_output['details'] = {}
-                for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'gatherer']:
+                for attribute in ['id', 'description', 'group', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario', 'gatherer']:
                     value = getattr(check, attribute)
                     if isinstance(value, list):
                         value = ' '.join(set(value))
@@ -735,6 +739,7 @@ def checks_show(wanda: WandaStack, check: str) -> None:
                             'metadata.architecture_type',
                             'metadata.ensa_version',
                             'metadata.filesystem_type',
+                            'metadata.hana_scenario',
                             'facts[].gatherer',
                             'expectations[].type',
                             'remediation'
@@ -744,7 +749,7 @@ def checks_show(wanda: WandaStack, check: str) -> None:
     json_obj = []
     output = {}
     if check_details:
-        for attribute in ['id', 'description', 'group', 'tcsc_support', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'gatherer', 'remediation']:
+        for attribute in ['id', 'description', 'group', 'tcsc_support', 'check_type', 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario', 'gatherer', 'remediation']:
             value = getattr(check_details, attribute)
             output[attribute] = value
             json_obj.append(f'{attribute}: {value}')
@@ -786,7 +791,7 @@ def checks_run(wanda: WandaStack,
             CLI.print_fail(err_text)
             CLI.print_json({'success': False, 'error': err_text})       
         host['manifest'] = result
-        for env in 'provider', 'architecture_type', 'ensa_version', 'filesystem_type':
+        for env in 'provider', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario':
             value = envpairs[env] if env in envpairs else host[env]
             if value:  # only environments which are set
                 if env in hostgroup_env:
@@ -807,7 +812,7 @@ def checks_run(wanda: WandaStack,
     # Build effective checks list.
     checks2run = collections.defaultdict(list)
     for check in wanda.checks(['id', 'description', 'group', 'metadata.provider', 'metadata.architecture_type', 
-                               'metadata.ensa_version', 'metadata.filesystem_type', 'expectations[].type', 'facts[].gatherer', 'remediation']):
+                               'metadata.ensa_version', 'metadata.filesystem_type', 'metadata.hana_scenario', 'expectations[].type', 'facts[].gatherer', 'remediation']):
         if check.tcsc_support != 'yes':  # skip unsupported checks
             continue
         if check_groups and check.group not in check_groups:  # skip checks not part of the requested group
@@ -837,7 +842,7 @@ def checks_run(wanda: WandaStack,
                 skip_reason.append('Multi check, but only one host.')
 
             # Skip checks when environment does not match.                 
-            for env_name, check_env in ('provider', check.provider), ('architecture_type', check.architecture_type), ('ensa_version', check.ensa_version), ('filesystem_type', check.filesystem_type):
+            for env_name, check_env in ('provider', check.provider), ('architecture_type', check.architecture_type), ('ensa_version', check.ensa_version), ('filesystem_type', check.filesystem_type), ('hana_scenario', check.hana_scenario):
                 if check_env:   # check has a requirement
                     if env_name not in hostgroup_env:
                         skip = True 

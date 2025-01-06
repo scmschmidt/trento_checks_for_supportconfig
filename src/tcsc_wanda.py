@@ -230,6 +230,7 @@ class Check():
                         'metadata.architecture_type': 'architecture_type',
                         'metadata.ensa_version': 'ensa_version',
                         'metadata.filesystem_type': 'filesystem_type',
+                        'metadata.hana_scenario': 'hana_scenario',
                         'facts[].gatherer': 'gatherer',
                         'expectations[].type': 'check_type',
                         'remediation': 'remediation'

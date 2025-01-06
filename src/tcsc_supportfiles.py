@@ -45,20 +45,51 @@ class SupportFiles():
                     raise SupportFileException(f'Unsupported file type for "{file}".')
 
                 hostname = basic_environment[basic_environment.index('# /bin/uname -a\n') + 1].split(' ')[1]
-                virtualization = basic_environment[basic_environment.index('# Virtualization\n') + 1].split(':')[1].strip()
+                
+                # Detect virtualization.
+                virt_block = SupportFiles._get_virtblock(basic_environment)
+                try:
+                    # AWS:      Manufacturer:  Amazon EC2
+                    if virt_block['Manufacturer'] == 'Amazon EC2':
+                        host_provider = 'aws'
+                    
+                    # Azure:    Manufacturer:  Microsoft Corporation
+                    #           Hardware:      Virtual Machine    
+                    elif virt_block['Manufacturer'] == 'Microsoft Corporation' and virt_block['Hardware'] == 'Virtual Machine':
+                        host_provider = 'azure'
+                    
+                    # Google:   Manufacturer:  Google
+                    #           Hardware:      Google Compute Engine
+                    elif virt_block['Manufacturer'] == 'Google' and virt_block['Hardware'] == 'Google Compute Engine':
+                        host_provider = 'azure' 
+                        
+                    # VMware:   Manufacturer:  VMware, Inc.
+                    #           Hardware:      VMware.*
+                    #           Hypervisor:    VMware (hardware platform)
+                    #           Identity:      Virtual Machine (hardware platform)
+                    elif virt_block['Manufacturer'] == 'VMware, Inc.' and virt_block['Hardware'].startswith('VMware') and virt_block['Hypervisor'] == 'VMware (hardware platform)' and virt_block['Identity'] == 'Virtual Machine (hardware platform)':
+                        host_provider = 'azure'
+                
+                    # KVM:      Manufacturer:  QEMU
+                    #           Hardware:      .*
+                    #           Hypervisor:    KVM 
+                    elif virt_block['Manufacturer'] == 'QEMU' and virt_block['Hypervisor'] == 'KVM':
+                        host_provider = 'azure'
+                                                                
+                    # Nutanix:  (unknown)
 
-                if virtualization.startswith('Amazon EC2'):
-                    host_provider = 'aws'
-                elif virtualization.startswith('Microsoft Corporation'):
-                    host_provider = 'azure'
-                else:
-                    host_provider = 'default'
+                    # Default.                                                  
+                    else:
+                        host_provider = 'default'
+                except:
+                    host_provider = 'unknown'    
                     
                 # TODO: Add auto detection.
                 cluster_type = None
                 architecture_type = None
                 ensa_version = None
                 filesystem_type = None
+                hana_scenario = None    # NEW
                 
                 if hostname in self.result:
                     raise SupportFileException(f'{hostname} already present. Is "{file}" used twice?')
@@ -73,10 +104,32 @@ class SupportFiles():
                                          'architecture_type': architecture_type,
                                          'ensa_version': ensa_version,
                                          'filesystem_type': filesystem_type,
+                                         'hana_scenario': hana_scenario,
                                          'supportconfig': file
                                         }    
             except Exception as err:
                         self.issues.append(err)
+                        
+    @staticmethod                        
+    def _get_virtblock(basic_env_txt: str) -> Dict[str, str]:
+        """Extracts virtualization information from basic-environment.txt
+        provided as list of lines and returns them as dictionary."""
+        
+        try:
+            virtulization = {}
+            toggle = False
+            for line in basic_env_txt:
+                if toggle and line.startswith('#==['):
+                    break
+                if not toggle and line.startswith('# Virtualization'):
+                    toggle = True
+                    continue
+                if toggle and ':' in line:
+                    k, v = line.split(':')
+                    virtulization[k.strip()] = v.strip()
+        except:
+            return {}
+        return virtulization
 
 
 class SupportFileException(Exception):

@@ -148,7 +148,7 @@ tcsc hosts create GROUPNAME -e KEY=VALUE... SUPPORTFILE...
 - `SUPPORTFILE` is the supportconfig itself or the directory with the extracted archive.
   For each supportconfig one host container gets started.
 
-- `KEY=VALUE` environment pairs provide information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information must be given manually. These are:
+- `KEY=VALUE` environment pairs provide information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information must be given manually (for now). These are:
 
   - `provider`\
     Virtualization or Cloud the system is running on. For bare metal use `default`.\
@@ -162,10 +162,10 @@ tcsc hosts create GROUPNAME -e KEY=VALUE... SUPPORTFILE...
   - `filesystem_type`\
     one of: `resource_managed`, `simple_mount`, `mixed_fs_types`
 
-> :bulb: Currently `provider` gets detected automatically in case of AWS or Azure only.
-> In future versions all environment information will be discovered automatically.
+  > :bulb: Currently only `provider` gets detected automatically (except for Nutanix).
+  > In future versions all environment information will be discovered automatically.
 
-> :bulb: The environment information also can be provided when running the checks.
+  > :bulb: The environment information also can be provided when running the checks.
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
 

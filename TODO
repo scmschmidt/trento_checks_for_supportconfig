@@ -7,41 +7,6 @@
   - content of files below `/etc/products.d/` for `products` gatherer
   - output of `/usr/sap/hostctrl/exe/saphostctrl -function Ping` for `saphostctrl` gatherer
   - file list matching `/etc/polkit-1/rules.d/[0-9][0-9]-SAP[A-Z][A-Z0-9][A-Z0-9]-[0-9][0-9].rules`
-- Complete `provider` detection. Currently only AWS or Azure is implemented, but we need support
-  for `gcp`, `kvm`, `nutanix`, `vmware` and fallback to `default` as well.
-    - AWS:
-      ```
-      Manufacturer:  Amazon EC2
-      ```
-    - Azure:
-      ```
-      Manufacturer:  Microsoft Corporation
-      Hardware:      Virtual Machine
-      ```
-    - Google:
-      ```
-      Manufacturer:  Google
-      Hardware:      Google Compute Engine
-      ```  
-    - VMware:
-      ```
-      Manufacturer:  VMware, Inc.
-      Hardware:      VMware.*
-      Hypervisor:    VMware (hardware platform)
-      Identity:      Virtual Machine (hardware platform)
-      ```
-
-    - KVM:
-      ```
-      Manufacturer:  QEMU
-      Hardware:      .*
-      Hypervisor:    KVM
-      ```
-
-    - Nutanix:\
-      ???
-    
-  systemd-virt-Ausgabe!!!!!!
 
 - Auto-detection of `architecture_type` `ensa_version` `cluster_type`, `hana_scenario` and `filesystem_type` 
   from supportconfig.
@@ -59,6 +24,10 @@
         name, description, dispstatus, textstatus, starttime, elapsedtime, pid
         enq_replicator, Enqueue Replicator 2, GREEN, Running, 2025 01 03 13:59:00, 0:00:50, 3749
         ```
+
+env.cluster_type	one of hana_scale_up, hana_scale_out, ascs_ers, unknown	Cluster types	target_type is cluster
+
+
     - `filesystem_type`:\
       The CIB (`/var/lib/pacemaker/cib/cib.xml` in `ha.txt`) can be used to determine it.
       If each SAP system (SID) contains the primitive type `Filesystem` we have `resource_managed`.
@@ -75,7 +44,8 @@
       ???
 
 - Implement `ascsers_cluster` gatherer to get a much better coverage.
-- Implement missing  gatherers.
+- Implement missing gatherers.
+- Add Nutanix to provider detection.
 - Provide check development supportconfigs for (various) clusters.
 - Finish Trento check development document (`Trento Check Development.md`).
 - Fail check premature if the supportfiles do not provide the required data (manifest).

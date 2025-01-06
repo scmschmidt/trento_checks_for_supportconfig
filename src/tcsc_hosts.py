@@ -88,7 +88,8 @@ class HostsStack():
                       'com.suse.tcsc.env.cluster_type': environment['cluster_type'] if 'cluster_type' in environment else host_description['cluster_type'],
                       'com.suse.tcsc.env.architecture_type': environment['architecture_type'] if 'architecture_type' in environment else host_description['architecture_type'],
                       'com.suse.tcsc.env.ensa_version': environment['ensa_version'] if 'ensa_version' in environment else host_description['ensa_version'],
-                      'com.suse.tcsc.env.filesystem_type': environment['filesystem_type'] if 'filesystem_type' in environment else host_description['filesystem_type'],                      
+                      'com.suse.tcsc.env.filesystem_type': environment['filesystem_type'] if 'filesystem_type' in environment else host_description['filesystem_type'],
+                      'com.suse.tcsc.env.hana_scenario': environment['hana_scenario'] if 'hana_scenario' in environment else host_description['hana_scenario'],
                       'com.suse.tcsc.uuid': self.id,
                       'com.suse.tcsc.agent_id': agent_id
                      },
@@ -167,6 +168,7 @@ class HostsStack():
                  'architecture_type': container.labels.get('com.suse.tcsc.env.architecture_type') or None,
                  'ensa_version': container.labels.get('com.suse.tcsc.env.ensa_version') or None,
                  'filesystem_type': container.labels.get('com.suse.tcsc.env.filesystem_type') or None,
+                 'hana_scenario': container.labels.get('com.suse.tcsc.env.hana_scenario') or None,
                  'hostgroup': container.labels.get('com.suse.tcsc.hostgroup') or '-',
                  'hostname': container.labels.get('com.suse.tcsc.hostname') or '-',
                  'status': container.status or 'unknown',
