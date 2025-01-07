@@ -25,13 +25,13 @@ ready=0
 start=$(date +'%s')
 while [ ${ready} -eq 0 ] ; do 
     [ "$(curl http://localhost:4000/api/readyz 2> /dev/null)" == "{\"ready\":true}" ] && ready=1
-    sleep 0.5
+    sleep 1
     now=$(date +'%s')
     passed=$((now - start))
     [ ${passed} -gt 20 ] && break
 done
 if [ ${ready} -eq 0 ] ; then 
-    echo "Wanda reports not to be ready!" >&2
+    echo -e "\nWanda reports not to be ready!\nTry to call the installation script again!" >&2
     exit 1
 fi
 echo "Wanda reports to be ready."

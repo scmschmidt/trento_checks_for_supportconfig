@@ -41,6 +41,8 @@ Do the following  steps as root:
    usermod -aG docker YOUR_USER
    ```
 
+  > :exclamation: Don't forget to log out and log on again!
+
 Do the following steps as normale user:
 
 1. Clone this repo and enter the project directory (or get it otherwise): 
@@ -64,8 +66,7 @@ Do the following steps as normale user:
    > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script puts the new one as `~/.config/tscs/config.new`.
    > Verify if changes need to be adapted.
 
-   > :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
-   > This should be the default since Trento 2.4. 
+   > :exclamation: This version works only with Wanda versions, where checks are in a separate container, which should be the default since Trento 2.4. 
 
 1. Place the script `tcsc` in `~/bin` or `/usr/local/bin` (last requires root).
 
@@ -119,6 +120,9 @@ If you get the output `Wanda is operational` everything is fine.
 > :bulb: Per default `tcsc` starts Wanda automatically if needed. 
 > This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`. 
 > See [Configuration File](#configuration-file) for details.
+
+> :bulb: It is normal, that the `tcsc-trento-checks` container always reports
+> as exited. The container just exists to provide a volume with the Trento checks.
 
 In case Wanda is not there, run:
 ```

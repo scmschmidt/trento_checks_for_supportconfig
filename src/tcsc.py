@@ -44,9 +44,10 @@ Changelog:
                             - host environment entries can be overridden on creation
                             - `checks list` shows all environment entries
                             - `checks list` shows only supported checks except newly introduced
-                              --a|--all is given
+                              -a|--all is given
                             - introduce `checks show` command
-                            - `checks run` reworked 
+                            - `checks run` reworked
+07.01.2025      v1.4        - added -p|--plain to disable terminal codes for color and formatting
 """
 
 import argparse
@@ -66,7 +67,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.3'
+__version__ = '1.4'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -82,18 +83,18 @@ class ArgParser(argparse.ArgumentParser):
         prog = os.path.basename(sys.argv[0])
         text = f'''
                 Usage:  {prog} -h|--help
-                        {prog} [-j|--json] [-c|--config CONFIG] wanda start|status|stop
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE ...
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts start GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts rescan GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts stop GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts status [-d|--details] GROUPNAME]
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts remove GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] checks list [-d|--details] [-a|--all]
-                        {prog} [-j|--json] [-c|--config CONFIG] checks show CHECK
-                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -g|--group GROUP... GROUPNAME
-                        {prog} [-j|--json] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -c|--check CHECK... GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] wanda start|status|stop
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE ...
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts start GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts rescan GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts stop GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts status [-d|--details] GROUPNAME]
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts remove GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks list [-d|--details] [-a|--all]
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks show CHECK
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -g|--group GROUP... GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -c|--check CHECK... GROUPNAME
 
                 v{__version__}
             
@@ -103,6 +104,7 @@ class ArgParser(argparse.ArgumentParser):
 
                     -h, --help              print this help text
                     -j, --json              output in JSON
+                    -p, --plain             no terminal sequences for color and formatting
                     -c, --config CONFIG     alternative config file (default: ~/.config/tcsc/config) 
 
                 Arguments: 
@@ -211,6 +213,12 @@ def argument_parse() -> dict:
                         action='store_true',
                         required=False,
                         help='output is done in JSON')
+    
+    parser.add_argument('-p', '--plain',
+                        dest='plain_output',
+                        action='store_true',
+                        required=False,
+                        help='output is done without formatting and color codes')
     
     parser.add_argument('-c', '--config',
                         dest='config_file',
@@ -924,6 +932,9 @@ def main() -> None:
 
     try:
         config = Config(arguments.config_file)
+        if arguments.plain_output:
+            config.colored_output = False
+      
         wanda = WandaStack(config)
 
         CLI.no_color = not config.colored_output

@@ -23,10 +23,6 @@
         OK
         name, description, dispstatus, textstatus, starttime, elapsedtime, pid
         enq_replicator, Enqueue Replicator 2, GREEN, Running, 2025 01 03 13:59:00, 0:00:50, 3749
-        ```
-
-env.cluster_type	one of hana_scale_up, hana_scale_out, ascs_ers, unknown	Cluster types	target_type is cluster
-
 
     - `filesystem_type`:\
       The CIB (`/var/lib/pacemaker/cib/cib.xml` in `ha.txt`) can be used to determine it.
