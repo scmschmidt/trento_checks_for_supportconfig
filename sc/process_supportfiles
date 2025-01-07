@@ -102,7 +102,7 @@ if [ -e "${supportconfig_dir}/rpm.txt" ] ; then
     rpmdev-setuptree
 
     # Build RPM packages.
-    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release saptune systemd; do 
+    for package in pacemaker corosync python3 SAPHanaSR sbd supportutils-plugin-ha-sap sap_suse_cluster_connector SLES_SAP-release saptune systemd patterns-sap-nw resource-agents; do 
         entry=$(grep -e "^${package}[[:space:]]"  "${supportconfig_dir}/rpm.txt" | tr -s ' ')
         [[ -z "${entry}" ]] && continue
 
