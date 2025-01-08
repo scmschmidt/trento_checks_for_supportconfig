@@ -12,9 +12,11 @@
   from supportconfig.
   They are depended from each other (https://www.trento-project.io/wanda/specification.html#evaluation-scope).
     - `ensa_version`:\
+      one of ensa1, ensa2, mixed_versions	if cluster_type is ascs_ers
+
       If output of `sapcontrol -nr 10 -function GetProcessList` (part of `plugin-ha_sap.txt`)
-      contains `"Enqueue Replicatior 2"` if
-      version 2 is used, otherwise `"Enqueue Replicator"`:
+      contains `"Enqueue Replicator 2"` if
+      version 2 is used, otherwise `"EnqueueReplicator"`:
         ```
         as1:ts2adm 1001> sapcontrol -nr 10 -function GetProcessList
 
@@ -24,19 +26,26 @@
         name, description, dispstatus, textstatus, starttime, elapsedtime, pid
         enq_replicator, Enqueue Replicator 2, GREEN, Running, 2025 01 03 13:59:00, 0:00:50, 3749
 
+      All cluster supportconfigs need to be scanned, because this information is part of the ERS instance!
+
     - `filesystem_type`:\
+      one of resource_managed, simple_mount, mixed_fs_types	if cluster_type is ascs_ers
+
       The CIB (`/var/lib/pacemaker/cib/cib.xml` in `ha.txt`) can be used to determine it.
       If each SAP system (SID) contains the primitive type `Filesystem` we have `resource_managed`.
       If each SAP system (SID) does not contain the primitive type `Filesystem` we have `simple_mount`.
       Otherwise it is `mixed_fs_types`. In case of multiple SIDs, it is always `mixed_fs_types`.
 
     - `architecture_type`:\
+      one of classic, angi	if cluster_type is one of hana_scale_up, hana_scale_out
       ???
     
     - `cluster_type`:\
+      one of hana_scale_up, hana_scale_out, ascs_ers if target_type is cluster
       ???
 
     - `hana_scenario`:\
+      one of performance_optimized, cost_optimized, unknown	if cluster_type is hana_scale_up
       ???
 
 - Implement `ascsers_cluster` gatherer to get a much better coverage.
