@@ -35,36 +35,28 @@ class SupportFiles():
                 file = f'''{os.getenv('HOST_ROOT_FS')}{file}''' if file.startswith('/') else  f'''{os.getenv('HOST_ROOT_FS')}/{os.getenv('PWD')}/{file}'''   
 
             try:
+                subfiles = {}
                 if os.path.isfile(file):
                     with tarfile.open(file) as sc:
-                        basic_env = [f for f in sc.getnames() if f.endswith('/basic-environment.txt')]
-                        if not basic_env:
-                            raise SupportFileException(f'"{file}" does not contain a "basic-environment.txt".')
-                        basic_environment = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(basic_env[0]).readlines()]
-                        ha_txt = [f for f in sc.getnames() if f.endswith('/ha.txt')]
-                        if ha_txt:
-                            ha = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(ha_txt[0]).readlines()]
-                        else:
-                            ha = []    
+                        for txt_file in 'basic-environment.txt', 'ha.txt', 'rpm.txt':
+                            filenames = [f for f in sc.getnames() if f.endswith('/' + txt_file)]     
+                            if not filenames:
+                                raise SupportFileException(f'"{file}" does not contain a "{txt_file}"!')
+                            subfiles[txt_file] = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(filenames[0]).readlines()]    
                 elif os.path.isdir(file):
                     try:
-                        with open(f'{file}/basic-environment.txt') as f:
-                            basic_environment = f.readlines()
+                        for txt_file in 'basic-environment.txt', 'ha.txt', 'rpm.txt':
+                            with open(file + '/' + txt_file) as f:
+                                subfiles[txt_file] = f.readlines()
                     except Exception as err:
-                        raise SupportFileException(f'Error reading "{file}/basic-environment.txt": {err}')
-                    if os.path.exists(f'{file}/ha.txt'):
-                        with open(f'{file}/ha.txt') as f:
-                            ha = f.readlines()
-                    else:
-                        ha = []
-                    
+                        raise SupportFileException(f'Error reading "{file}/{filename}": {err}')
                 else:
                     raise SupportFileException(f'Unsupported file type for "{file}".')
 
-                hostname = basic_environment[basic_environment.index('# /bin/uname -a\n') + 1].split(' ')[1]
-                
+                hostname = subfiles['basic-environment.txt'][subfiles['basic-environment.txt'].index('# /bin/uname -a\n') + 1].split(' ')[1]
+
                 # Detect virtualization.
-                virt_block = SupportFiles._get_virtblock(basic_environment)
+                virt_block = SupportFiles._get_virtblock(subfiles['basic-environment.txt'])
                 try:
                     # AWS:      Manufacturer:  Amazon EC2
                     if virt_block['Manufacturer'] == 'Amazon EC2':
@@ -102,7 +94,7 @@ class SupportFiles():
                     host_provider = 'unknown'    
                     
                 # Detect environment settings.
-                cib = SupportFiles._get_cib(ha)
+                cib = SupportFiles._get_cib(subfiles['ha.txt'])
                 if type == 'cluster' and cib:
                     
                     # Detect cluster_type.

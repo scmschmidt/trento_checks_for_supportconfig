@@ -38,12 +38,19 @@
 
     - `architecture_type`:\
       one of classic, angi	if cluster_type is one of hana_scale_up, hana_scale_out
-      ???
-    
+      One indicator is the type of a primitive. If a type "SAPHanaController" exists, we have angi, if
+      "SAPHana" exists, it is classic.
+      An alternative would be the clone type ms only in classic or "clone" with promotable=true in angi.
+
+
     - `cluster_type`:\
       one of hana_scale_up, hana_scale_out, ascs_ers if target_type is cluster
-      ???
-
+      The existence of a primitive with type "SAPHana" or "SAPHanaController" indicates a HANA cluster.
+      The absence points to ascs_ers.
+      To distinguish between ScaleUp and ScaleOut, in angi an nvpair with value "ScaleUp" or "ScaleOut" exists.
+      In classic the installed RPM package can be used to distinguish between hana_scale_up and hana_scale_out:
+      SAPHanaSR -> hana_scale_up, SAPHanaSR-ScaleOut -> hana_scale_out,
+    
     - `hana_scenario`:\
       one of performance_optimized, cost_optimized, unknown	if cluster_type is hana_scale_up
       ???
