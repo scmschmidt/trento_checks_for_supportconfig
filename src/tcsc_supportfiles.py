@@ -49,12 +49,15 @@ class SupportFiles():
                             with open(file + '/' + txt_file) as f:
                                 subfiles[txt_file] = f.readlines()
                     except Exception as err:
-                        raise SupportFileException(f'Error reading "{file}/{filename}": {err}')
+                        raise SupportFileException(f'Error reading "{file}/{txt_file}": {err}')
                 else:
                     raise SupportFileException(f'Unsupported file type for "{file}".')
 
                 hostname = subfiles['basic-environment.txt'][subfiles['basic-environment.txt'].index('# /bin/uname -a\n') + 1].split(' ')[1]
 
+                print(SupportFiles._get_packages(['SAPHanaSR', 'SAPHanaSR-ScaleOut'], subfiles['rpm.txt']))
+
+                
                 # Detect virtualization.
                 virt_block = SupportFiles._get_virtblock(subfiles['basic-environment.txt'])
                 try:
@@ -172,7 +175,7 @@ class SupportFiles():
                         self.issues.append(err)
                         
     @staticmethod                        
-    def _get_virtblock(basic_env_txt: str) -> Dict[str, str]:
+    def _get_virtblock(basic_env_txt: List[str]) -> Dict[str, str]:
         """Extracts virtualization information from basic-environment.txt
         provided as list of lines and returns them as dictionary."""
         
@@ -193,7 +196,7 @@ class SupportFiles():
         return virtulization
 
     @staticmethod                        
-    def _get_cib(ha_txt: str) -> ElementTree:
+    def _get_cib(ha_txt:  List[str]) -> ElementTree:
         """Extracts cib.xml from ha.txt provided as list of lines and 
         returns it as XML element tree."""
         
@@ -212,6 +215,28 @@ class SupportFiles():
         except:
             return None
 
+    @staticmethod                        
+    def _get_packages(packages: List[str], rpm_txt: List[str]) -> List[str]:
+        """Searches for the given package names in rpm.txt provided as list of lines and 
+        returns a list with the findings."""
+
+        try:
+            packages_list = []
+            toggle = False
+            for line in rpm_txt:
+                if toggle and line.startswith('#==['):
+                    break
+                if not toggle and line.startswith('# rpm -qa --queryformat'):
+                    toggle = True
+                    continue
+                if toggle:
+                    try:
+                        packages_list.append(line.split()[0])
+                    except:
+                        pass
+            return [p for p in packages if p in packages_list[1:]]
+        except:
+            return []
 
 class SupportFileException(Exception):
     pass       
