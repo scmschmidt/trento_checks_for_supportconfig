@@ -272,7 +272,8 @@ A check can have the following results:
 - `critical`
   The check failed. The message section should explain why and the remediation section guides to a solution including links to official documentation.
 
-  > :exclamation: It is possible, that the check failed because the supportconfig missed relevant data or the wrong provider has been chosen. 
+  > :exclamation: It is possible, that the check failed because the supportconfig missed relevant data or the wrong provider has been chosen.
+  > Check the manifest of the hosts with `tcsc hosts status GROUPNAME -d`. 
 
 - `error` \
   An error can have multiple reasons. Here a few examples:

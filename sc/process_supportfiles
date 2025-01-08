@@ -63,6 +63,7 @@ test -n "$(cat /tmp/saptune_*)"  ; add_temp_manifest 'saptune'
 
 # Extract sapservices.
 rm -f /usr/sap/sapservices
+mkdir -p /usr/sap
 sed -n '/^# \/usr\/bin\/cat \/usr\/sap\/sapservices$/,/^$/p' "${supportconfig_dir}/plugin-ha_sap.txt" | tail -n +2 > /usr/sap/sapservices
 test -n "$(cat /usr/sap/sapservices)" ; add_temp_manifest 'sapservices'
 

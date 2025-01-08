@@ -38,7 +38,7 @@ esac
 if [ -e "${src}" ] ; then
     cat "${src}"
 else
-    echo "${src} does not exist!" >&2
+    echo "${src} does not exist! Is JSON output (${@}) part of plugin-saptune.txt?" >&2
     exit 1
 fi
 
