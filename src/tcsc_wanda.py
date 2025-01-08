@@ -299,7 +299,7 @@ class Check():
             raise CheckException(f'Unsupported attributes: {set(attributes) - Check._attribute_table.keys()}')
         
         for key, value in Check._retrieve_attributes(check, attributes).items():
-            for env in 'metadata.provider', 'metadata.cluster_type', 'metadata.architecture_type', 'metadata.ensa_version', 'metadata.filesystem_type':
+            for env in 'metadata.provider', 'metadata.cluster_type', 'metadata.architecture_type', 'metadata.ensa_version', 'metadata.filesystem_type', 'metadata.hana_scenario':
                 if key == env and isinstance(value, str):
                     value = [value]
             if key == 'expectations[].type':
