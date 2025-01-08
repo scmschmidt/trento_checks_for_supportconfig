@@ -9,6 +9,7 @@ import os
 import sys
 import tarfile
 from typing import List, Dict, Tuple
+import xml.etree.ElementTree as ElementTree
 
 
 class SupportFiles():
@@ -40,9 +41,23 @@ class SupportFiles():
                         if not basic_env:
                             raise SupportFileException(f'"{file}" does not contain a "basic-environment.txt".')
                         basic_environment = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(basic_env[0]).readlines()]
+                        ha_txt = [f for f in sc.getnames() if f.endswith('/ha.txt')]
+                        if ha_txt:
+                            ha = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(ha_txt[0]).readlines()]
+                        else:
+                            ha = []    
                 elif os.path.isdir(file):
-                    with open(f'{file}/basic-environment.txt') as f:
-                        basic_environment = f.readlines()
+                    try:
+                        with open(f'{file}/basic-environment.txt') as f:
+                            basic_environment = f.readlines()
+                    except Exception as err:
+                        raise SupportFileException(f'Error reading "{file}/basic-environment.txt": {err}')
+                    if os.path.exists(f'{file}/ha.txt'):
+                        with open(f'{file}/ha.txt') as f:
+                            ha = f.readlines()
+                    else:
+                        ha = []
+                    
                 else:
                     raise SupportFileException(f'Unsupported file type for "{file}".')
 
@@ -87,7 +102,8 @@ class SupportFiles():
                     host_provider = 'unknown'    
                     
                 # Detect environment settings.
-                if type == 'cluster':
+                cib = SupportFiles._get_cib(ha)
+                if type == 'cluster' and cib:
                     
                     # Detect cluster_type.
                     # one of hana_scale_up, hana_scale_out, ascs_ers (if target_type is cluster)
@@ -106,8 +122,8 @@ class SupportFiles():
                     # If no group (instance) has a filesystem primitive, we have simple_mount.
                     # Otherwise we have mixed_fs_types.
                     if cluster_type == 'ascs_ers':
-                        groups = root.findall(".//group")   # finding all groups
-                        groups_with_filesystem_primitive = root.findall(".//primitive[@type='Filesystem']...")   # parent of filesystem primitive
+                        groups = cib.findall(".//group")   # finding all groups
+                        groups_with_filesystem_primitive = cib.findall(".//primitive[@type='Filesystem']...")   # parent of filesystem primitive
                         if len(groups_with_filesystem_primitive) == 0:
                             filesystem_type = 'simple_mount'
                         else:
@@ -183,6 +199,26 @@ class SupportFiles():
         except:
             return {}
         return virtulization
+
+    @staticmethod                        
+    def _get_cib(ha_txt: str) -> ElementTree:
+        """Extracts cib.xml from ha.txt provided as list of lines and 
+        returns it as XML element tree."""
+        
+        try:
+            cib = []
+            toggle = False
+            for line in ha_txt:
+                if toggle and line.startswith('#==['):
+                    break
+                if not toggle and line.startswith('# /var/lib/pacemaker/cib/cib.xml'):
+                    toggle = True
+                    continue
+                if toggle:
+                    cib.append(line)
+            return ElementTree.fromstring(''.join(cib))
+        except:
+            return None
 
 
 class SupportFileException(Exception):
