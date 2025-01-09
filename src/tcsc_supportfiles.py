@@ -153,12 +153,16 @@ class SupportFiles():
                     else:
                         filesystem_type = None 
                         
-                    # Detect hana_scenario.
+                    # TODO: NOT YET CONFIRMED!
+                    # Detect hana_scenario. 
                     # one of performance_optimized, cost_optimized, unknown	(if cluster_type is hana_scale_up)
                     if cluster_type == 'hana_scale_up':
-                        hana_scenario = None    # TODO: Add auto detection.   
+                        if cib.findall("./configuration/resources//primitive[@type='SAPInstance']"):
+                            hana_scenario = 'cost_optimized'
+                        else:
+                            hana_scenario = 'performance_optimized'   
                     else:
-                        hana_scenario = 'unknown'
+                        hana_scenario = None
 
                     # Detect ensa_version.
                     # one of ensa1, ensa2, mixed_versions (if cluster_type is ascs_ers)
