@@ -23,6 +23,7 @@ class SupportFiles():
         self.issues = []
         
         provider = None
+        overall_ensa_version = None
         type = 'host' if len(supportfiles) == 1 else 'cluster'
         
         for file in supportfiles:            
@@ -180,6 +181,7 @@ class SupportFiles():
                                     ensa_version = 'ensa2'
                                     break
                             if ensa_version:
+                                overall_ensa_version = ensa_version
                                 break
                     
                 else:
@@ -206,8 +208,16 @@ class SupportFiles():
                                          'hana_scenario': hana_scenario,
                                          'supportconfig': file
                                         }    
+            
             except Exception as err:
                         self.issues.append(err)
+                        
+        # Align ensa_version (see above in detection part, why).
+        if overall_ensa_version:
+            for data in self.result.values():
+                if 'ensa_version' in data:
+                    data['ensa_version'] = overall_ensa_version
+
                         
     @staticmethod                        
     def _get_virtblock(basic_env_txt: List[str]) -> Dict[str, str]:

@@ -144,32 +144,54 @@ As consequence you should always create one host container for each host with th
 
 To create a host container, run:
 ```
-tcsc hosts create GROUPNAME -e KEY=VALUE... SUPPORTFILE...
+tcsc hosts create GROUPNAME [-e KEY=VALUE...] SUPPORTFILE...
 ```
 
-- `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the hosts. Use case numbers, system names, customer names, whatever is semantic.
+- `GROUPNAME` is a free name to group hosts which belong together (e.g. cluster). This name is later used to execute checks on the hosts. Use case numbers, system names, customer names, whatever is semantic.\
+In case of HA clusters, each cluster must be separate group!
 
 - `SUPPORTFILE` is the supportconfig itself or the directory with the extracted archive.
-  For each supportconfig one host container gets started.
+  For each supportconfig one host container gets started.\
+  In case of an HA cluster supportconfigs from **all** nodes have to be listed, otherwise some checks will fail!
 
-- `KEY=VALUE` environment pairs provide information normally detected by Trento and handed over to Wanda. In case of `tcsc` these information must be given manually (for now). These are:
+- `KEY=VALUE` environment pairs contain information to Wanda normally provided by Trento internally.
+  `tcsc` tries to detect these information automatically, but this might fail. Best verify them by running:
+  `tcsc hosts status -d GROUPNAME` (the command will be described later) after creation. The Trento checks rely on those information and will result in false positives or false negatives, if set wrongly.
+  If the detection was wrong, remove the group and re-create them with the correct parameters.
+
+  The following keys are used.
 
   - `provider`\
-    Virtualization or Cloud the system is running on. For bare metal use `default`.\
+    Virtualization or Cloud the system is running on. Bare metal uses `default`.\
     one of: `azure`, `aws`, `gcp`, `kvm`, `nutanix`, `vmware`, `default`, `unknown`
+
+    > :exclamation: Currently only Nutanix does not get detected automatically.
+
   - `cluster_type`\
-    one of: `hana_scale_up`, `hana_scale_out`, `ascs_ers`
-  - `architecture_type`\
-    one of: `classic`, `angi`
-  - `ensa_version`\
-    one of: `ensa1`, `ensa2`, `mixed_versions`
-  - `filesystem_type`\
-    one of: `resource_managed`, `simple_mount`, `mixed_fs_types`
+    One of `hana_scale_up`, `hana_scale_out`, `ascs_ers` in case of a HA cluster, otherwise `None`.\
+    If more then one supportconfig is given, an HA cluster is assumed and the cluster type detection is done.
+  
+  - `ensa_version` (ASCS/ERS cluster)\
+    One of `ensa1`, `ensa2`, `mixed_versions` in case of ASCS/ERS (`cluster_type` is `ascs_ers`), otherwise `None`\
+    In case of a SAP HANA cluster `ensa_version` is irrelevant and always `None`. 
 
-  > :bulb: Currently only `provider` gets detected automatically (except for Nutanix).
-  > In future versions all environment information will be discovered automatically.
+  - `filesystem_type` (ASCS/ERS cluster)\
+    One of `resource_managed`, `simple_mount`, `mixed_fs_types` in case of ASCS/ERS (`cluster_type` is `ascs_ers`), otherwise `None`\
+    In case of a SAP HANA cluster `ensa_version` is irrelevant and always `None`.
 
+  - `architecture_type` (SAP HANA cluster)\
+    One of `classic`, `angi` in case of SAP HANA (`cluster_type` is `hana_scale_up` or `hana_scale_out`), otherwise `None`\
+    Only required in case of a SAP HANA HA cluster. On an ASCS/ERS cluster the value is irrelevant and always `None`.
+ 
+  - `hana_scenario` (SAP HANA cluster)\
+    One of `performance_optimized`, `cost_optimized`, `unknown`	in case of an SAP HANA ScaleUp HA cluster (`cluster_type` is `hana_scale_up`), otherwise `None`\
+    Only required in case of a SAP HANA ScaleUp HA cluster. On an SAP HANA ScaleOut HA cluster or an ASCS/ERS cluster the value is irrelevant and always `None`.
+
+    > :exclamation: Not yet implemented! Provide the correct scenario via `-e hana_scenario=SCENARIO` in case of an SAP HANA ScaleUp HA cluster, when creating the host group!
+  
   > :bulb: The environment information also can be provided when running the checks.
+
+
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
 To get a host container at least started, the supportconfig must contain the files:
@@ -191,7 +213,7 @@ tcsc hosts remove GROUPNAME
 
 > :wrench: Example for a HA cluster:
 > ```
-> tcsc hosts create ACME-HANAProd -e provider=azure -e cluster_type=hana_scale_up -e architecture_type=classic cases/47114711/scc_vmhana01_231011_1528.txz cases/47114711/scc_vmhana02_231011_1533.txz
+> tcsc hosts create ACME-HANAProd cases/47114711/scc_vmhana01_231011_1528.txz cases/47114711/scc_vmhana02_231011_1533.txz
 > ```
 > 
 > This starts two containers, one for *scc_vmhana01_231011_1528* and one for *scc_vmhana02_231011_1533*, which
@@ -238,11 +260,8 @@ To execute all supported checks on a group (of running host containers), run:
 tcsc checks GROUPNAME
 ```
 
-> :exclamation: Checks need information normally provided by Trento, like provider, architecture type, ENSA version or filesystem type.
-> Currently only the provider gets detected automatically. All other must either be given when creating the host group or when the checks
-> get executed. \
-> Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
-> To override the settings use `-e KEY=VALUE...` when running the checks.
+> :exclamation: Certain environment information get autodetected when creating the host group. Those settings need to be correct or the checks will result in in correct results (See above [Manage Hosts (supportconfig Containers)](#manage-hosts-supportconfig-containers)). Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
+> If you do not want to re-create the hostgroup, you can override the settings using `-e KEY=VALUE...` when running the checks.
 
 If only a limited amount of checks shall be executed, you can either provide the Trento check group:
 ```
