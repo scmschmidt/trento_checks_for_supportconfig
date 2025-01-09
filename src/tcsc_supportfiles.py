@@ -6,6 +6,7 @@ Contains classes to handle the support files.
 """
 
 import os
+import re
 import sys
 import tarfile
 from typing import List, Dict, Tuple
@@ -36,16 +37,17 @@ class SupportFiles():
 
             try:
                 subfiles = {}
+                subfilenames = ['basic-environment.txt', 'ha.txt', 'rpm.txt', 'plugin-ha_sap.txt']
                 if os.path.isfile(file):
                     with tarfile.open(file) as sc:
-                        for txt_file in 'basic-environment.txt', 'ha.txt', 'rpm.txt':
+                        for txt_file in subfilenames:
                             filenames = [f for f in sc.getnames() if f.endswith('/' + txt_file)]     
                             if not filenames:
                                 raise SupportFileException(f'"{file}" does not contain a "{txt_file}"!')
                             subfiles[txt_file] = [str(line, sys.getdefaultencoding()) for line in sc.extractfile(filenames[0]).readlines()]    
                 elif os.path.isdir(file):
                     try:
-                        for txt_file in 'basic-environment.txt', 'ha.txt', 'rpm.txt':
+                        for txt_file in subfilenames:
                             with open(file + '/' + txt_file) as f:
                                 subfiles[txt_file] = f.readlines()
                     except Exception as err:
@@ -54,10 +56,8 @@ class SupportFiles():
                     raise SupportFileException(f'Unsupported file type for "{file}".')
 
                 hostname = subfiles['basic-environment.txt'][subfiles['basic-environment.txt'].index('# /bin/uname -a\n') + 1].split(' ')[1]
+                ra_packages = SupportFiles._get_packages(['SAPHanaSR', 'SAPHanaSR-ScaleOut'], subfiles['rpm.txt'])
 
-                print(SupportFiles._get_packages(['SAPHanaSR', 'SAPHanaSR-ScaleOut'], subfiles['rpm.txt']))
-
-                
                 # Detect virtualization.
                 virt_block = SupportFiles._get_virtblock(subfiles['basic-environment.txt'])
                 try:
@@ -100,9 +100,35 @@ class SupportFiles():
                 cib = SupportFiles._get_cib(subfiles['ha.txt'])
                 if type == 'cluster' and cib:
                     
-                    # Detect cluster_type.
-                    # one of hana_scale_up, hana_scale_out, ascs_ers (if target_type is cluster)
-                    cluster_type = None    # TODO: Add auto detection.
+                    # Detect cluster_type and architecture_type.
+                    # architecture_type: one of classic, angi	(if cluster_type is one of hana_scale_up, hana_scale_out)
+                    # cluster_type: one of hana_scale_up, hana_scale_out, ascs_ers (if target_type is cluster)
+                    #
+                    # If <cluster_property_set id="SAPHanaSR"> exists in the CIB, we have HANA cluster, 
+                    # otherwise ascs_ers is assumed.
+                    # To distinguish between ScaleUp and ScaleOut, in angi a nvpair with value "ScaleUp"
+                    # or "ScaleOut" exists: <nvpair id="..." name="..." value="Scale..."/>
+                    # In classic the installed RPM package can be used to distinguish between hana_scale_up and hana_scale_out:
+                    # SAPHanaSR -> hana_scale_up, SAPHanaSR-ScaleOut -> hana_scale_out,
+                    if cib.findall(".//cluster_property_set[@id='SAPHanaSR']"):
+                        if 'SAPHanaSR-ScaleOut' in ra_packages:
+                            cluster_type = 'hana_scale_out'
+                            architecture_type = 'classic'
+                        else: 
+                            scale_up = cib.findall(".configuration/crm_config/cluster_property_set[@id='SAPHanaSR']/nvpair[@value='ScaleUp']")
+                            scale_out =cib.findall(".configuration/crm_config/cluster_property_set[@id='SAPHanaSR']/nvpair[@value='ScaleOut']")
+                            if scale_up:
+                                cluster_type = 'hana_scale_up'
+                                architecture_type = 'angi'
+                            elif scale_out:
+                                cluster_type = 'hana_scale_out'
+                                architecture_type = 'angi'
+                            else:
+                                cluster_type = 'hana_scale_up'
+                                architecture_type = 'classic'
+                    else:
+                        cluster_type = 'ascs_ers'
+                        architecture_type = None
                                        
                     # Detect filesystem_type.
                     # one of resource_managed, simple_mount, mixed_fs_types	(if cluster_type is ascs_ers)
@@ -132,20 +158,29 @@ class SupportFiles():
                         hana_scenario = None    # TODO: Add auto detection.   
                     else:
                         hana_scenario = 'unknown'
-                    
-                    # Detect architecture_type.
-                    # one of classic, angi	(if cluster_type is one of hana_scale_up, hana_scale_out)
-                    if cluster_type in ['hana_scale_up', 'hana_scale_out']:
-                        architecture_type = None    # TODO: Add auto detection.   
-                    else:    
-                        architecture_type = None
-                        
+
                     # Detect ensa_version.
                     # one of ensa1, ensa2, mixed_versions (if cluster_type is ascs_ers)
+                    #
+                    # The output of `sapcontrol -nr XX -function GetProcessList` for the ERS instance 
+                    # (part of `plugin-ha_sap.txt`) contains in the process table
+                    # '^enq_replicator, Enqueue Replicator 2,.*%' for ensa2 and 
+                    # '^enrepserver, EnqueueReplicator,.*%' for ensa1.
+                    #
+                    # Only the supportconfig of the node where the ERS instance is running, contains
+                    # the output. Therefore further down, ensa_version will be aligned about all hosts!
+                    ensa_version = None
                     if cluster_type == 'ascs_ers':
-                        ensa_version = None    # TODO: Add auto detection.
-                    else:
-                        ensa_version = None    
+                        for process_list in SupportFiles.get_instanceprocesses(subfiles['plugin-ha_sap.txt']):
+                            for line in process_list:
+                                if line.startswith('enrepserver, EnqueueReplicator,'):
+                                    ensa_version = 'ensa1'
+                                    break
+                                if line.startswith('enq_replicator, Enqueue Replicator 2,'):
+                                    ensa_version = 'ensa2'
+                                    break
+                            if ensa_version:
+                                break
                     
                 else:
                     cluster_type = None
@@ -237,6 +272,31 @@ class SupportFiles():
             return [p for p in packages if p in packages_list[1:]]
         except:
             return []
+
+    @staticmethod
+    def get_instanceprocesses(plugin_sap_ha_txt: List[str]) -> List[List[str]]:
+        """Extracts GetProcessList information from plugin-sap_ha.txt provided
+        as list of lines and returns a list with the output lines (lines)."""
+
+        try:
+            start_getprocesslist = re.compile('^# /bin/su - \w+ -c \'sapcontrol -nr [0-9]+ -function GetProcessList\'')
+            instances, instance = [], []
+            toggle = False
+            for line in plugin_sap_ha_txt:
+                if toggle and line.startswith('#==['):
+                    toggle = False
+                    instances.append(instance)
+                    instance = []
+                    continue
+                if not toggle and start_getprocesslist.match(line):
+                    toggle = True
+                    continue
+                if toggle:
+                    instance.append(line.strip())
+            return instances
+        except:
+            return []
+
 
 class SupportFileException(Exception):
     pass       

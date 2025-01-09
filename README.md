@@ -172,6 +172,11 @@ tcsc hosts create GROUPNAME -e KEY=VALUE... SUPPORTFILE...
   > :bulb: The environment information also can be provided when running the checks.
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
+To get a host container at least started, the supportconfig must contain the files:
+  - `basic-environment.txt¸
+  - `ha.txt`
+  - `rpm.txt`
+  - `plugin-ha_sap.txt`
 
 If you do not need the host container anymore stop and destroy them with:
 ```
