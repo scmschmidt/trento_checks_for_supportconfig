@@ -799,7 +799,7 @@ def checks_run(wanda: WandaStack,
             CLI.print_fail(err_text)
             CLI.print_json({'success': False, 'error': err_text})       
         host['manifest'] = result
-        for env in 'provider', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario':
+        for env in 'provider', 'cluster_type', 'architecture_type', 'ensa_version', 'filesystem_type', 'hana_scenario':
             value = envpairs[env] if env in envpairs else host[env]
             if value:  # only environments which are set
                 if env in hostgroup_env:
@@ -808,9 +808,9 @@ def checks_run(wanda: WandaStack,
                         CLI.print_fail(err_text)
                         CLI.print_json({'success': False, 'error': err_text})      
                 else:
-                    hostgroup_env[env] = value            
+                    hostgroup_env[env] = value           
         targets.append(host)
-        agent2host[host['agent_id']] = host['hostname']
+        agent2host[host['agent_id']] = host['hostname'] 
     if not targets:
         err_text = f'No hosts for host group "{hostgroup}" found.'
         CLI.print_fail(err_text)
@@ -819,8 +819,9 @@ def checks_run(wanda: WandaStack,
 
     # Build effective checks list.
     checks2run = collections.defaultdict(list)
-    for check in wanda.checks(['id', 'description', 'group', 'metadata.provider', 'metadata.architecture_type', 
-                               'metadata.ensa_version', 'metadata.filesystem_type', 'metadata.hana_scenario', 'expectations[].type', 'facts[].gatherer', 'remediation']):
+    for check in wanda.checks(['id', 'description', 'group', 'metadata.provider', 'metadata.cluster_type',
+                               'metadata.architecture_type', 'metadata.ensa_version', 'metadata.filesystem_type',
+                               'metadata.hana_scenario', 'expectations[].type', 'facts[].gatherer', 'remediation']):
         if check.tcsc_support != 'yes':  # skip unsupported checks
             continue
         if check_groups and check.group not in check_groups:  # skip checks not part of the requested group
@@ -849,8 +850,8 @@ def checks_run(wanda: WandaStack,
                 skip = True 
                 skip_reason.append('Multi check, but only one host.')
 
-            # Skip checks when environment does not match.                 
-            for env_name, check_env in ('provider', check.provider), ('architecture_type', check.architecture_type), ('ensa_version', check.ensa_version), ('filesystem_type', check.filesystem_type), ('hana_scenario', check.hana_scenario):
+            # Skip checks when environment does not match.        
+            for env_name, check_env in ('provider', check.provider), ('cluster_type', check.cluster_type), ('architecture_type', check.architecture_type), ('ensa_version', check.ensa_version), ('filesystem_type', check.filesystem_type), ('hana_scenario', check.hana_scenario): 
                 if check_env:   # check has a requirement
                     if env_name not in hostgroup_env:
                         skip = True 

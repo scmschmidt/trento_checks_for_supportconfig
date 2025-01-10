@@ -388,6 +388,16 @@ You can enter the running host with `docker exec -it CONTAINERID bash` and run `
   They come either from the limited container environment (the first two) or because nut a full Trento setup is present (discovery errors). \
   All of those errors can be considered as normal and do not limit the ability to execute checks.
 
+- If checks fail, verify that the manifest has no fails. It is possible, that simply required data is not part of the   
+  supportconfig. To see the manifest, run `tcsc hosts status -d GROUP`. \
+  The following issues are known:
+
+  - `usr_sap: failed`\
+    The `supportutils-plugin-ha-sap` package is to old. Support was added in v1.0.5 (plugin code version).
+                                
+  - `saptune: failed`\
+    The required JSON support is added to `plugin-saptune` with `saptune` 3.2.   
+
 
 ## Used Supportconfig Files
 
@@ -452,10 +462,10 @@ The following files from the `supportconfig` are used:
     - `/etc/systemd/system/multi-user.target.wants/`
 
   gatherer: `dir_scan`, `dir_scan@v1`\
-  manifest entry: `usr_sap`, `multi-user.target.wants`
+  manifest entry: `usr_sap`
 
 - `plugin-ha_sap.txt`\
-  The directory `/usr/sap/` including `/usr/sap/sapservices` as well as the outputs of
+  The directory `/usr/sap/` (profiles, log files) including `/usr/sap/sapservices` as well as the outputs of
   `/usr/sap/hostctrl/exe/saphostexec` and `/usr/sap/hostctrl/exe/saphostctrl` commands.
 
   gatherer: 
