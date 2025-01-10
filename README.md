@@ -15,7 +15,7 @@ Makes Trento checks usable for support cases by using them on supportconfigs.
 You need `git` (optional) as well as `docker` and `docker-compose` installed to run containers.
 
 > :bulb: The `tcsc` is containerized by default, but being a simple Python script, you can run it directly.
-> You need a current Python version (3.10 adn 3.11 have been tested) and have to install the `docker` and `termcolor` modules (`pip3 install docker termcolor`).
+> You need a current Python version (3.10 and 3.11 have been tested) and have to install the `docker`, `defusedxml` and `termcolor` modules (`pip3 install docker defusedxml termcolor`).
 > To make life easier create an alias `tcsc` to call your Python interpreter with the absolute path to `src/tcsc.py'` so you can run the command from everywhere.
 > You also need to adapt `wanda_url` to "http://localhost:4000" in the configuration file (see [Configuration File](#configuration-file)) or provide your own config with `-c`.
 
@@ -187,15 +187,11 @@ In case of HA clusters, each cluster must be separate group!
     One of `performance_optimized`, `cost_optimized`, `unknown`	in case of an SAP HANA ScaleUp HA cluster (`cluster_type` is `hana_scale_up`), otherwise `None`\
     Only required in case of a SAP HANA ScaleUp HA cluster. On an SAP HANA ScaleOut HA cluster or an ASCS/ERS cluster the value is irrelevant and always `None`.
 
-    > :exclamation: Not yet implemented! Provide the correct scenario via `-e hana_scenario=SCENARIO` in case of an SAP HANA ScaleUp HA cluster, when creating the host group!
-  
-  > :bulb: The environment information also can be provided when running the checks.
-
-
+  > :bulb: The environment information also can be provided/overwritten when running the checks.
 
 Should the start of a host container fail, check the container logs (see [Troubleshooting](#Troubleshooting) below).
 To get a host container at least started, the supportconfig must contain the files:
-  - `basic-environment.txt¸
+  - `basic-environment.txt`¸
   - `ha.txt`
   - `rpm.txt`
   - `plugin-ha_sap.txt`

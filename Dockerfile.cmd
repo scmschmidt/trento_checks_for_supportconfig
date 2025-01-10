@@ -7,7 +7,7 @@ LABEL com.suse.tcsc.stack="cmd"
 COPY src/* /
 
 # Install requirements.
-RUN pip3 install docker termcolor
+RUN pip3 install docker termcolor defusedxml
 
 # Install dbus-uuidgen and uuidgen.
 RUN apt-get update 

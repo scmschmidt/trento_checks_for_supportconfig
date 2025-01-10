@@ -218,7 +218,7 @@ class SupportFiles():
         # Align ensa_version (see above in detection part, why).
         if overall_ensa_version:
             for data in self.result.values():
-                if 'ensa_version' in data:
+                if data['cluster_type'] == 'ascs_ers':
                     data['ensa_version'] = overall_ensa_version
 
                         
@@ -292,7 +292,7 @@ class SupportFiles():
         as list of lines and returns a list with the output lines (lines)."""
 
         try:
-            start_getprocesslist = re.compile('^# /bin/su - \w+ -c \'sapcontrol -nr [0-9]+ -function GetProcessList\'')
+            start_getprocesslist = re.compile(r'^# /bin/su - \w+ -c \'sapcontrol -nr [0-9]+ -function GetProcessList\'')
             instances, instance = [], []
             toggle = False
             for line in plugin_sap_ha_txt:
