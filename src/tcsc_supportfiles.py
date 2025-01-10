@@ -10,8 +10,8 @@ import re
 import sys
 import tarfile
 from typing import List, Dict, Tuple
-import xml.etree.ElementTree as ElementTree
-
+#import xml.etree.ElementTree as ElementTree
+import defusedxml.ElementTree as ElementTree
 
 class SupportFiles():
     """Represents supportfiles 
@@ -152,8 +152,7 @@ class SupportFiles():
                             filesystem_type = 'resource_managed' if len(groups) == len(groups_with_filesystem_primitive) else 'mixed_fs_types'
                     else:
                         filesystem_type = None 
-                        
-                    # TODO: NOT YET CONFIRMED!
+
                     # Detect hana_scenario. 
                     # one of performance_optimized, cost_optimized, unknown	(if cluster_type is hana_scale_up)
                     if cluster_type == 'hana_scale_up':

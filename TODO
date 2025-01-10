@@ -7,7 +7,6 @@
   - content of files below `/etc/products.d/` for `products` gatherer
   - output of `/usr/sap/hostctrl/exe/saphostctrl -function Ping` for `saphostctrl` gatherer
   - file list matching `/etc/polkit-1/rules.d/[0-9][0-9]-SAP[A-Z][A-Z0-9][A-Z0-9]-[0-9][0-9].rules`
-- Auto-detection of `hana_scenario` is missing.
 - Implement `ascsers_cluster` gatherer to get a much better coverage.
 - Implement missing gatherers.
 - Add Nutanix to provider detection.
