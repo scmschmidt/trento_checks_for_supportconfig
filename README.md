@@ -264,11 +264,11 @@ tcsc checks run GROUPNAME
 
 If only a limited amount of checks shall be executed, you can either provide the Trento check group:
 ```
-tcsc checks run GROUPNAME -p PROVIDER -g GROUP
+tcsc checks run GROUPNAME -g GROUP
 ```
 or the check id:
 ```
-tcsc checks run GROUPNAME -p PROVIDER -c CHECK
+tcsc checks run GROUPNAME -c CHECK
 ```
 
 > :wrench: To have more then one group or check, use `-g` or `-c` multiple times.
