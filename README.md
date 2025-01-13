@@ -253,7 +253,7 @@ tcsc checks list
 
 To execute all supported checks on a group (of running host containers), run:
 ```
-tcsc checks GROUPNAME
+tcsc checks run GROUPNAME
 ```
 
 > :exclamation: Certain environment information get autodetected when creating the host group. Those settings need to be correct or the checks will result in in correct results (See above [Manage Hosts (supportconfig Containers)](#manage-hosts-supportconfig-containers)). Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
@@ -261,11 +261,11 @@ tcsc checks GROUPNAME
 
 If only a limited amount of checks shall be executed, you can either provide the Trento check group:
 ```
-tcsc checks GROUPNAME -p PROVIDER -g GROUP
+tcsc checks run GROUPNAME -p PROVIDER -g GROUP
 ```
 or the check id:
 ```
-tcsc checks GROUPNAME -p PROVIDER -c CHECK
+tcsc checks run GROUPNAME -p PROVIDER -c CHECK
 ```
 
 > :wrench: To have more then one group or check, use `-g` or `-c` multiple times.
