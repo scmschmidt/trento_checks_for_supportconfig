@@ -498,6 +498,16 @@ The following files from the `supportconfig` are used:
 >   - the data gets collected in newer versions of the supportconfig
 >   - the used plugin was not present (missing package) or the version does not yet contain the needed data
 
+## How does the Trento agent get the supportconfig data?
+
+The `tcsc hosts create` command starts a host container for each given supportconfig. The supportconfig is mounted at `/SUPPORTCONFIG` either as directory (e.g. `/scc_vmhdbqas02_250107_1541`) or as archive (e.g. `scc_vmhdbqas02_250107_1541.txz`), depending on how it was passed at the command line. 
+The processings scripts in `/sc` (copied into the image at build) do the processing. At container start `/sc/startup` gets executed. First it runs `sc/process_supportfiles` to process the support files and finally starts the trento agent.
+
+The `sc/process_supportfiles` script extracts the supportconfig in case of an archive and calls `split-supportconfig` ([https://github.com/SUSE/supportconfig-utils](https://github.com/SUSE/supportconfig-utils)) to create individual files from selected supportconfig text files in `/rootfs`. Only files or directories required by the Trento gatherers are copied from `/rootfs` into `/` in the next step.  
+
+Most commanda called by gatherers exist as mocks feeded with supportconfig data and mimick the real command (limited to the functionality required by the gatherers). These mock commands are also located in `/sc` and get copied into the root filesystem. Examples for those mock commands are: `cibadmin`, `sbd`, `saptune`, `disp+work` and `sysctl`.
+
+For the `package_version` gatherer dummy RPM packages are generated and installed out of `rpm.txt` for checked packages.
 
 ## Which Gatherer Works
 
