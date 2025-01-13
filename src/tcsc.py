@@ -48,6 +48,7 @@ Changelog:
                             - introduce `checks show` command
                             - `checks run` reworked
 07.01.2025      v1.4        - added -p|--plain to disable terminal codes for color and formatting
+13.01.2025      v1.5        - added -w|--wait-on-failure to wait on non-passing checks for user interaction
 """
 
 import argparse
@@ -67,7 +68,7 @@ from tcsc_hosts import *
 from tcsc_supportfiles import *
 
 
-__version__ = '1.4'
+__version__ = '1.5'
 __author__ = 'Sören Schmidt'
 __email__ = 'soren.schmidt@suse.com'
 __maintainer__ = __author__
@@ -93,8 +94,8 @@ class ArgParser(argparse.ArgumentParser):
                         {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] hosts logs [-l|--lines N] CONTAINERNAME
                         {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks list [-d|--details] [-a|--all]
                         {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks show CHECK
-                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -g|--group GROUP... GROUPNAME
-                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] -c|--check CHECK... GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] [-w|--wait-on-failure] -g|--group GROUP... GROUPNAME
+                        {prog} [-j|--json] [-p|--plain] [-c|--config CONFIG] checks run [-e|--env KEY=VALUE...] [-s|--show-skipped] [-f|--failure-only] [-w|--wait-on-failure] -c|--check CHECK... GROUPNAME
 
                 v{__version__}
             
@@ -162,6 +163,7 @@ class ArgParser(argparse.ArgumentParser):
                                                  ensa_version, mixed_versions, filesystem_type,
                                                  hana_scenario
                         -f, --failure-only       print only checks which did not pass
+                        -w, --wait-on-failure    wait on check failure for user interaction
                         -g, --group GROUP        run only checks from that Trento check group
                         -c, --check CHECK        run only this check
 
@@ -333,6 +335,11 @@ def argument_parse() -> dict:
                             action='store_true',
                             required=False,
                             help='shows skipped checks too')
+    checks_run.add_argument('-w', '--wait-on-failure',
+                            dest='wait_on_failure',
+                            action='store_true',
+                            required=False,
+                            help='wait on check failure for user interaction')
     
     run_exclusive = checks_run.add_mutually_exclusive_group()
     run_exclusive.add_argument('-g', '--group',
@@ -772,7 +779,8 @@ def checks_run(wanda: WandaStack,
                check_groups: List[str],
                requested_checks: List[str],
                show_skipped: bool,
-               failure_only: bool) -> bool:
+               failure_only: bool,
+               wait_on_failure: bool) -> bool:
     """Executed the requested checks."""
     
     status_codes = {'passing': CLI.ok,
@@ -842,6 +850,7 @@ def checks_run(wanda: WandaStack,
         CLI.print_header(check_group)
         check_group_json = []
         for check in checks2run[check_group]:
+            failure = False
             skip = False
             skip_reason = []
             
@@ -898,12 +907,18 @@ def checks_run(wanda: WandaStack,
                             if failure_only and status_codes[check_result['result']] == CLI.ok:
                                 continue
                             
+                            if not failure and check_result['result'] != 'passing':
+                                failure = True
+                            
                             results.append({'name': f'{check.id} - {check.description}',
                                             'status': status_codes[check_result['result']],
                                             'status_text': check_result['result'],
                                             'details': details})
 
             CLI.print_status(results)
+            if wait_on_failure and failure:
+                input('Press <ENTER> to continue!')
+                
             if results:
                 check_group_json.append(results)
         if check_group_json:
@@ -959,33 +974,33 @@ def main() -> None:
             
             hosts = HostsStack(config)
             
-            # tcsc hosts create GROUPNAME [-e|--env KEY=VALUE...] SUPPORTFILE... 
+            # tcsc hosts create ...
             if arguments.host_commands == 'create':
                 wanda_must_run(wanda, config.wanda_autostart)
                 sys.exit(0) if hosts_create(hosts, arguments.hostgroup, arguments.envpairs, arguments.supportfiles) else sys.exit(5)
 
-            # tcsc hosts start GROUPNAME
+            # tcsc hosts start ...
             if arguments.host_commands == 'start':
                 wanda_must_run(wanda, config.wanda_autostart)
                 sys.exit(0) if hosts_start(hosts, arguments.hostgroup) else sys.exit(5)
                                 
-            # tcsc hosts status [GROUPNAME]
+            # tcsc hosts status ...
             elif arguments.host_commands == 'status':
                 sys.exit(0) if hosts_status(hosts, arguments.hostgroup, arguments.host_details) else sys.exit(5)
 
-            # tcsc hosts stop GROUPNAME
+            # tcsc hosts stop ...
             elif arguments.host_commands == 'stop':
                     sys.exit(0) if hosts_stop(hosts, arguments.hostgroup) else sys.exit(5)
                     
-            # tcsc hosts rescan GROUPNAME
+            # tcsc hosts rescan ...
             elif arguments.host_commands == 'rescan':
                     sys.exit(0) if hosts_rescan(hosts, arguments.hostgroup) else sys.exit(5)
                     
-            # tcsc hosts remove GROUPNAME
+            # tcsc hosts remove ...
             elif arguments.host_commands == 'remove':
                     sys.exit(0) if hosts_remove(hosts, arguments.hostgroup) else sys.exit(5)
 
-            # tcsc hosts logs [-l LINES] CONTAINERNAME 
+            # tcsc hosts logs ...
             elif arguments.host_commands == 'logs':
                 hosts_logs(hosts, arguments.containername, arguments.last_lines)
                 sys.exit(0) 
@@ -994,17 +1009,17 @@ def main() -> None:
             wanda_must_run(wanda, config.wanda_autostart)
             hosts = HostsStack(config)
                             
-            # tcsc checks list [-d|--details] [-a|--all]
+            # tcsc checks list ...
             if arguments.checks_commands == 'list':
                 checks_list(wanda, arguments.check_details, arguments.show_all)
                 sys.exit(0)  
                 
-            # tcsc checks show CHECK
+            # tcsc checks show ...
             if arguments.checks_commands == 'show':
                 checks_show(wanda, arguments.check)
                 sys.exit(0) 
                 
-            # tcsc checks run [-r|--response] [-e|--env KEY=VALUE...] [-a|--all] ([-g|--group GROUP]... | [-c|--checks CHECK]...) GROUPNAME
+            # tcsc checks run ...
             if arguments.checks_commands == 'run':
                 sys.exit(0) if checks_run(wanda, hosts, 
                                           arguments.hostgroup, 
@@ -1013,6 +1028,7 @@ def main() -> None:
                                           arguments.requested_checks,
                                           arguments.show_skipped,
                                           arguments.failure_only,
+                                          arguments.wait_on_failure
                                          ) else sys.exit(6)
     
     except ConfigException as err:

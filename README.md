@@ -256,7 +256,10 @@ To execute all supported checks on a group (of running host containers), run:
 tcsc checks run GROUPNAME
 ```
 
-> :exclamation: Certain environment information get autodetected when creating the host group. Those settings need to be correct or the checks will result in in correct results (See above [Manage Hosts (supportconfig Containers)](#manage-hosts-supportconfig-containers)). Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
+> :wrench: All checks are executed subsequential. If you want the execution be hold when a check
+> does not pass, use the option `-w`. The execution resumes if you press ENTER.
+
+> :exclamation: Certain environment information get autodetected when creating the host group. Those settings need to be correct or the checks will result in incorrect results (See above [Manage Hosts (supportconfig Containers)](#manage-hosts-supportconfig-containers)). Current settings can be shown with `tcsc hosts status -d GROUPNAME`.
 > If you do not want to re-create the hostgroup, you can override the settings using `-e KEY=VALUE...` when running the checks.
 
 If only a limited amount of checks shall be executed, you can either provide the Trento check group:
