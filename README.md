@@ -156,8 +156,7 @@ In case of HA clusters, each cluster must be separate group!
 
 - `KEY=VALUE` environment pairs contain information to Wanda normally provided by Trento internally.
   `tcsc` tries to detect these information automatically, but this might fail. Best verify them by running:
-  `tcsc hosts status -d GROUPNAME` (the command will be described later) after creation. The Trento checks rely on those information and will result in false positives or false negatives, if set wrongly.
-  If the detection was wrong, remove the group and re-create them with the correct parameters.
+  `tcsc hosts status -d GROUPNAME` (the command will be described later) after creation. The Trento checks rely on those information and will result in false positives or false negatives, if set wrongly.  **The detection is an educated guess at best. Please verify it. If the detection was wrong, remove the group and re-create them with the correct parameters.
 
   The following keys are used.
 
