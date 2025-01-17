@@ -1,10 +1,12 @@
 # ToDo
 
-- Add support for hitting space key to hold check execution (for reading...)
+- Wishes from beta testers:
+  - bash-completion
+  - command to list host groups (== hosts status)
 - Allow (per option) support for only one supportconfig for a damaged cluster.
   (auto detection for environment does not work in that case)
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
-- Try to get into the supportconfig:
+- Try to get into the supportconfig (handled by PED-11996):
   - output of `corosync-cmapctl -b` for `corosync-cmapctl` gatherer
   - output of `su - SAPUSER -c disp+work` for `disp+work` gatherer
   - content of files below `/etc/products.d/` for `products` gatherer

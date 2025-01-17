@@ -1,0 +1,22 @@
+#!/bin/bash
+
+output='/tmp/corosync-cmapctl'
+
+# Currently we only support '-b'.
+case "${@}" in 
+    '-b')
+        if [ -e "${output}" ] ; then
+            cat "${output}"
+        else
+            echo "${output} does not exist!" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "\"${@}\" not supported!" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
+
