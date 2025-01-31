@@ -3,6 +3,8 @@
 - Wishes from beta testers:
   - bash-completion
   - command to list host groups (== hosts status)
+  - to see which facts are expected and which one were found
+- Parallelize check executions to be faster.
 - Allow (per option) support for only one supportconfig for a damaged cluster.
   (auto detection for environment does not work in that case)
 - Add https://github.com/scmschmidt/rabbiteer as source for `rabbiteer.py`
@@ -20,4 +22,3 @@
 - Fail check premature if the supportfiles do not provide the required data (manifest).
 - Checkout other supportfiles to be added.
 - Think about filter for listing checks to get a better overview. 
-- Parallelize check executions to be faster.
