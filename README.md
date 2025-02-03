@@ -20,6 +20,23 @@ You need `git` (optional) as well as `docker` and `docker-compose` installed to 
 > You also need to adapt `wanda_url` to "http://localhost:4000" in the configuration file (see [Configuration File](#configuration-file)) or provide your own config with `-c`.
 
 
+## Teaser
+
+Below follows a longish README with all the details. This might frighten you! To judge if it is worth your time, here how it could look like when you check a supportconfig after you have done the [Setup](#setup):
+
+```
+> tcsc hosts create SR006699 scc_vmhana01_231011_1528.txz scc_vmhana02_231011_1533.txz
+...
+> tcsc checks run SR006699 
+...
+> tcsc hosts remove SR006699
+```
+
+This would run all current Trento checks on the cluster's supportconfigs which apply. 
+
+
+
+
 ## Setup
 
 > :exclamation: The following steps have been done on an OpenLeap 15.5, but should be similar on other distros.
