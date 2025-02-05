@@ -1,8 +1,26 @@
 #!/bin/bash
-echo ${WANDA_REGISTRY:-registry.opensuse.org/devel/sap/trento/factory/containers/trento}/trento-wanda:${WANDA_VERSION:-latest}
-echo
+
+function get_latest() {
+    # Retrieves (hopefully) the "latest" tag of a repo.
+    reg tags --timeout 15s "${1}" | egrep -v -e '^latest$' -e '\.(sig|att)$' | tail -n 1
+}
+
+
 echo 'Setting up Wanda'
 echo '----------------'
+
+if [ "${REPO}" == "release" ] ; then
+    WANDA_URL='registry.suse.com/trento/trento-wanda'
+    CHECKS_URL='registry.suse.com/trento/trento-checks'
+else
+    WANDA_URL='registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda'
+    CHECKS_URL='registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks'
+fi
+[ -z "${WANDA_VERSION}" ] && WANDA_VERSION=$(get_latest "${WANDA_URL}")
+[ -z "${CHECKS_VERSION}" ] && CHECKS_VERSION=$(get_latest "${CHECKS_URL}")
+echo "Wanda image:  ${WANDA_URL}:${WANDA_VERSION}"
+echo "Checks image: ${CHECKS_URL}:${CHECKS_VERSION}"
+export WANDA_URL WANDA_VERSION CHECKS_URL CHECKS_VERSION
 
 # Setting up Wanda containers.
 docker-compose -f docker-compose-wanda.yaml up -d || exit 1

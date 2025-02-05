@@ -71,15 +71,13 @@ Do the following steps as normale user:
 
 1. Run: `./install` 
 
-   It sets up and starts the Wanda containers as well as creating the image for the supportconfig hosts. 
-
-   > :bulb: To use a specific Wanda version set the environment variable `WANDA_VERSION`.
-   > The default always uses the latest released version. For a specific one, run: `WANDA_VERSION=... ./install`
+   It sets up and starts the Wanda and checks containers as well as creating the image for the supportconfig hosts.
    
-   > :bulb: To use a specific container registry for Wanda set the environment variable `WANDA_REGISTRY`.
-   > The default always uses registry.opensuse.org/devel/sap/trento/factory/containers/trento containing the rolling release. To use a different, run: `WANDA_REGISTRY=... ./install`
-   > The registry for the released version is registry.suse.com/trento.
-
+   > :bulb: The images for the Wanda and checks container get pulled from the developer repo `registry.opensuse.org/devel/sap/trento/factory/containers/trento`. They contain the latest development work, but sometimes can be broken for short period of time! \
+   > To use the images shipped with Trento from the registry `registry.suse.com/trento`, override the default with: `REPO=release ./install`  
+  
+   > :bulb:  Always the freshest versions are pulled form the registry. To use a specific version of Wanda or the checks container, set the environment variables `WANDA_VERSION` or `CHECKS_VERSION` to the tag you want to use. To list all available tags, run `utils/get_tags`.
+   
    > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script puts the new one as `~/.config/tscs/config.new`.
    > Verify if changes need to be adapted.
 

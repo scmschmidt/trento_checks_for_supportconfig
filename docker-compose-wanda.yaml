@@ -6,7 +6,7 @@ services:
 
   trento-checks:
     container_name: tcsc-trento-checks
-    image: ${WANDA_REGISTRY:-registry.opensuse.org/devel/sap/trento/factory/containers/trento}/trento-checks:${WANDA_VERSION:-latest}
+    image: ${CHECKS_URL}:${CHECKS_VERSION}
     labels:
       - com.suse.tcsc.stack=wanda
       - com.suse.tcsc.expected_state=exited
@@ -15,7 +15,7 @@ services:
       - trento-checks:/usr/share/trento/checks
       
   wanda:
-    image: ${WANDA_REGISTRY:-registry.opensuse.org/devel/sap/trento/factory/containers/trento}/trento-wanda:${WANDA_VERSION:-latest}
+    image: ${WANDA_URL}:${WANDA_VERSION}
     container_name: tcsc-wanda
     labels:
       - com.suse.tcsc.stack=wanda

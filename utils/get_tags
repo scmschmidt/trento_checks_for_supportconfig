@@ -1,0 +1,30 @@
+#!/bin/bash
+
+reg='../reg/reg'
+dev_repo='registry.opensuse.org/devel/sap/trento/factory/containers/trento'
+release_repo='registry.suse.com/trento'
+wanda_path='/trento-wanda'
+checks_path='/trento-checks'
+
+
+function get_tags() {
+    # Retrieves tags from a repo.
+    reg tags --timeout 15s "${1}" | egrep -v -e '^latest$' -e '\.(sig|att)$'
+}
+
+echo "Pulling tags..."
+dev_wanda=$(get_tags "${dev_repo}${wanda_path}")
+dev_checks=$(get_tags "${dev_repo}${checks_path}")
+release_wanda=$(get_tags "${release_repo}${wanda_path}")
+release_checks=$(get_tags "${release_repo}${checks_path}")
+
+echo -e "\nWanda (development: ${dev_repo})"
+echo "${dev_wanda}"
+echo -e "\nChecks (development: ${dev_repo})"
+echo "${dev_checks}"
+
+echo -e "\nWanda (release: ${release_repo})"
+echo "${release_wanda}"
+echo -e "\nChecks (release: ${release_repo})"
+echo "${release_checks}"
+
