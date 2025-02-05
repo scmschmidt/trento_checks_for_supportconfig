@@ -2,7 +2,7 @@
 
 function get_latest() {
     # Retrieves (hopefully) the "latest" tag of a repo.
-    reg tags --timeout 15s "${1}" | egrep -v -e '^latest$' -e '\.(sig|att)$' | tail -n 1
+    utils/reg/reg tags --timeout 15s "${1}" | egrep -v -e '^latest$' -e '\.(sig|att)$' | tail -n 1
 }
 
 
