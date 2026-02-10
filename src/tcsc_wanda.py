@@ -49,11 +49,11 @@ class WandaStack():
                 raise WandaException(f'Could not get the label "com.suse.tcsc.expected_state" for {container.name}.')
             status[container.name] = (container.status, expected_status)
         return status
-        
+
     @property
     def status(self) -> bool:
         """Returns a boolean with the Wanda status."""    
-        
+
         for status in self.container_status.values():
             if status[0] != status[1]:
                 return False
@@ -61,14 +61,15 @@ class WandaStack():
         try:
             health: str = self._rabbiteer.health()['database']
             ready: bool = self._rabbiteer.readiness()['ready']
-        except:
+        except Exception as err:
+            print(err)
             return False
         else:
             if ready and health == 'pass':
                 return True 
 
         return False
-    
+
     @property
     def mounts(self) -> Dict[str, List[str]]:
         """Returns dictionary with the name as key and the list of mounts as value
@@ -76,7 +77,7 @@ class WandaStack():
         
         self._update()
         return {container.name: self._dockerAPI.inspect_container(container.id)['Mounts'] for container in self._containers.values()}
-        
+
     @property
     def mandatory_volume_present(self) -> Dict[str, Tuple[List[str], List[str]]]:
         """Returns a dictionary with the name of the container and a Tuple containing

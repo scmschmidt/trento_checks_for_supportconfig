@@ -2,6 +2,10 @@
 
 # Use first image found.
 cmd_image=$(docker images --no-trunc  --format="{{.ID}}" --filter label=com.suse.tcsc.stack=cmd | head -n 1)
+if [ -z "${cmd_image}" ] ; then
+    echo "Could not find any image labeled with com.suse.tcsc.stack=cmd!"
+    exit 1
+fi
 
 # Run container.
 docker run --rm \

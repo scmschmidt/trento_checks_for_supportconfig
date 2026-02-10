@@ -27,7 +27,9 @@ services:
       AMQP_URL: amqp://wanda:wanda@rabbitmq
       CORS_ENABLED: "false"
       ACCESS_TOKEN_ENC_SECRET: ""
-      JWT_AUTHENTICATION_ENABLED: "false"
+      #JWT_AUTHENTICATION_ENABLED: "false"
+      TOKEN_AUTHENTICATION_ENABLED: "false"
+      AUTH_SERVER_URL: ""
     depends_on:
       - trento-checks
       - postgres

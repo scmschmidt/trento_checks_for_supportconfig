@@ -3,7 +3,7 @@ echo 'Preparing image for host (supportconfig) container'
 echo '--------------------------------------------------'
 
 # Build the tcsc_host image.
-docker build -t tcsc_host -f Dockerfile.host . || exit 1
+DOCKER_API_VERSION=1.43 docker build -t tcsc_host -f Dockerfile.host . || exit 1
 
 echo
 echo 'Altering tcsc config file'
