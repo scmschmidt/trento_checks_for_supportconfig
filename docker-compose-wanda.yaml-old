@@ -13,7 +13,7 @@ services:
       - com.suse.tcsc.expected_volumes=tcsc_trento-checks
     volumes:
       - trento-checks:/usr/share/trento/checks
-
+      
   wanda:
     image: ${WANDA_URL}:${WANDA_VERSION}
     container_name: tcsc-wanda
@@ -26,42 +26,35 @@ services:
       SECRET_KEY_BASE: dummyS3cr3t
       AMQP_URL: amqp://wanda:wanda@rabbitmq
       CORS_ENABLED: "false"
-      CATALOG_PATH: /app/catalog
+      ACCESS_TOKEN_ENC_SECRET: ""
+      #JWT_AUTHENTICATION_ENABLED: "false"
       TOKEN_AUTHENTICATION_ENABLED: "false"
+      AUTH_SERVER_URL: ""
     depends_on:
+      - trento-checks
       - postgres
       - rabbitmq
     ports:
       - 4000:4000
-    entrypoint: [/usr/lib/wanda/bin/wanda, start]
-    # Entrypoint changed with 2.1.0. Below the one until 2.0.0.
-    #entrypoint: /bin/sh -c "/app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
     volumes:
-      - ./checks:/usr/share/trento/checks:ro
+      - ${CHECK_DIR:-trento-checks}:/usr/share/trento/checks
+    entrypoint: /bin/sh -c "/app/bin/wanda eval 'Wanda.Release.init()' && /app/bin/wanda start"
 
   rabbitmq:
-    # Keep versions in sync with
-      # .github/workflows/ci.yaml
-      # https://github.com/trento-project/helm-charts/blob/main/charts/trento-server/charts/rabbitmq/values.yaml
-    image: rabbitmq:3.12.6-management-alpine # https://hub.docker.com/_/rabbitmq/tags
+    image: rabbitmq:3.10.5-management-alpine
     container_name: tcsc-rabbitmq
     labels:
       - com.suse.tcsc.stack=wanda
       - com.suse.tcsc.expected_state=running
     ports:
-      - 5676:5671
-      - 5674:5672
-      - 15674:15672
+      - 5672:5672
+      - 15672:15672
     environment:
       RABBITMQ_DEFAULT_USER: wanda
       RABBITMQ_DEFAULT_PASS: wanda
 
   postgres:
-    # Keep versions in sync with
-      # .github/workflows/ci.yaml
-      # https://github.com/trento-project/helm-charts/blob/main/charts/trento-server/values.yaml
-      # https://documentation.suse.com/sles-sap/trento/single-html/SLES-SAP-trento/SLES-SAP-trento.html#id-install-postgresql
-    image: registry.suse.com/suse/postgres:17.5 # https://registry.suse.com/repositories/suse-postgres17?tag=17.5
+    image: postgres:latest
     container_name: tcsc-postgres
     labels:
       - com.suse.tcsc.stack=wanda
@@ -77,7 +70,7 @@ services:
 
 volumes:
   pg_data:
-    labels:
+      labels:
       - com.suse.tcsc.stack=wanda
   trento-checks:
       labels:
