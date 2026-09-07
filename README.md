@@ -1,13 +1,13 @@
 # tcsc - Trento checks for supportconfig
 
-Makes Trento checks usable for support cases by using them on supportconfigs. 
+Makes Trento checks usable for support cases by using them on supportconfigs.
 
 > :bulb: This is a rewrite of the proof-of-value which final version can be found here: https://github.com/scmschmidt/trento_checks_for_supportconfig/releases/tag/pov-final
 
 > :bulb: This project targets primary support engineers working with supportconfigs, but can also be used to assist in
   Trento check development. See [Trento Check Development](Trento%20Check%20Development.md) for details.
 
-> :exclamation: This version works only with Wanda versions, where checks are in a separate container. 
+> :exclamation: This version works only with Wanda versions, where checks are in a separate container.
   This should be the default since Trento 2.4.
 
 ## Prerequisites
@@ -27,12 +27,12 @@ Below follows a longish README with all the details. This might frighten you! To
 ```
 > tcsc hosts create SR006699 scc_vmhana01_231011_1528.txz scc_vmhana02_231011_1533.txz
 ...
-> tcsc checks run SR006699 
+> tcsc checks run SR006699
 ...
 > tcsc hosts remove SR006699
 ```
 
-This would run all current Trento checks on the cluster's supportconfigs which apply. 
+This would run all current Trento checks on the cluster's supportconfigs which apply.
 
 
 
@@ -43,11 +43,11 @@ This would run all current Trento checks on the cluster's supportconfigs which a
 
 Do the following  steps as root:
 
-1. Install prerequisites.    : 
+1. Install prerequisites.    :
       ```
       zypper install git docker-compose-switch docker
       ```
-      
+
 1. Enable and start `docker`:
    ```
    systemctl enable --now docker.service
@@ -62,26 +62,26 @@ Do the following  steps as root:
 
 Do the following steps as normale user:
 
-1. Clone this repo and enter the project directory (or get it otherwise): 
+1. Clone this repo and enter the project directory (or get it otherwise):
 
    ```
    git clone https://github.com/scmschmidt/trento_checks_for_supportconfig.git
    cd trento_checks_for_supportconfig
    ```
 
-1. Run: `./install` 
+1. Run: `./install`
 
    It sets up and starts the Wanda and checks containers as well as creating the image for the supportconfig hosts.
-   
+
    > :bulb: The images for the Wanda and checks container get pulled from the developer repo `registry.opensuse.org/devel/sap/trento/factory/containers/trento`. They contain the latest development work, but sometimes can be broken for short period of time! \
-   > To use the images shipped with Trento from the registry `registry.suse.com/trento`, override the default with: `REPO=release ./install`  
-  
+   > To use the images shipped with Trento from the registry `registry.suse.com/trento`, override the default with: `REPO=release ./install`. Alternatively you can set `WANDA_URL` or `CHECK_URL` directly, which has priority.
+
    > :bulb:  Always the freshest versions are pulled form the registry. To use a specific version of Wanda or the checks container, set the environment variables `WANDA_VERSION` or `CHECKS_VERSION` to the tag you want to use. To list all available tags, run `utils/get_tags`.
-   
+
    > :exclamation: If the personal configuration file `~/.config/tscs/config` exists, the install script puts the new one as `~/.config/tscs/config.new`.
    > Verify if changes need to be adapted.
 
-   > :exclamation: This version works only with Wanda versions, where checks are in a separate container, which should be the default since Trento 2.4. 
+   > :exclamation: This version works only with Wanda versions, where checks are in a separate container, which should be the default since Trento 2.4.
 
 1. Place the script `tcsc` in `~/bin` or `/usr/local/bin` (last requires root).
 
@@ -107,13 +107,13 @@ in `setup/`:
 
 > :warning: An uninstallation removes the containers, images and volumes.
 
-> :exclamation: After a `git pull` do not forget to update the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it. 
+> :exclamation: After a `git pull` do not forget to update the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it.
 
 > :wrench: The host and command containers can be build locally. To do so use the scripts `setup/install_host_local` and `setup/install_cmd_local`. Remove the ones pulled from the GitHub registry first by calling `setup/uninstall_host` and `setup/uninstall_cmd`.
 
 ## Removal
 
-To remove all containers, images, volumes and networks, call: `./uninstall` and delete the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it. 
+To remove all containers, images, volumes and networks, call: `./uninstall` and delete the `tcsc` script in `~/bin`, `/usr/local/bin` or wherever you put it.
 
 
 ## Inspect a supportconfig
@@ -132,8 +132,8 @@ To inspect a supportconfig, the Wanda stack must be running. To verify the statu
 tcsc wanda status
 ```
 If you get the output `Wanda is operational` everything is fine.
-> :bulb: Per default `tcsc` starts Wanda automatically if needed. 
-> This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`. 
+> :bulb: Per default `tcsc` starts Wanda automatically if needed.
+> This can be changed by setting `wanda_autostart` in `~/.config/tcsc/config`.
 > See [Configuration File](#configuration-file) for details.
 
 > :bulb: It is normal, that the `tcsc-trento-checks` container always reports
@@ -142,12 +142,12 @@ If you get the output `Wanda is operational` everything is fine.
 In case Wanda is not there, run:
 ```
 tcsc wanda start
-``` 
+```
 
 If you do not need Wanda anymore, you can stop the stack with:
 ```
 tcsc wanda stop
-``` 
+```
 
 ### Manage Hosts (supportconfig Containers)
 
@@ -155,7 +155,7 @@ To run checks, for each supportconfig an individual (host) container must be sta
 
 Currently there are two types of Trento checks. Single checks and multi checks. \
 Single checks run only on one individual host, contrary to multi checks which need at least two systems (depending on the check of course) and it most cases compare settings between them. \
-As consequence you should always create one host container for each host with the appropriate supportconfig if you deal with a cluster. 
+As consequence you should always create one host container for each host with the appropriate supportconfig if you deal with a cluster.
 
 To create a host container, run:
 ```
@@ -184,10 +184,10 @@ In case of HA clusters, each cluster must be separate group!
   - `cluster_type`\
     One of `hana_scale_up`, `hana_scale_out`, `ascs_ers` in case of a HA cluster, otherwise `None`.\
     If more then one supportconfig is given, an HA cluster is assumed and the cluster type detection is done.
-  
+
   - `ensa_version` (ASCS/ERS cluster)\
     One of `ensa1`, `ensa2`, `mixed_versions` in case of ASCS/ERS (`cluster_type` is `ascs_ers`), otherwise `None`\
-    In case of a SAP HANA cluster `ensa_version` is irrelevant and always `None`. 
+    In case of a SAP HANA cluster `ensa_version` is irrelevant and always `None`.
 
   - `filesystem_type` (ASCS/ERS cluster)\
     One of `resource_managed`, `simple_mount`, `mixed_fs_types` in case of ASCS/ERS (`cluster_type` is `ascs_ers`), otherwise `None`\
@@ -196,7 +196,7 @@ In case of HA clusters, each cluster must be separate group!
   - `architecture_type` (SAP HANA cluster)\
     One of `classic`, `angi` in case of SAP HANA (`cluster_type` is `hana_scale_up` or `hana_scale_out`), otherwise `None`\
     Only required in case of a SAP HANA HA cluster. On an ASCS/ERS cluster the value is irrelevant and always `None`.
- 
+
   - `hana_scenario` (SAP HANA cluster)\
     One of `performance_optimized`, `cost_optimized`, `unknown`	in case of an SAP HANA ScaleUp HA cluster (`cluster_type` is `hana_scale_up`), otherwise `None`\
     Only required in case of a SAP HANA ScaleUp HA cluster. On an SAP HANA ScaleOut HA cluster or an ASCS/ERS cluster the value is irrelevant and always `None`.
@@ -225,9 +225,9 @@ tcsc hosts remove GROUPNAME
 > ```
 > tcsc hosts create ACME-HANAProd cases/47114711/scc_vmhana01_231011_1528.txz cases/47114711/scc_vmhana02_231011_1533.txz
 > ```
-> 
+>
 > This starts two containers, one for *scc_vmhana01_231011_1528* and one for *scc_vmhana02_231011_1533*, which
-> can be addressed via *ACME-HANAProd* together. 
+> can be addressed via *ACME-HANAProd* together.
 >
 > After running checks, destroy the containers by:
 > ```
@@ -310,7 +310,7 @@ A check can have the following results:
   The check failed. The message section should explain why and the remediation section guides to a solution including links to official documentation.
 
   > :exclamation: It is possible, that the check failed because the supportconfig missed relevant data or the wrong provider has been chosen.
-  > Check the manifest of the hosts with `tcsc hosts status GROUPNAME -d`. 
+  > Check the manifest of the hosts with `tcsc hosts status GROUPNAME -d`.
 
 - `error` \
   An error can have multiple reasons. Here a few examples:
@@ -322,17 +322,17 @@ A check can have the following results:
 
 If you get a `Wanda response: 422 - Unprocessable content.` error, in most cases it is an incompatibility between the host setup and the check. Contrary to Trento `tcsc` does not yet filters out checks, which are not suited for the support files.
 
-Some checks are only valid on for certain providers (e.g. AWS) and do not work on others, so check fist tif the chosen provider is the correct one. 
+Some checks are only valid on for certain providers (e.g. AWS) and do not work on others, so check fist tif the chosen provider is the correct one.
 
 Wanda is not very chatty in regards of error messages. If you are sure, that the check should work, something in the check or the Wanda API has changed and the checks or tools (like `rabbiteer.py`) are not up to date yet. Trento is very active. \
-Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue. 
+Try to update everything: Wanda, this project and `rabbiteer.py`. If this does not help, create an issue.
 
 
 ## Troubleshooting
 
 > :exclamation: Remember when troubleshoot, that `tcsc` is running inside a container!`
 
-- If you experience errors after updating.  compare the personal configuration file `~/.config/tscs/config` with the new one 
+- If you experience errors after updating.  compare the personal configuration file `~/.config/tscs/config` with the new one
   `~/.config/tscs/config.new` written by the install script. Maybe changes need to be adapted.
 
 - If the install script - or more precise `setup/install_wanda` - terminates with:
@@ -350,18 +350,18 @@ Try to update everything: Wanda, this project and `rabbiteer.py`. If this does n
 - If `wanda status` terminates with `Wanda is not operational!` either some required container are not running or
   mandatory volumes are not present. If the container status list does not look like:
   ```
-  [running]           tcsc-wanda        
-  [running]           tcsc-rabbitmq     
+  [running]           tcsc-wanda
+  [running]           tcsc-rabbitmq
   [exited ]           tcsc-trento-checks
-  [running]           tcsc-postgres  
+  [running]           tcsc-postgres
   ```
   try to stop and start Wanda or call `uninstall` and `install`. If the problem remains something must we wrong with the docker setup or the container images.
 
-  > :exclamation: The tcsc-trento-checks container only provides a volume and will never run. 
+  > :exclamation: The tcsc-trento-checks container only provides a volume and will never run.
 
- - If a `wanda status` reports 
+ - If a `wanda status` reports
    ```
-   ... misses the mandatory volumes "tcsc-trento-checks" 
+   ... misses the mandatory volumes "tcsc-trento-checks"
    ```
    most probably something is wrong with the tcsc-trento-checks container which provides the trento-checks
    volume containing the checks. \
@@ -383,7 +383,7 @@ You can enter the running host with `docker exec -it CONTAINERID bash` and run `
 
 - If `tcsc wanda status` returns:
   ```
-  [running]           tcsc-wanda   
+  [running]           tcsc-wanda
   [running]           tcsc-rabbitmq
   [running]           tcsc-postgres
 
@@ -405,15 +405,15 @@ You can enter the running host with `docker exec -it CONTAINERID bash` and run `
   They come either from the limited container environment (the first two) or because nut a full Trento setup is present (discovery errors). \
   All of those errors can be considered as normal and do not limit the ability to execute checks.
 
-- If checks fail, verify that the manifest has no fails. It is possible, that simply required data is not part of the   
+- If checks fail, verify that the manifest has no fails. It is possible, that simply required data is not part of the
   supportconfig. To see the manifest, run `tcsc hosts status -d GROUP`. \
   The following issues are known:
 
   - `usr_sap: failed`\
     The `supportutils-plugin-ha-sap` package is to old. Support was added in v1.0.5 (plugin code version).
-                                
+
   - `saptune: failed`\
-    The required JSON support is added to `plugin-saptune` with `saptune` 3.2.   
+    The required JSON support is added to `plugin-saptune` with `saptune` 3.2.
 
 
 ## Used Supportconfig Files
@@ -451,8 +451,8 @@ The following files from the `supportconfig` are used:
     - `corosync.conf`, `corosync.conf@v1`
     - `sbd_config`, `sbd_config@v1`
     - `cibadmin`, `cibadmin@v1`
-    - `sbd_dump`, `sbd_dump@v1` 
-  
+    - `sbd_dump`, `sbd_dump@v1`
+
   manifest entry:
     - `corosync.conf`
     - `sysconfig_sbd`
@@ -485,7 +485,7 @@ The following files from the `supportconfig` are used:
   The directory `/usr/sap/` (profiles, log files) including `/usr/sap/sapservices` as well as the outputs of
   `/usr/sap/hostctrl/exe/saphostexec` and `/usr/sap/hostctrl/exe/saphostctrl` commands.
 
-  gatherer: 
+  gatherer:
     - `saphostctrl`, `saphostctrl@v1`
     - `sap_profiles`, `sap_profiles@v1`
     - `sapservices`, `sapservices@v1`
@@ -496,10 +496,10 @@ The following files from the `supportconfig` are used:
     - `usr_sap`
     - `sapservices`
     - `disp+work`
- 
+
 
 - `plugin-saptune.txt`\
-  The following command outputs get extracted: 
+  The following command outputs get extracted:
     - `saptune --format json status`
     - `saptune --format json note verify`
     - `saptune --format json note list`
@@ -517,10 +517,10 @@ The following files from the `supportconfig` are used:
 
 ## How does the Trento agent get the supportconfig data?
 
-The `tcsc hosts create` command starts a host container for each given supportconfig. The supportconfig is mounted at `/SUPPORTCONFIG` either as directory (e.g. `/scc_vmhdbqas02_250107_1541`) or as archive (e.g. `scc_vmhdbqas02_250107_1541.txz`), depending on how it was passed at the command line. 
+The `tcsc hosts create` command starts a host container for each given supportconfig. The supportconfig is mounted at `/SUPPORTCONFIG` either as directory (e.g. `/scc_vmhdbqas02_250107_1541`) or as archive (e.g. `scc_vmhdbqas02_250107_1541.txz`), depending on how it was passed at the command line.
 The processings scripts in `/sc` (copied into the image at build) do the processing. At container start `/sc/startup` gets executed. First it runs `sc/process_supportfiles` to process the support files and finally starts the trento agent.
 
-The `sc/process_supportfiles` script extracts the supportconfig in case of an archive and calls `split-supportconfig` ([https://github.com/SUSE/supportconfig-utils](https://github.com/SUSE/supportconfig-utils)) to create individual files from selected supportconfig text files in `/rootfs`. Only files or directories required by the Trento gatherers are copied from `/rootfs` into `/` in the next step.  
+The `sc/process_supportfiles` script extracts the supportconfig in case of an archive and calls `split-supportconfig` ([https://github.com/SUSE/supportconfig-utils](https://github.com/SUSE/supportconfig-utils)) to create individual files from selected supportconfig text files in `/rootfs`. Only files or directories required by the Trento gatherers are copied from `/rootfs` into `/` in the next step.
 
 Most commanda called by gatherers exist as mocks feeded with supportconfig data and mimick the real command (limited to the functionality required by the gatherers). These mock commands are also located in `/sc` and get copied into the root filesystem. Examples for those mock commands are: `cibadmin`, `sbd`, `saptune`, `disp+work` and `sysctl`.
 
@@ -531,7 +531,7 @@ For the `package_version` gatherer dummy RPM packages are generated and installe
 For a check to work, the called gatherer must work with the confinements of the container. basically we have two hurdles:
 
 1. The data must part of the supportconfig or the project must be extended to consume more input data.
-2. The gatherer must retrieve the data in the ways the programmer has intended it. 
+2. The gatherer must retrieve the data in the ways the programmer has intended it.
 
 This chapter contains an evaluation for the gatherers (December 2024).
 
@@ -613,7 +613,7 @@ The gatherer executes `sysctl -a` which is part of the supportconfig. Just a scr
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/saptune.go \
 **Chances: :neutral_face:/:smiley:**
 
-Calls `saptune --format json` command with limited set of commands. The `plugin-saptune.txt` for 3.2 will contain the JSON output. 
+Calls `saptune --format json` command with limited set of commands. The `plugin-saptune.txt` for 3.2 will contain the JSON output.
 
 #### `systemd`
 https://github.com/trento-project/agent/blob/main/internal/factsengine/gatherers/systemd_v2.go \
@@ -642,11 +642,11 @@ https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
 
 With `/etc/groups` not part of the supportconfig, checks using this gatherer do not work.
 
-#### `mount_info` 
+#### `mount_info`
 https://www.trento-project.io/wanda/gatherers.html#groupsv1 \
 **Chances: :rage:**
 
-The gatherer does not work most probably. It relies on https://github.com/moby/sys/tree/main/mountinfo to get the mount information. It has to be checked how the project is doing it, but if it accesses `/proc` it can become difficult to provide the supportconfig data. 
+The gatherer does not work most probably. It relies on https://github.com/moby/sys/tree/main/mountinfo to get the mount information. It has to be checked how the project is doing it, but if it accesses `/proc` it can become difficult to provide the supportconfig data.
 
 Also `blkid DEVICE -o export` gets called by the gatherer. The original command must be replaced by a script presenting the output of `blkid` (`fs-diskio.txt`) in the way the gatherer expects it.
 
@@ -697,7 +697,7 @@ At first glance the gatherer requires `sapcontrol` to work and SAP directories t
 
 # Configuration File
 
-The configuration file in JSON is located at `~/.config/tcsc/config` anf is generated by the `install` script. 
+The configuration file in JSON is located at `~/.config/tcsc/config` anf is generated by the `install` script.
 
 | Parameter | Type   | Default | Meaning
 |---------- | ----   | ------- | -------

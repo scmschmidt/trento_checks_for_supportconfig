@@ -34,9 +34,11 @@ services:
       - rabbitmq
     ports:
       - 4000:4000
-    entrypoint: [/usr/lib/wanda/bin/wanda, start]
-    # Entrypoint changed with 2.1.0. Below the one until 2.0.0.
-    #entrypoint: /bin/sh -c "/app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
+    entrypoint: ${ENTRYPOINT}
+    # Old entrypoint for SUSE and OpenSUSE registry (until 2.0.0) and still used in the developers GitHub.
+    # entrypoint: /bin/sh -c "/app/bin/wanda eval \"Wanda.Release.init()\" && /app/bin/wanda start"
+    # Entrypoint for SUSE and OpenSUSE registry with 2.1.0.
+    #entrypoint: [/usr/lib/wanda/bin/wanda, start]
     volumes:
       #- ./checks:/usr/share/trento/checks:ro
       - ${CHECK_DIR:-trento-checks}:/usr/share/trento/checks

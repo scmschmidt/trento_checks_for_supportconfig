@@ -13,3 +13,6 @@ __pycache__
 
 # Ignore internal TODO
 TODO.internal
+
+# Ignore INTERNAL file
+INTERNAL

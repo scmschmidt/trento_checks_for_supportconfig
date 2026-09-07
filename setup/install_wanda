@@ -2,7 +2,7 @@
 
 function get_latest() {
     # Retrieves (hopefully) the "latest" tag of a repo.
-    utils/reg/reg tags --timeout 15s "${1}" | egrep -v -e '^latest$' -e '\.(sig|att)$' | tail -n 1
+    utils/reg/reg tags --timeout 15s "${1}" | grep -e -v -e '^latest$' -e '\.(sig|att)$' | tail -n 1
 }
 
 
@@ -10,15 +10,19 @@ echo 'Setting up Wanda'
 echo '----------------'
 
 if [ "${REPO}" == "release" ] ; then
-    WANDA_URL='registry.suse.com/trento/trento-wanda'
-    CHECKS_URL='registry.suse.com/trento/trento-checks'
+    WANDA_URL="${WANDA_URL:-registry.suse.com/trento/trento-wanda}"
+    CHECKS_URL="${CHECKS_URL:-registry.suse.com/trento/trento-checks}"
 else
-    WANDA_URL='registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda'
-    CHECKS_URL='registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks'
+    WANDA_URL="${WANDA_URL:-registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-wanda}"
+    CHECKS_URL="${CHECKS_URL:-registry.opensuse.org/devel/sap/trento/factory/containers/trento/trento-checks}"
 fi
+
+# Set entrypoint.
+ENTRYPOINT="${ENTRYPOINT:-[/usr/lib/wanda/bin/wanda, start]}"
+
 [ -z "${WANDA_VERSION}" ] && WANDA_VERSION=$(get_latest "${WANDA_URL}")
 [ -z "${CHECKS_VERSION}" ] && CHECKS_VERSION=$(get_latest "${CHECKS_URL}")
-echo "Wanda image:  ${WANDA_URL}:${WANDA_VERSION}"
+echo "Wanda image:  ${WANDA_URL}:${WANDA_VERSION} (ENTRYPOINT=${ENTRYPOINT})"
 echo "Checks image: ${CHECKS_URL}:${CHECKS_VERSION}"
 export WANDA_URL WANDA_VERSION CHECKS_URL CHECKS_VERSION
 
@@ -41,14 +45,14 @@ echo "Port 4000/tcp is open."
 # Check that Wanda reports readiness.
 ready=0
 start=$(date +'%s')
-while [ ${ready} -eq 0 ] ; do 
+while [ ${ready} -eq 0 ] ; do
     [ "$(curl http://localhost:4000/api/readyz 2> /dev/null)" == "{\"ready\":true}" ] && ready=1
     sleep 1
     now=$(date +'%s')
     passed=$((now - start))
     [ ${passed} -gt 20 ] && break
 done
-if [ ${ready} -eq 0 ] ; then 
+if [ ${ready} -eq 0 ] ; then
     echo -e "\nWanda reports not to be ready!\nTry to call the installation script again!" >&2
     exit 1
 fi
